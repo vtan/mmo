@@ -1,0 +1,8 @@
+[package]
+name = "mmo-client"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+mmo-common = { path = "../common" }
+sdl2 = "0.35.1"
