@@ -5,10 +5,14 @@ use std::{
     sync::mpsc,
 };
 
+use mmo_common::{MoveCommand, PlayerMovedEvent};
 use sdl2::{event::Event, keyboard::Keycode, pixels::Color, rect::Rect};
 
 fn main() {
+    let bincode_config = bincode::config::standard().with_limit::<32_768>();
+
     let mut socket = TcpStream::connect("127.0.0.1:11001").unwrap();
+    socket.set_nodelay(true).unwrap();
 
     let mut local_player_x: u8 = 0;
     let mut players: HashMap<u64, u8> = HashMap::new();
@@ -24,8 +28,10 @@ fn main() {
     let mut event_pump = sdl_context.event_pump().unwrap();
     let mut running = true;
     while running {
-        socket_receiver.try_iter().for_each(|(player_id, position)| {
-            players.insert(player_id, position);
+        socket_receiver.try_iter().for_each(|event| match event {
+            PlayerMovedEvent { player_id, position } => {
+                players.insert(player_id, position);
+            }
         });
 
         for event in event_pump.poll_iter() {
@@ -35,7 +41,12 @@ fn main() {
                 }
                 Event::KeyDown { keycode: Some(Keycode::Right), .. } => {
                     local_player_x = local_player_x.wrapping_add(1);
-                    socket.write_all(&[local_player_x]).unwrap();
+                    let command = MoveCommand { position: local_player_x };
+                    // TODO: use a pre-allocated Vec?
+                    let encoded = bincode::encode_to_vec(command, bincode_config).unwrap();
+                    let encoded_size = (encoded.len() as u32).to_le_bytes();
+                    socket.write_all(&encoded_size).unwrap();
+                    socket.write_all(encoded.as_slice()).unwrap();
                 }
                 _ => (),
             }
@@ -56,14 +67,19 @@ fn main() {
     }
 }
 
-fn spawn_socket_reader(mut socket: TcpStream) -> mpsc::Receiver<(u64, u8)> {
-    let (connection_sender, connection_receiver) = mpsc::channel::<(u64, u8)>();
+fn spawn_socket_reader(mut socket: TcpStream) -> mpsc::Receiver<PlayerMovedEvent> {
+    let bincode_config = bincode::config::standard().with_limit::<32_768>();
+    let (connection_sender, connection_receiver) = mpsc::channel::<PlayerMovedEvent>();
     std::thread::spawn(move || loop {
-        let mut buffer = [0; 9];
-        socket.read_exact(&mut buffer).unwrap();
-        let player_id = u64::from_be_bytes(buffer[0..8].try_into().unwrap());
-        let position = buffer[8];
-        connection_sender.send((player_id, position)).unwrap();
+        let mut event_size_buf = [0; 4];
+        socket.read_exact(&mut event_size_buf).unwrap();
+        let event_size = u32::from_le_bytes(event_size_buf) as usize;
+
+        let mut event_buf = vec![0; event_size];
+        socket.read_exact(&mut event_buf).unwrap();
+
+        let (event, _) = bincode::decode_from_slice(&event_buf[..], bincode_config).unwrap();
+        connection_sender.send(event).unwrap();
     });
     connection_receiver
 }

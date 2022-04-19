@@ -1,20 +1,13 @@
 use std::collections::HashMap;
 
+use mmo_common::{MoveCommand, PlayerMovedEvent};
 use tokio::sync::mpsc;
 
 #[derive(Debug)]
 pub enum Message {
-    PlayerConnected {
-        player_id: u64,
-        connection: mpsc::Sender<(u64, u8)>,
-    },
-    PlayerDisconnected {
-        player_id: u64,
-    },
-    PlayerCommand {
-        player_id: u64,
-        position: u8,
-    },
+    PlayerConnected { player_id: u64, connection: mpsc::Sender<PlayerMovedEvent> },
+    PlayerDisconnected { player_id: u64 },
+    PlayerCommand { player_id: u64, command: MoveCommand },
 }
 
 pub async fn run(mut messages: mpsc::Receiver<Message>) {
@@ -28,10 +21,11 @@ pub async fn run(mut messages: mpsc::Receiver<Message>) {
             Message::PlayerDisconnected { player_id } => {
                 state.remove(&player_id);
             }
-            Message::PlayerCommand { player_id, position } => {
+            Message::PlayerCommand { player_id, command } => {
                 for (recipient_id, connection) in state.iter() {
                     if *recipient_id != player_id {
-                        connection.send((player_id, position)).await.unwrap();
+                        let event = PlayerMovedEvent { player_id, position: command.position };
+                        connection.send(event).await.unwrap();
                     }
                 }
             }

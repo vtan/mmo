@@ -5,4 +5,5 @@ edition = "2021"
 
 [dependencies]
 mmo-common = { path = "../common" }
+bincode = "2.0.0-rc.1"
 tokio = { version = "1.15.0", features = ["full"] }
