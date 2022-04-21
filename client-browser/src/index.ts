@@ -1,4 +1,4 @@
-import { glMatrix, mat4 } from "gl-matrix";
+import { glMatrix, mat4, vec3 } from "gl-matrix";
 
 import { compileShaders } from "./shader";
 import { loadTexture } from "./texture";
@@ -18,16 +18,17 @@ loadTexture(gl, "/assets/tileset.png").then(loaded => texture = loaded);
 const vertexShader = `
 #version 300 es
 
-in vec4 position;
-in vec2 textureCoord;
+in vec2 position;
+in vec2 instanceTranslation;
+in vec2 instanceTextureCoordOffset;
 
-out vec2 vertTextureCoord;
+out vec2 fragTextureCoord;
 
-uniform mat4 mvp;
+uniform mat4 viewProjection;
 
 void main() {
-  gl_Position = mvp * position;
-  vertTextureCoord = textureCoord;
+  gl_Position = viewProjection * vec4(position + instanceTranslation, 0.0, 1.0);
+  fragTextureCoord = instanceTextureCoordOffset + position / 16.0;
 }
 `.trim();
 
@@ -35,24 +36,25 @@ const fragmentShader = `
 #version 300 es
 precision mediump float;
 
-in vec2 vertTextureCoord;
+in vec2 fragTextureCoord;
 
 out vec4 fragColor;
 
 uniform sampler2D sampler;
 
 void main() {
-  fragColor = texture(sampler, vertTextureCoord);
+  fragColor = texture(sampler, fragTextureCoord);
 }
 `.trim();
 
 const shaderProgram = compileShaders(gl, vertexShader, fragmentShader);
 const attribLocations = {
   position: gl.getAttribLocation(shaderProgram, "position"),
-  textureCoord: gl.getAttribLocation(shaderProgram, "textureCoord")
+  instanceTranslation: gl.getAttribLocation(shaderProgram, "instanceTranslation"),
+  instanceTextureCoordOffset: gl.getAttribLocation(shaderProgram, "instanceTextureCoordOffset"),
 };
 const uniformLocations = {
-  mvp: gl.getUniformLocation(shaderProgram, "mvp"),
+  viewProjection: gl.getUniformLocation(shaderProgram, "viewProjection"),
   sampler: gl.getUniformLocation(shaderProgram, "sampler")
 };
 
@@ -64,20 +66,28 @@ gl.bufferData(
   gl.STATIC_DRAW
 );
 
-const textureCoordBuffer = gl.createBuffer();
-gl.bindBuffer(gl.ARRAY_BUFFER, textureCoordBuffer);
+const translationBuffer = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, translationBuffer);
 gl.bufferData(
   gl.ARRAY_BUFFER,
-  new Float32Array([1/16, 1/16, 0, 1/16, 1/16, 0, 0, 0]),
+  new Float32Array([1, 0, 3, 1]),
+  gl.STATIC_DRAW
+);
+
+const textureCoordOffsetBuffer = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, textureCoordOffsetBuffer);
+gl.bufferData(
+  gl.ARRAY_BUFFER,
+  new Float32Array([0, 0, 5/16, 1/16]),
   gl.STATIC_DRAW
 );
 
 const projection = mat4.create();
-{
-  const viewportW = 16;
-  const viewportH = viewportW / 16 * 9;
-  mat4.ortho(projection, 0, viewportW, viewportH, 0, -1, 1);
-}
+mat4.ortho(projection, 0, 320, 180, 0, -1, 1);
+const view = mat4.create();
+mat4.fromScaling(view, vec3.fromValues(16, 16, 16));
+const viewProjection = mat4.create();
+mat4.multiply(viewProjection, projection, view);
 
 window.requestAnimationFrame(renderFrame);
 
@@ -101,25 +111,38 @@ function renderFrame(now: number) {
     gl.enableVertexAttribArray(attribLocations.position);
   }
   {
-    const num = 2;
+    const numComponents = 2;
     const type = gl.FLOAT;
     const normalize = false;
     const stride = 0;
     const offset = 0;
-    gl.bindBuffer(gl.ARRAY_BUFFER, textureCoordBuffer);
-    gl.vertexAttribPointer(attribLocations.textureCoord, num, type, normalize, stride, offset);
-    gl.enableVertexAttribArray(attribLocations.textureCoord);
+    gl.bindBuffer(gl.ARRAY_BUFFER, translationBuffer);
+    gl.vertexAttribPointer(attribLocations.instanceTranslation, numComponents, type, normalize, stride, offset);
+    gl.vertexAttribDivisor(attribLocations.instanceTranslation, 1);
+    gl.enableVertexAttribArray(attribLocations.instanceTranslation);
+  }
+  {
+    const numComponents = 2;
+    const type = gl.FLOAT;
+    const normalize = false;
+    const stride = 0;
+    const offset = 0;
+    gl.bindBuffer(gl.ARRAY_BUFFER, textureCoordOffsetBuffer);
+    gl.vertexAttribPointer(attribLocations.instanceTextureCoordOffset, numComponents, type, normalize, stride, offset);
+    gl.vertexAttribDivisor(attribLocations.instanceTextureCoordOffset, 1);
+    gl.enableVertexAttribArray(attribLocations.instanceTextureCoordOffset);
   }
 
   gl.useProgram(shaderProgram);
-  gl.uniformMatrix4fv(uniformLocations.mvp, false, projection);
+  gl.uniformMatrix4fv(uniformLocations.viewProjection, false, viewProjection);
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.uniform1i(uniformLocations.sampler, 0);
   {
     const offset = 0;
     const vertexCount = 4;
-    gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
+    const instanceCount = 2;
+    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, offset, vertexCount, instanceCount);
   }
 
   window.requestAnimationFrame(renderFrame);
