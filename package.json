@@ -1,6 +1,7 @@
 {
   "private": true,
   "dependencies": {
+    "gl-matrix": "^3.4.3"
   },
   "scripts": {
     "start": "webpack serve --mode=development",
