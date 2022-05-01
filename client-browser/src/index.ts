@@ -2,6 +2,7 @@ import { glMatrix, mat4, vec3 } from "gl-matrix";
 
 import { compileShaders } from "./shader";
 import { loadTexture } from "./texture";
+import * as wasm from "./wasm-bindgen/mmo_client";
 
 const canvas = document.getElementById("canvas") as HTMLCanvasElement | null;
 const gl = canvas?.getContext("webgl2") as WebGL2RenderingContext | null;
@@ -89,7 +90,9 @@ mat4.fromScaling(view, vec3.fromValues(16, 16, 16));
 const viewProjection = mat4.create();
 mat4.multiply(viewProjection, projection, view);
 
-window.requestAnimationFrame(renderFrame);
+wasm.default().then(_ => {
+  window.requestAnimationFrame(renderFrame);
+});
 
 function renderFrame(now: number) {
   now /= 1000;
@@ -138,12 +141,8 @@ function renderFrame(now: number) {
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.uniform1i(uniformLocations.sampler, 0);
-  {
-    const offset = 0;
-    const vertexCount = 4;
-    const instanceCount = 2;
-    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, offset, vertexCount, instanceCount);
-  }
+
+  wasm.render(gl);
 
   window.requestAnimationFrame(renderFrame);
 }

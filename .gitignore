@@ -1,2 +1,4 @@
+/client-browser/src/wasm-bindgen
+/client-browser/webroot/client.wasm
 /node_modules
 /target
