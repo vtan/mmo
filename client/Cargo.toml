@@ -9,8 +9,10 @@ crate-type = ["cdylib"]
 [dependencies]
 mmo-common = { path = "../common" }
 bincode = "2.0.0-rc.1"
-js-sys = "0.3.57"
+js-sys = "0.3.60"
+nalgebra = "0.31"
 wasm-bindgen = "0.2.80"
+wasm-bindgen-futures = "0.4.33"
 
 [dependencies.web-sys]
 version = "0.3.4"
@@ -18,10 +20,13 @@ features = [
   'Document',
   'Element',
   'HtmlCanvasElement',
-  'WebGlBuffer',
-  'WebGlVertexArrayObject',
+  'HtmlImageElement',
   'WebGl2RenderingContext',
+  'WebGlBuffer',
   'WebGlProgram',
   'WebGlShader',
+  'WebGlTexture',
+  'WebGlUniformLocation',
+  'WebGlVertexArrayObject',
   'Window',
 ]
