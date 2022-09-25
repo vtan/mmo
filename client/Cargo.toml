@@ -17,10 +17,12 @@ wasm-bindgen-futures = "0.4.33"
 [dependencies.web-sys]
 version = "0.3.4"
 features = [
+  'console',
   'Document',
   'Element',
   'HtmlCanvasElement',
   'HtmlImageElement',
+  'Performance',
   'WebGl2RenderingContext',
   'WebGlBuffer',
   'WebGlProgram',

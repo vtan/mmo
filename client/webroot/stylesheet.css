@@ -8,3 +8,9 @@ canvas {
   display: block;
   margin: 16px auto;
 }
+
+#debug {
+  width: 20rem;
+  margin: 0 auto;
+  color: #a0a0a0;
+}

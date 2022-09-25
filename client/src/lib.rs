@@ -1,9 +1,11 @@
+mod fps_counter;
 mod shader;
 mod texture;
 
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use fps_counter::FpsCounter;
 use nalgebra::Orthographic3;
 use nalgebra::Scale3;
 use texture::load_texture;
@@ -160,6 +162,7 @@ pub async fn start() -> Result<(), JsValue> {
         tileset_atlas,
         ticks: 0,
     };
+    let mut fps_counter = FpsCounter::new(&window);
 
     // TODO: take some time to understand this
     let f = Rc::new(RefCell::new(None::<Closure<dyn FnMut()>>));
@@ -167,9 +170,11 @@ pub async fn start() -> Result<(), JsValue> {
 
     let w = window.clone();
     *g.borrow_mut() = Some(Closure::new(move || {
+        fps_counter.record_start();
         render(&mut app_state);
         w.request_animation_frame(f.borrow().as_ref().unwrap().as_ref().unchecked_ref())
             .unwrap();
+        fps_counter.record_end();
     }));
     window
         .clone()
