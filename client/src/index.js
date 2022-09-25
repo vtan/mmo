@@ -1,4 +1,4 @@
-const rust = import('../../client/pkg');
+const rust = import('../pkg');
 
 rust
   .then(m => m.start())

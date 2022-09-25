@@ -8,34 +8,8 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::{WebGl2RenderingContext as GL};
 
-static VERTEX_SHADER: &str = r##"#version 300 es
-    in vec2 position;
-    in vec2 instanceTranslation;
-    in vec2 instanceTextureCoordOffset;
-
-    out vec2 fragTextureCoord;
-
-    uniform mat4 viewProjection;
-
-    void main() {
-        gl_Position = viewProjection * vec4(position + instanceTranslation, 0.0, 1.0);
-        fragTextureCoord = instanceTextureCoordOffset + position / 16.0;
-    }
-"##;
-
-static FRAGMENT_SHADER: &str = r##"#version 300 es
-    precision mediump float;
-
-    in vec2 fragTextureCoord;
-
-    out vec4 fragColor;
-
-    uniform sampler2D sampler;
-
-    void main() {
-        fragColor = texture(sampler, fragTextureCoord);
-    }
-"##;
+static VERTEX_SHADER: &str = include_str!("shader-vert.glsl");
+static FRAGMENT_SHADER: &str = include_str!("shader-frag.glsl");
 
 static QUAD_VERTICES: [f32; 8] = [1.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0];
 
