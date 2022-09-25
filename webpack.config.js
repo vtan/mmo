@@ -20,7 +20,7 @@ module.exports = {
     ],
     mode: 'development',
     experiments: {
-        syncWebAssembly: true
+        asyncWebAssembly: true
     },
     devServer: {
         static: {
