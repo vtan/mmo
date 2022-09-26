@@ -177,7 +177,6 @@ pub async fn start() -> Result<(), JsValue> {
         fps_counter.record_end();
     }));
     window
-        .clone()
         .request_animation_frame(g.borrow().as_ref().unwrap().as_ref().unchecked_ref())
         .unwrap();
 
