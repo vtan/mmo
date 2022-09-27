@@ -3,7 +3,7 @@ use std::cmp::Ordering;
 use web_sys::{Element, Performance, Window};
 
 const MILLISECS_PER_WINDOW: f64 = 1000.0;
-const OUTPUT_HEADER: &str = "p50 | p90 | p95 | max | samples";
+const OUTPUT_HEADER: &str = "p50 | p90 | p95 | max | FPS";
 
 pub struct FpsCounter {
     performance: Performance,
