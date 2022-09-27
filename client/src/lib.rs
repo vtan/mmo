@@ -9,9 +9,11 @@ use std::rc::Rc;
 use fps_counter::FpsCounter;
 use nalgebra::Orthographic3;
 use nalgebra::Scale3;
+use nalgebra::Vector2;
 use texture::load_texture;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
+use web_sys::KeyboardEvent;
 use web_sys::WebGl2RenderingContext as GL;
 use web_sys::WebGlBuffer;
 use web_sys::WebGlProgram;
@@ -33,6 +35,7 @@ struct AppState {
     vaos: Vaos,
     buffers: Buffers,
     ticks: u64,
+    player_position: Vector2<f32>,
 }
 
 struct AttribLocations {
@@ -91,7 +94,7 @@ pub async fn start() -> Result<(), JsValue> {
     let buffers = Buffers {
         quad_vertex: gl.create_buffer().ok_or("Failed to create buffer")?,
         tile_attrib: gl.create_buffer().ok_or("Failed to create buffer")?,
-        tile_attrib_data: vec![1.0, 0.0, 0.0, 0.0, 3.0, 1.0, 5.0 / 16.0, 1.0 / 16.0],
+        tile_attrib_data: vec![],
     };
 
     gl.bind_buffer(GL::ARRAY_BUFFER, Some(&buffers.quad_vertex));
@@ -112,8 +115,22 @@ pub async fn start() -> Result<(), JsValue> {
         vaos,
         buffers,
         ticks: 0,
+        player_position: Vector2::new(0.0, 0.0),
     };
+    let events = Rc::new(RefCell::new(vec![]));
+
     let mut fps_counter = FpsCounter::new(&window);
+
+    let key_listener = {
+        let events = events.clone();
+        Closure::<dyn FnMut(_)>::new(move |event: KeyboardEvent| {
+            if !event.repeat() {
+                (*events).borrow_mut().push(event);
+            }
+        })
+        .into_js_value()
+    };
+    document.add_event_listener_with_callback("keydown", key_listener.unchecked_ref())?;
 
     // TODO: take some time to understand this
     let f = Rc::new(RefCell::new(None::<Closure<dyn FnMut()>>));
@@ -122,9 +139,14 @@ pub async fn start() -> Result<(), JsValue> {
     let w = window.clone();
     *g.borrow_mut() = Some(Closure::new(move || {
         fps_counter.record_start();
-        render(&mut app_state);
+
+        let mut events = (*events).borrow_mut();
+        render(&mut app_state, &events);
+        events.clear();
+
         w.request_animation_frame(f.borrow().as_ref().unwrap().as_ref().unchecked_ref())
             .unwrap();
+
         fps_counter.record_end();
     }));
     window
@@ -215,10 +237,21 @@ fn render_tile_vao(state: &AppState) {
     gl.draw_arrays_instanced(GL::TRIANGLE_STRIP, offset, count, instance_count);
 }
 
-fn render(state: &mut AppState) {
+fn render(state: &mut AppState, events: &Vec<KeyboardEvent>) {
     let gl = &state.gl;
     state.ticks += 1;
 
+    for event in events {
+        match event.code().as_str() {
+            "ArrowLeft" => state.player_position.x -= 1.0,
+            "ArrowRight" => state.player_position.x += 1.0,
+            "ArrowUp" => state.player_position.y -= 1.0,
+            "ArrowDown" => state.player_position.y += 1.0,
+            _ => (),
+        }
+    }
+
+    /*
     if state.ticks % (3 * 60) == 0 {
         let i = state.ticks / (3 * 60);
         let x = (i / 16) as f32;
@@ -226,11 +259,13 @@ fn render(state: &mut AppState) {
         let attribs = [x, y, 5.0 / 16.0, 6.0 / 16.0];
         state.buffers.tile_attrib_data.extend_from_slice(&attribs);
     }
+    */
+    state.buffers.tile_attrib_data =
+        vec![state.player_position.x, state.player_position.y, 0.0, 0.0];
 
     gl.use_program(Some(&state.program));
 
-    let n = (state.ticks % 120) as f32;
-    let projection = Orthographic3::new(0.0, 320.0 + n, 180.0, 0.0, -1.0, 1.0).to_homogeneous();
+    let projection = Orthographic3::new(0.0, 320.0, 180.0, 0.0, -1.0, 1.0).to_homogeneous();
     let view = Scale3::new(16.0, 16.0, 16.0).to_homogeneous();
     let view_projection = projection * view;
     gl.uniform_matrix4fv_with_f32_array(
