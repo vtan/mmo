@@ -71,16 +71,6 @@ pub fn create_tile_vao(
 }
 
 pub fn render(state: &mut AppState) {
-    /*
-    if state.ticks % (3 * 60) == 0 {
-        let i = state.ticks / (3 * 60);
-        let x = (i / 16) as f32;
-        let y = (i % 16) as f32;
-        let attribs = [x, y, 5.0 / 16.0, 6.0 / 16.0];
-        state.buffers.tile_attrib_data.extend_from_slice(&attribs);
-    }
-    */
-
     let gl = &state.gl;
     gl.clear_color(0.0, 0.0, 0.0, 1.0);
     gl.clear(GL::COLOR_BUFFER_BIT);
@@ -91,6 +81,10 @@ pub fn render(state: &mut AppState) {
 
     state.buffers.tile_attrib_data =
         vec![state.player_position.x, state.player_position.y, 0.0, 0.0];
+    for other_position in state.other_positions.values() {
+        let attribs = [other_position.x, other_position.y, 0.0, 0.0];
+        state.buffers.tile_attrib_data.extend_from_slice(&attribs);
+    }
 
     gl.use_program(Some(&state.program));
 

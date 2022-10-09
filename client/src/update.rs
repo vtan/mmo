@@ -1,4 +1,5 @@
 use mmo_common::MoveCommand;
+use nalgebra::Vector2;
 
 use crate::app_event::AppEvent;
 use crate::app_state::AppState;
@@ -24,7 +25,11 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
             },
             AppEvent::WebsocketConnected { sender } => state.connection = Some(sender),
             AppEvent::WebsocketDisconnected => state.connection = None,
-            AppEvent::WebsocketMessage { message } => todo!(),
+            AppEvent::WebsocketMessage { message } => {
+                state
+                    .other_positions
+                    .insert(message.player_id, Vector2::new(message.x, message.y));
+            }
         }
     }
 }

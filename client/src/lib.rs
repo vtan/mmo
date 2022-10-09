@@ -1,11 +1,13 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
+use js_sys::{ArrayBuffer, Uint8Array};
 use nalgebra::Vector2;
 use texture::load_texture;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use web_sys::{KeyboardEvent, WebGl2RenderingContext as GL, WebSocket};
+use web_sys::{KeyboardEvent, MessageEvent, WebGl2RenderingContext as GL, WebSocket};
 
 use crate::app_event::AppEvent;
 use crate::app_state::{AppState, AttribLocations, Buffers, Textures, UniformLocations, Vaos};
@@ -82,6 +84,7 @@ pub async fn start() -> Result<(), JsValue> {
         ticks: 0,
         connection: None,
         player_position: Vector2::new(0.0, 0.0),
+        other_positions: HashMap::new(),
     };
     let events = Rc::new(RefCell::new(vec![]));
 
@@ -124,12 +127,28 @@ pub async fn start() -> Result<(), JsValue> {
     };
     ws.set_onerror(Some(ws_onerror.unchecked_ref()));
 
+    let ws_onmessage = {
+        let events = events.clone();
+        Closure::<dyn FnMut(_)>::new(move |ws_event: MessageEvent| {
+            if let Ok(buf) = ws_event.data().dyn_into::<ArrayBuffer>() {
+                let bytes = Uint8Array::new(&buf).to_vec();
+                let (message, _) = bincode::decode_from_slice(&bytes, bincode_config).unwrap();
+                let app_event = AppEvent::WebsocketMessage { message };
+                (*events).borrow_mut().push(app_event);
+            } else {
+                web_sys::console::warn_1(&"Unexpected websocket message type".into());
+            }
+        })
+        .into_js_value()
+    };
+    ws.set_onmessage(Some(ws_onmessage.unchecked_ref()));
+
     let key_listener = {
         let events = events.clone();
         Closure::<dyn FnMut(_)>::new(move |event: KeyboardEvent| {
             if !event.repeat() {
-                let game_event = AppEvent::KeyDown { code: event.code() };
-                (*events).borrow_mut().push(game_event);
+                let app_event = AppEvent::KeyDown { code: event.code() };
+                (*events).borrow_mut().push(app_event);
             }
         })
         .into_js_value()
