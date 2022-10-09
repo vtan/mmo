@@ -18,11 +18,15 @@ wasm-bindgen-futures = "0.4.33"
 version = "0.3.4"
 features = [
   'console',
+  'BinaryType',
+  'Blob',
   'Document',
   'Element',
+  'ErrorEvent',
   'HtmlCanvasElement',
   'HtmlImageElement',
   'KeyboardEvent',
+  'MessageEvent',
   'Performance',
   'WebGl2RenderingContext',
   'WebGlBuffer',
@@ -31,5 +35,6 @@ features = [
   'WebGlTexture',
   'WebGlUniformLocation',
   'WebGlVertexArrayObject',
+  'WebSocket',
   'Window',
 ]

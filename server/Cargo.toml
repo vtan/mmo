@@ -6,4 +6,8 @@ edition = "2021"
 [dependencies]
 mmo-common = { path = "../common" }
 bincode = "2.0.0-rc.1"
-tokio = { version = "1.15.0", features = ["full"] }
+futures-util = "0.3"
+log = "0.4"
+pretty_env_logger = "0.4"
+tokio = { version = "1.15", features = ["full"] }
+warp = { version = "0.3", features = ["websocket"] }

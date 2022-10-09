@@ -4,4 +4,4 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bincode = "2.0.0-rc.1"
+bincode = "2.0.0-rc.2"

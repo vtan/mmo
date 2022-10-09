@@ -25,6 +25,12 @@ module.exports = {
     devServer: {
         static: {
             directory: path.resolve(__dirname, "client/webroot")
+        },
+        proxy: {
+            "/api/ws": {
+                target: "ws://localhost:8081",
+                ws: true
+            }
         }
     }
 };

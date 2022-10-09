@@ -1,3 +1,4 @@
+mod app_event;
 mod fps_counter;
 mod shader;
 mod texture;
@@ -7,6 +8,8 @@ use std::mem::size_of;
 use std::rc::Rc;
 
 use fps_counter::FpsCounter;
+use app_event::AppEvent;
+use mmo_common::MoveCommand;
 use nalgebra::Orthographic3;
 use nalgebra::Scale3;
 use nalgebra::Vector2;
@@ -20,6 +23,7 @@ use web_sys::WebGlProgram;
 use web_sys::WebGlTexture;
 use web_sys::WebGlUniformLocation;
 use web_sys::WebGlVertexArrayObject;
+use web_sys::WebSocket;
 
 static VERTEX_SHADER: &str = include_str!("shader-vert.glsl");
 static FRAGMENT_SHADER: &str = include_str!("shader-frag.glsl");
@@ -35,6 +39,7 @@ struct AppState {
     vaos: Vaos,
     buffers: Buffers,
     ticks: u64,
+    connection: Option<Box<dyn Fn(MoveCommand)>>,
     player_position: Vector2<f32>,
 }
 
@@ -65,6 +70,8 @@ struct Buffers {
 
 #[wasm_bindgen(start)]
 pub async fn start() -> Result<(), JsValue> {
+    let bincode_config = bincode::config::standard().with_limit::<32_768>();
+
     let window = web_sys::window().ok_or("No window")?;
     let document = window.document().ok_or("No document")?;
     let canvas = document.get_element_by_id("canvas").ok_or("No canvas")?;
@@ -115,24 +122,62 @@ pub async fn start() -> Result<(), JsValue> {
         vaos,
         buffers,
         ticks: 0,
+        connection: None,
         player_position: Vector2::new(0.0, 0.0),
     };
     let events = Rc::new(RefCell::new(vec![]));
 
     let mut fps_counter = FpsCounter::new(&window);
 
+    // TODO: construct URL from window.location
+    let ws = WebSocket::new("ws://localhost:8081/api/ws")?;
+    ws.set_binary_type(web_sys::BinaryType::Arraybuffer);
+
+    let ws_onopen = {
+        let events = events.clone();
+        let ws = ws.clone();
+        Closure::once_into_js(move || {
+            let sender = Box::new(move |command| {
+                let bytes = bincode::encode_to_vec(command, bincode_config).unwrap();
+                ws.send_with_u8_array(&bytes).unwrap();
+            });
+            (*events).borrow_mut().push(AppEvent::WebsocketConnected { sender });
+        })
+    };
+    ws.set_onopen(Some(ws_onopen.unchecked_ref()));
+
+    let ws_onclose = {
+        let events = events.clone();
+        Closure::<dyn FnMut()>::new(move || {
+            web_sys::console::error_1(&"Websocket disconnected".into());
+            (*events).borrow_mut().push(AppEvent::WebsocketDisconnected);
+        })
+        .into_js_value()
+    };
+    ws.set_onclose(Some(ws_onclose.unchecked_ref()));
+
+    let ws_onerror = {
+        let events = events.clone();
+        Closure::<dyn FnMut()>::new(move || {
+            web_sys::console::error_1(&"Websocket error".into());
+            (*events).borrow_mut().push(AppEvent::WebsocketDisconnected);
+        })
+        .into_js_value()
+    };
+    ws.set_onerror(Some(ws_onerror.unchecked_ref()));
+
     let key_listener = {
         let events = events.clone();
         Closure::<dyn FnMut(_)>::new(move |event: KeyboardEvent| {
             if !event.repeat() {
-                (*events).borrow_mut().push(event);
+                let game_event = AppEvent::KeyDown { code: event.code() };
+                (*events).borrow_mut().push(game_event);
             }
         })
         .into_js_value()
     };
     document.add_event_listener_with_callback("keydown", key_listener.unchecked_ref())?;
 
-    // TODO: take some time to understand this
     let f = Rc::new(RefCell::new(None::<Closure<dyn FnMut()>>));
     let g = f.clone();
 
@@ -140,9 +185,8 @@ pub async fn start() -> Result<(), JsValue> {
     *g.borrow_mut() = Some(Closure::new(move || {
         fps_counter.record_start();
 
-        let mut events = (*events).borrow_mut();
-        render(&mut app_state, &events);
-        events.clear();
+        let events = (*events).take();
+        render(&mut app_state, events);
 
         w.request_animation_frame(f.borrow().as_ref().unwrap().as_ref().unchecked_ref())
             .unwrap();
@@ -237,17 +281,28 @@ fn render_tile_vao(state: &AppState) {
     gl.draw_arrays_instanced(GL::TRIANGLE_STRIP, offset, count, instance_count);
 }
 
-fn render(state: &mut AppState, events: &Vec<KeyboardEvent>) {
-    let gl = &state.gl;
+fn render(state: &mut AppState, events: Vec<AppEvent>) {
     state.ticks += 1;
 
+    let move_player = |state: &mut AppState, dx, dy| {
+        state.player_position.x += dx;
+        state.player_position.y += dy;
+        if let Some(ws_sender) = &state.connection {
+            ws_sender(MoveCommand { x: state.player_position.x, y: state.player_position.y });
+        }
+    };
     for event in events {
-        match event.code().as_str() {
-            "ArrowLeft" => state.player_position.x -= 1.0,
-            "ArrowRight" => state.player_position.x += 1.0,
-            "ArrowUp" => state.player_position.y -= 1.0,
-            "ArrowDown" => state.player_position.y += 1.0,
-            _ => (),
+        match event {
+            AppEvent::KeyDown { code } => match code.as_str() {
+                "ArrowLeft" => move_player(state, -1.0, 0.0),
+                "ArrowRight" => move_player(state, 1.0, 0.0),
+                "ArrowUp" => move_player(state, 0.0, -1.0),
+                "ArrowDown" => move_player(state, 0.0, 1.0),
+                _ => (),
+            },
+            AppEvent::WebsocketConnected { sender } => state.connection = Some(sender),
+            AppEvent::WebsocketDisconnected => state.connection = None,
+            AppEvent::WebsocketMessage { message } => todo!(),
         }
     }
 
@@ -260,6 +315,15 @@ fn render(state: &mut AppState, events: &Vec<KeyboardEvent>) {
         state.buffers.tile_attrib_data.extend_from_slice(&attribs);
     }
     */
+
+    let gl = &state.gl;
+    gl.clear_color(0.0, 0.0, 0.0, 1.0);
+    gl.clear(GL::COLOR_BUFFER_BIT);
+
+    if state.connection.is_none() {
+        return;
+    }
+
     state.buffers.tile_attrib_data =
         vec![state.player_position.x, state.player_position.y, 0.0, 0.0];
 
@@ -277,9 +341,6 @@ fn render(state: &mut AppState, events: &Vec<KeyboardEvent>) {
     gl.active_texture(GL::TEXTURE0);
     gl.bind_texture(GL::TEXTURE_2D, Some(&state.textures.tileset));
     gl.uniform1i(Some(&state.uniform_locations.sampler), 0);
-
-    gl.clear_color(0.0, 0.0, 0.0, 1.0);
-    gl.clear(GL::COLOR_BUFFER_BIT);
 
     render_tile_vao(state);
 }

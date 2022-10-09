@@ -1,114 +1,81 @@
-use std::sync::atomic::{AtomicU64, Ordering};
+mod server_actor;
 
-use mmo_common::{MoveCommand, PlayerMovedEvent};
-use server_actor::Message;
-use tokio::{
-    io::{self, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
-    net::TcpListener,
-    sync::mpsc,
+use std::{
+    marker::Send,
+    sync::atomic::{AtomicU64, Ordering},
 };
 
-mod server_actor;
+use futures_util::{SinkExt, StreamExt};
+use mmo_common::PlayerMovedEvent;
+use tokio::{io, sync::mpsc};
+use warp::{ws::WebSocket, Filter};
 
 static NEXT_PLAYER_ID: AtomicU64 = AtomicU64::new(0);
 
 #[tokio::main]
 async fn main() -> io::Result<()> {
-    let bincode_config = bincode::config::standard().with_limit::<32_768>();
+    pretty_env_logger::init();
 
-    let listener = TcpListener::bind("127.0.0.1:11001").await?;
+    let bincode_config = bincode::config::standard().with_limit::<32_768>();
 
     let (actor_sender, actor_receiver) = mpsc::channel::<server_actor::Message>(4096);
     tokio::spawn(async move { server_actor::run(actor_receiver).await });
 
-    loop {
-        let (socket, _) = listener.accept().await?;
-        socket.set_nodelay(true).unwrap();
-        let (mut socket_reader, mut socket_writer) = tokio::io::split(socket);
-        let actor_sender = actor_sender.clone();
-        let player_id = NEXT_PLAYER_ID.fetch_add(1, Ordering::SeqCst);
-        let (client_sender, mut client_receiver) = mpsc::channel::<PlayerMovedEvent>(4096);
-        actor_sender
-            .send(Message::PlayerConnected { player_id, connection: client_sender })
-            .await
-            .unwrap();
+    let routes = warp::path!("api" / "ws").and(warp::ws()).map(move |ws: warp::ws::Ws| {
+        let message_sender = actor_sender.clone();
+        ws.on_upgrade(move |websocket| handle_connection(websocket, message_sender, bincode_config))
+    });
 
-        tokio::spawn(async move {
-            while let Some(event) = client_receiver.recv().await {
-                write_event(event, &mut socket_writer, bincode_config).await;
-            }
-        });
-        tokio::spawn(async move {
-            let mut command_size_buf = [0; 4];
-            let mut command_buf = [0; 65_536];
-            loop {
-                let result = read_command(
-                    &mut socket_reader,
-                    &mut command_size_buf,
-                    &mut command_buf,
-                    bincode_config,
-                )
-                .await;
-                match result {
-                    Ok(command) => {
-                        actor_sender
-                            .send(Message::PlayerCommand { player_id, command })
-                            .await
-                            .unwrap();
-                    }
-                    Err(err) => {
-                        println!("{} {}", player_id, err);
-                        actor_sender.send(Message::PlayerDisconnected { player_id }).await.unwrap();
-                        break;
-                    }
-                }
-            }
-        });
-    }
-}
-
-async fn read_command<R, C>(
-    socket_reader: &mut R,
-    command_size_buf: &mut [u8; 4],
-    command_buf: &mut [u8; 65_536],
-    bincode_config: C,
-) -> Result<MoveCommand, String>
-where
-    R: AsyncRead + Unpin,
-    C: bincode::config::Config,
-{
-    socket_reader.read_exact(command_size_buf).await.map_err(|e| e.to_string())?;
-    let command_size = u32::from_le_bytes(*command_size_buf) as usize;
-    if command_size > command_buf.len() {
-        return Err("Too large command".to_string());
-    }
-
-    let command_slice = &mut command_buf[0..command_size];
-    socket_reader.read_exact(command_slice).await.map_err(|e| e.to_string())?;
-
-    let (command, read_bytes): (MoveCommand, _) =
-        bincode::decode_from_slice(command_slice, bincode_config).map_err(|e| e.to_string())?;
-
-    if read_bytes == command_size {
-        Ok(command)
-    } else {
-        Err("Read fewer bytes than expected".to_string())
-    }
-}
-
-async fn write_event<W, C>(
-    event: PlayerMovedEvent,
-    writer: &mut W,
-    bincode_config: C,
-) -> Result<(), String>
-where
-    W: AsyncWrite + Unpin,
-    C: bincode::config::Config,
-{
-    // TODO: use a pre-allocated Vec?
-    let encoded = bincode::encode_to_vec(event, bincode_config).map_err(|e| e.to_string())?;
-    let encoded_size = (encoded.len() as u32).to_le_bytes();
-    writer.write_all(&encoded_size).await.map_err(|e| e.to_string())?;
-    writer.write_all(encoded.as_slice()).await.map_err(|e| e.to_string())?;
+    let socket_addr = ([0, 0, 0, 0], 8081);
+    warp::serve(routes).run(socket_addr).await;
     Ok(())
+}
+
+async fn handle_connection<C>(
+    ws: WebSocket,
+    actor_sender: mpsc::Sender<server_actor::Message>,
+    bincode_config: C,
+) where
+    C: bincode::config::Config + Send + 'static,
+{
+    log::debug!("New connection");
+    let player_id = NEXT_PLAYER_ID.fetch_add(1, Ordering::SeqCst);
+    let (mut ws_sink, mut ws_stream) = ws.split();
+
+    let (event_sender, mut event_receiver) = mpsc::channel::<PlayerMovedEvent>(64);
+    tokio::spawn(async move {
+        while let Some(event) = event_receiver.recv().await {
+            let encoded = bincode::encode_to_vec(event, bincode_config)
+                .map_err(|e| e.to_string())
+                .unwrap();
+            ws_sink.send(warp::ws::Message::binary(encoded)).await.unwrap();
+        }
+        ws_sink.close().await.unwrap();
+        log::debug!("Sender closed");
+    });
+
+    actor_sender
+        .send(server_actor::Message::PlayerConnected { player_id, connection: event_sender })
+        .await
+        .unwrap();
+
+    while let Some(Ok(message)) = ws_stream.next().await {
+        if message.is_binary() {
+            let bytes = message.as_bytes();
+            let (command, _) = bincode::decode_from_slice(bytes, bincode_config).unwrap();
+            log::debug!("{player_id} {command:?}");
+            actor_sender
+                .send(server_actor::Message::PlayerCommand { player_id, command })
+                .await
+                .unwrap();
+        } else {
+            log::warn!("Unexpected websocket message type");
+            break;
+        }
+    }
+    actor_sender
+        .send(server_actor::Message::PlayerDisconnected { player_id })
+        .await
+        .unwrap();
+    log::debug!("Receiver closed");
 }

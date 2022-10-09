@@ -24,7 +24,8 @@ pub async fn run(mut messages: mpsc::Receiver<Message>) {
             Message::PlayerCommand { player_id, command } => {
                 for (recipient_id, connection) in state.iter() {
                     if *recipient_id != player_id {
-                        let event = PlayerMovedEvent { player_id, position: command.position };
+                        let MoveCommand { x, y, .. } = command;
+                        let event = PlayerMovedEvent { player_id, x, y };
                         connection.send(event).await.unwrap();
                     }
                 }
