@@ -1,14 +1,14 @@
 mod server_actor;
 
-use std::{
-    marker::Send,
-    sync::atomic::{AtomicU64, Ordering},
-};
+use std::marker::Send;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use futures_util::{SinkExt, StreamExt};
 use mmo_common::PlayerMovedEvent;
-use tokio::{io, sync::mpsc};
-use warp::{ws::WebSocket, Filter};
+use tokio::io;
+use tokio::sync::mpsc;
+use warp::ws::WebSocket;
+use warp::Filter;
 
 static NEXT_PLAYER_ID: AtomicU64 = AtomicU64::new(0);
 

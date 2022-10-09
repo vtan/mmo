@@ -1,5 +1,6 @@
 use js_sys::Promise;
-use wasm_bindgen::{prelude::Closure, JsCast, JsValue};
+use wasm_bindgen::prelude::Closure;
+use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{HtmlImageElement, WebGl2RenderingContext as GL, WebGlTexture};
 

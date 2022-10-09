@@ -7,23 +7,17 @@ use std::cell::RefCell;
 use std::mem::size_of;
 use std::rc::Rc;
 
-use fps_counter::FpsCounter;
 use app_event::AppEvent;
+use fps_counter::FpsCounter;
 use mmo_common::MoveCommand;
-use nalgebra::Orthographic3;
-use nalgebra::Scale3;
-use nalgebra::Vector2;
+use nalgebra::{Orthographic3, Scale3, Vector2};
 use texture::load_texture;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use web_sys::KeyboardEvent;
-use web_sys::WebGl2RenderingContext as GL;
-use web_sys::WebGlBuffer;
-use web_sys::WebGlProgram;
-use web_sys::WebGlTexture;
-use web_sys::WebGlUniformLocation;
-use web_sys::WebGlVertexArrayObject;
-use web_sys::WebSocket;
+use web_sys::{
+    KeyboardEvent, WebGl2RenderingContext as GL, WebGlBuffer, WebGlProgram, WebGlTexture,
+    WebGlUniformLocation, WebGlVertexArrayObject, WebSocket,
+};
 
 static VERTEX_SHADER: &str = include_str!("shader-vert.glsl");
 static FRAGMENT_SHADER: &str = include_str!("shader-frag.glsl");
