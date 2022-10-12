@@ -1,8 +1,8 @@
-use mmo_common::{MoveCommand, PlayerMovedEvent};
+use mmo_common::{PlayerCommand, PlayerEvent};
 
 pub enum AppEvent {
     KeyDown { code: String },
-    WebsocketConnected { sender: Box<dyn Fn(MoveCommand)> },
+    WebsocketConnected { sender: Box<dyn Fn(PlayerCommand)> },
     WebsocketDisconnected,
-    WebsocketMessage { message: PlayerMovedEvent },
+    WebsocketMessage { message: PlayerEvent },
 }

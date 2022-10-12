@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use mmo_common::MoveCommand;
+use mmo_common::PlayerCommand;
 use nalgebra::Vector2;
 use web_sys::{
     WebGl2RenderingContext, WebGlBuffer, WebGlProgram, WebGlTexture, WebGlUniformLocation,
@@ -16,7 +16,7 @@ pub struct AppState {
     pub vaos: Vaos,
     pub buffers: Buffers,
     pub ticks: u64,
-    pub connection: Option<Box<dyn Fn(MoveCommand)>>,
+    pub connection: Option<Box<dyn Fn(PlayerCommand)>>,
     pub player_position: Vector2<f32>,
     pub other_positions: HashMap<u64, Vector2<f32>>,
 }

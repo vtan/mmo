@@ -4,7 +4,7 @@ use std::marker::Send;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use futures_util::{SinkExt, StreamExt};
-use mmo_common::PlayerMovedEvent;
+use mmo_common::PlayerEvent;
 use tokio::io;
 use tokio::sync::mpsc;
 use warp::ws::WebSocket;
@@ -42,7 +42,7 @@ async fn handle_connection<C>(
     let player_id = NEXT_PLAYER_ID.fetch_add(1, Ordering::SeqCst);
     let (mut ws_sink, mut ws_stream) = ws.split();
 
-    let (event_sender, mut event_receiver) = mpsc::channel::<PlayerMovedEvent>(64);
+    let (event_sender, mut event_receiver) = mpsc::channel::<PlayerEvent>(64);
     tokio::spawn(async move {
         while let Some(event) = event_receiver.recv().await {
             let encoded = bincode::encode_to_vec(event, bincode_config)

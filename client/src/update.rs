@@ -1,4 +1,4 @@
-use mmo_common::MoveCommand;
+use mmo_common::{PlayerCommand, PlayerEvent};
 use nalgebra::Vector2;
 
 use crate::app_event::AppEvent;
@@ -11,7 +11,10 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
         state.player_position.x += dx;
         state.player_position.y += dy;
         if let Some(ws_sender) = &state.connection {
-            ws_sender(MoveCommand { x: state.player_position.x, y: state.player_position.y });
+            ws_sender(PlayerCommand::Move {
+                x: state.player_position.x,
+                y: state.player_position.y,
+            });
         }
     };
     for event in events {
@@ -25,10 +28,10 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
             },
             AppEvent::WebsocketConnected { sender } => state.connection = Some(sender),
             AppEvent::WebsocketDisconnected => state.connection = None,
-            AppEvent::WebsocketMessage { message } => {
-                state
-                    .other_positions
-                    .insert(message.player_id, Vector2::new(message.x, message.y));
+            AppEvent::WebsocketMessage {
+                message: PlayerEvent::PlayerMoved { player_id, x, y },
+            } => {
+                state.other_positions.insert(player_id, Vector2::new(x, y));
             }
         }
     }
