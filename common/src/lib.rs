@@ -16,4 +16,7 @@ pub enum PlayerEvent {
         #[bincode(with_serde)]
         position: Vector2<f32>,
     },
+    PlayerDisappeared {
+        player_id: u64,
+    },
 }

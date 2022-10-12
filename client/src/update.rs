@@ -29,6 +29,11 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
             } => {
                 state.other_positions.insert(player_id, position);
             }
+            AppEvent::WebsocketMessage {
+                message: PlayerEvent::PlayerDisappeared { player_id },
+            } => {
+                state.other_positions.remove(&player_id);
+            }
         }
     }
 }
