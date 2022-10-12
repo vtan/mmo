@@ -7,31 +7,27 @@ use crate::app_state::AppState;
 pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
     state.ticks += 1;
 
-    let move_player = |state: &mut AppState, dx, dy| {
-        state.player_position.x += dx;
-        state.player_position.y += dy;
+    let move_player = |state: &mut AppState, delta: Vector2<f32>| {
+        state.player_position += delta;
         if let Some(ws_sender) = &state.connection {
-            ws_sender(PlayerCommand::Move {
-                x: state.player_position.x,
-                y: state.player_position.y,
-            });
+            ws_sender(PlayerCommand::Move { position: state.player_position });
         }
     };
     for event in events {
         match event {
             AppEvent::KeyDown { code } => match code.as_str() {
-                "ArrowLeft" => move_player(state, -1.0, 0.0),
-                "ArrowRight" => move_player(state, 1.0, 0.0),
-                "ArrowUp" => move_player(state, 0.0, -1.0),
-                "ArrowDown" => move_player(state, 0.0, 1.0),
+                "ArrowLeft" => move_player(state, Vector2::new(-1.0, 0.0)),
+                "ArrowRight" => move_player(state, Vector2::new(1.0, 0.0)),
+                "ArrowUp" => move_player(state, Vector2::new(0.0, -1.0)),
+                "ArrowDown" => move_player(state, Vector2::new(0.0, 1.0)),
                 _ => (),
             },
             AppEvent::WebsocketConnected { sender } => state.connection = Some(sender),
             AppEvent::WebsocketDisconnected => state.connection = None,
             AppEvent::WebsocketMessage {
-                message: PlayerEvent::PlayerMoved { player_id, x, y },
+                message: PlayerEvent::PlayerMoved { player_id, position },
             } => {
-                state.other_positions.insert(player_id, Vector2::new(x, y));
+                state.other_positions.insert(player_id, position);
             }
         }
     }
