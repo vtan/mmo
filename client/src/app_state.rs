@@ -3,9 +3,10 @@ use std::collections::HashMap;
 use mmo_common::PlayerCommand;
 use nalgebra::Vector2;
 use web_sys::{
-    WebGl2RenderingContext, WebGlBuffer, WebGlProgram, WebGlTexture, WebGlUniformLocation,
-    WebGlVertexArrayObject,
+    WebGl2RenderingContext, WebGlBuffer, WebGlProgram, WebGlUniformLocation, WebGlVertexArrayObject,
 };
+
+use crate::texture::Texture;
 
 pub struct AppState {
     pub gl: WebGl2RenderingContext,
@@ -33,7 +34,7 @@ pub struct UniformLocations {
 }
 
 pub struct Textures {
-    pub tileset: WebGlTexture,
+    pub tileset: Texture,
 }
 
 pub struct Vaos {
@@ -43,5 +44,11 @@ pub struct Vaos {
 pub struct Buffers {
     pub quad_vertex: WebGlBuffer,
     pub tile_attrib: WebGlBuffer,
-    pub tile_attrib_data: Vec<f32>,
+    pub tile_attrib_data: Vec<TileAttribs>,
+}
+
+#[repr(C)]
+pub struct TileAttribs {
+    pub world_position: Vector2<f32>,
+    pub texture_position: Vector2<f32>,
 }

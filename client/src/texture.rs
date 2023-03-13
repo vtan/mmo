@@ -4,7 +4,13 @@ use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{HtmlImageElement, WebGl2RenderingContext as GL, WebGlTexture};
 
-pub async fn load_texture(gl: &GL, uri: &str) -> Result<WebGlTexture, JsValue> {
+pub struct Texture {
+    pub texture: WebGlTexture,
+    pub width: u32,
+    pub height: u32,
+}
+
+pub async fn load_texture(gl: &GL, uri: &str) -> Result<Texture, JsValue> {
     let level = 0;
     let internal_format = GL::RGBA;
     let src_format = GL::RGBA;
@@ -25,6 +31,8 @@ pub async fn load_texture(gl: &GL, uri: &str) -> Result<WebGlTexture, JsValue> {
         onerror.forget();
     });
     JsFuture::from(promise).await?;
+    let width = image.width();
+    let height = image.height();
 
     let texture = gl.create_texture().ok_or("Could not create texture")?;
     gl.bind_texture(GL::TEXTURE_2D, Some(&texture));
@@ -38,5 +46,5 @@ pub async fn load_texture(gl: &GL, uri: &str) -> Result<WebGlTexture, JsValue> {
     )?;
     gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MIN_FILTER, GL::NEAREST as i32);
     gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MAG_FILTER, GL::NEAREST as i32);
-    Ok(texture)
+    Ok(Texture { texture, width, height })
 }

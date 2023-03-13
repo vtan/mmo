@@ -1,10 +1,12 @@
 use std::mem::size_of;
 
-use nalgebra::{Orthographic3, Scale3};
+use nalgebra::{Orthographic3, Scale3, Vector2};
 use wasm_bindgen::prelude::*;
 use web_sys::{WebGl2RenderingContext as GL, WebGlVertexArrayObject};
 
-use crate::app_state::{AppState, AttribLocations, Buffers};
+use crate::app_state::{AppState, AttribLocations, Buffers, TileAttribs};
+
+const PIXELS_PER_TILE: u32 = 16;
 
 pub fn create_tile_vao(
     gl: &GL,
@@ -79,17 +81,30 @@ pub fn render(state: &mut AppState) {
         return;
     }
 
-    state.buffers.tile_attrib_data =
-        vec![state.player_position.x, state.player_position.y, 0.0, 0.0];
+    state.buffers.tile_attrib_data = vec![TileAttribs {
+        world_position: state.player_position,
+        texture_position: Vector2::new(0.0, 0.0),
+    }];
     for other_position in state.other_positions.values() {
-        let attribs = [other_position.x, other_position.y, 0.0, 0.0];
-        state.buffers.tile_attrib_data.extend_from_slice(&attribs);
+        let attribs = TileAttribs {
+            world_position: *other_position,
+            texture_position: Vector2::new(
+                5.0 / (PIXELS_PER_TILE as f32),
+                1.0 / (PIXELS_PER_TILE as f32),
+            ),
+        };
+        state.buffers.tile_attrib_data.push(attribs);
     }
 
     gl.use_program(Some(&state.program));
 
     let projection = Orthographic3::new(0.0, 320.0, 180.0, 0.0, -1.0, 1.0).to_homogeneous();
-    let view = Scale3::new(16.0, 16.0, 16.0).to_homogeneous();
+    let view = Scale3::new(
+        PIXELS_PER_TILE as _,
+        PIXELS_PER_TILE as _,
+        PIXELS_PER_TILE as _,
+    )
+    .to_homogeneous();
     let view_projection = projection * view;
     gl.uniform_matrix4fv_with_f32_array(
         Some(&state.uniform_locations.view_projection),
@@ -98,7 +113,7 @@ pub fn render(state: &mut AppState) {
     );
 
     gl.active_texture(GL::TEXTURE0);
-    gl.bind_texture(GL::TEXTURE_2D, Some(&state.textures.tileset));
+    gl.bind_texture(GL::TEXTURE_2D, Some(&state.textures.tileset.texture));
     gl.uniform1i(Some(&state.uniform_locations.sampler), 0);
 
     render_tile_vao(state);
@@ -111,12 +126,16 @@ fn render_tile_vao(state: &AppState) {
 
     // Unsafe: do not allocate memory until the view is dropped
     unsafe {
-        let buffer_view = js_sys::Float32Array::view(&state.buffers.tile_attrib_data);
+        let byte_slice = std::slice::from_raw_parts(
+            state.buffers.tile_attrib_data.as_ptr() as *const u8,
+            state.buffers.tile_attrib_data.len() * std::mem::size_of::<TileAttribs>(),
+        );
+        let buffer_view = js_sys::Uint8Array::view(byte_slice);
         gl.buffer_data_with_array_buffer_view(GL::ARRAY_BUFFER, &buffer_view, GL::DYNAMIC_DRAW);
     }
 
     let offset = 0;
     let count = 4;
-    let instance_count = state.buffers.tile_attrib_data.len() as i32 / 4;
+    let instance_count = state.buffers.tile_attrib_data.len() as i32;
     gl.draw_arrays_instanced(GL::TRIANGLE_STRIP, offset, count, instance_count);
 }
