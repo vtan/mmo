@@ -1,4 +1,5 @@
-use mmo_common::{PlayerCommand, PlayerEvent};
+use mmo_common::player_command::PlayerCommand;
+use mmo_common::player_event::PlayerEvent;
 
 pub enum AppEvent {
     KeyDown { code: String },

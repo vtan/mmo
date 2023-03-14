@@ -4,7 +4,7 @@ use std::marker::Send;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use futures_util::{SinkExt, StreamExt};
-use mmo_common::PlayerEvent;
+use mmo_common::player_event::PlayerEvent;
 use tokio::io;
 use tokio::sync::mpsc;
 use warp::ws::WebSocket;

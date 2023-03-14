@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use mmo_common::PlayerCommand;
+use mmo_common::player_command::PlayerCommand;
 use nalgebra::Vector2;
 use web_sys::{
     WebGl2RenderingContext, WebGlBuffer, WebGlProgram, WebGlUniformLocation, WebGlVertexArrayObject,

@@ -1,4 +1,5 @@
-use mmo_common::{PlayerCommand, PlayerEvent};
+use mmo_common::player_command::PlayerCommand;
+use mmo_common::player_event::PlayerEvent;
 use nalgebra::Vector2;
 
 use crate::app_event::AppEvent;
