@@ -26,6 +26,7 @@ pub struct AttribLocations {
     pub position: u32,
     pub instance_translation: u32,
     pub instance_texture_coord_offset: u32,
+    pub instance_texture_index: u32,
 }
 
 pub struct UniformLocations {
@@ -35,6 +36,7 @@ pub struct UniformLocations {
 
 pub struct Textures {
     pub tileset: Texture,
+    pub charset: Texture,
 }
 
 pub struct Vaos {
@@ -51,4 +53,5 @@ pub struct Buffers {
 pub struct TileAttribs {
     pub world_position: Vector2<f32>,
     pub texture_position: Vector2<f32>,
+    pub texture_index: u32,
 }

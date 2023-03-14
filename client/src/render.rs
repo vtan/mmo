@@ -34,12 +34,12 @@ pub fn create_tile_vao(
         gl.enable_vertex_attrib_array(attrib_locations.position);
     }
 
+    let stride = 5 * size_of::<f32>() as i32;
     gl.bind_buffer(GL::ARRAY_BUFFER, Some(&buffers.tile_attrib));
     {
         let num_components = 2;
         let typ = GL::FLOAT;
         let normalize = false;
-        let stride = 4 * size_of::<f32>() as i32;
         let offset = 0;
         gl.vertex_attrib_pointer_with_i32(
             attrib_locations.instance_translation,
@@ -56,7 +56,6 @@ pub fn create_tile_vao(
         let num_components = 2;
         let typ = GL::FLOAT;
         let normalize = false;
-        let stride = 4 * size_of::<f32>() as i32;
         let offset = 2 * size_of::<f32>() as i32;
         gl.vertex_attrib_pointer_with_i32(
             attrib_locations.instance_texture_coord_offset,
@@ -68,6 +67,22 @@ pub fn create_tile_vao(
         );
         gl.vertex_attrib_divisor(attrib_locations.instance_texture_coord_offset, 1);
         gl.enable_vertex_attrib_array(attrib_locations.instance_texture_coord_offset);
+    }
+    {
+        let num_components = 1;
+        let typ = GL::UNSIGNED_INT;
+        let normalize = false;
+        let offset = (2 + 2) * size_of::<f32>() as i32;
+        gl.vertex_attrib_pointer_with_i32(
+            attrib_locations.instance_texture_index,
+            num_components,
+            typ,
+            normalize,
+            stride,
+            offset,
+        );
+        gl.vertex_attrib_divisor(attrib_locations.instance_texture_index, 1);
+        gl.enable_vertex_attrib_array(attrib_locations.instance_texture_index);
     }
     Ok(vao)
 }
@@ -81,10 +96,21 @@ pub fn render(state: &mut AppState) {
         return;
     }
 
-    state.buffers.tile_attrib_data = vec![TileAttribs {
+    state.buffers.tile_attrib_data.clear();
+    for i in 0..16 {
+        for j in 0..16 {
+            state.buffers.tile_attrib_data.push(TileAttribs {
+                world_position: Vector2::new(i as f32, j as f32),
+                texture_position: Vector2::new(0.0, 0.0),
+                texture_index: 0,
+            });
+        }
+    }
+    state.buffers.tile_attrib_data.push(TileAttribs {
         world_position: state.player_position,
         texture_position: Vector2::new(0.0, 0.0),
-    }];
+        texture_index: 1,
+    });
     for other_position in state.other_positions.values() {
         let attribs = TileAttribs {
             world_position: *other_position,
@@ -92,13 +118,14 @@ pub fn render(state: &mut AppState) {
                 5.0 / (PIXELS_PER_TILE as f32),
                 1.0 / (PIXELS_PER_TILE as f32),
             ),
+            texture_index: 1,
         };
         state.buffers.tile_attrib_data.push(attribs);
     }
 
     gl.use_program(Some(&state.program));
 
-    let projection = Orthographic3::new(0.0, 320.0, 180.0, 0.0, -1.0, 1.0).to_homogeneous();
+    let projection = Orthographic3::new(0.0, 480.0, 270.0, 0.0, -1.0, 1.0).to_homogeneous();
     let view = Scale3::new(
         PIXELS_PER_TILE as _,
         PIXELS_PER_TILE as _,
@@ -114,7 +141,9 @@ pub fn render(state: &mut AppState) {
 
     gl.active_texture(GL::TEXTURE0);
     gl.bind_texture(GL::TEXTURE_2D, Some(&state.textures.tileset.texture));
-    gl.uniform1i(Some(&state.uniform_locations.sampler), 0);
+    gl.active_texture(GL::TEXTURE1);
+    gl.bind_texture(GL::TEXTURE_2D, Some(&state.textures.charset.texture));
+    gl.uniform1iv_with_i32_array(Some(&state.uniform_locations.sampler), &[0, 1]);
 
     render_tile_vao(state);
 }

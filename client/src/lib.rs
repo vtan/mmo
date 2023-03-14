@@ -35,7 +35,16 @@ pub async fn start() -> Result<(), JsValue> {
     let canvas = document.get_element_by_id("canvas").ok_or("No canvas")?;
     let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
 
-    let gl = canvas.get_context("webgl2")?.ok_or("No webgl")?.dyn_into::<GL>()?;
+    let gl = {
+        let options = js_sys::Object::new();
+        js_sys::Reflect::set(&options, &"alpha".into(), &JsValue::FALSE).unwrap();
+        canvas
+            .get_context_with_context_options("webgl2", &options)?
+            .ok_or("No webgl")?
+            .dyn_into::<GL>()?
+    };
+    gl.enable(GL::BLEND);
+    gl.blend_func(GL::SRC_ALPHA, GL::ONE_MINUS_SRC_ALPHA);
 
     let vert_shader = shader::compile(&gl, GL::VERTEX_SHADER, VERTEX_SHADER)?;
     let frag_shader = shader::compile(&gl, GL::FRAGMENT_SHADER, FRAGMENT_SHADER)?;
@@ -48,6 +57,7 @@ pub async fn start() -> Result<(), JsValue> {
         instance_texture_coord_offset: gl
             .get_attrib_location(&program, "instanceTextureCoordOffset")
             as u32,
+        instance_texture_index: gl.get_attrib_location(&program, "instanceTextureIndex") as u32,
     };
     let uniform_locations = UniformLocations {
         view_projection: gl
@@ -55,7 +65,10 @@ pub async fn start() -> Result<(), JsValue> {
             .ok_or("No uniform location")?,
         sampler: gl.get_uniform_location(&program, "sampler").ok_or("No uniform location")?,
     };
-    let textures = Textures { tileset: load_texture(&gl, "/assets/tileset.png").await? };
+    let textures = Textures {
+        tileset: load_texture(&gl, "/assets/tileset.png").await?,
+        charset: load_texture(&gl, "/assets/charset.png").await?,
+    };
     let buffers = Buffers {
         quad_vertex: gl.create_buffer().ok_or("Failed to create buffer")?,
         tile_attrib: gl.create_buffer().ok_or("Failed to create buffer")?,
