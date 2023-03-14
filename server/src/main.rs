@@ -1,4 +1,4 @@
-mod server_actor;
+mod room_actor;
 
 use std::marker::Send;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -18,8 +18,8 @@ async fn main() -> io::Result<()> {
 
     let bincode_config = bincode::config::standard().with_limit::<32_768>();
 
-    let (actor_sender, actor_receiver) = mpsc::channel::<server_actor::Message>(4096);
-    tokio::spawn(async move { server_actor::run(actor_receiver).await });
+    let (actor_sender, actor_receiver) = mpsc::channel::<room_actor::Message>(4096);
+    tokio::spawn(async move { room_actor::run(actor_receiver).await });
 
     let routes = warp::path!("api" / "ws").and(warp::ws()).map(move |ws: warp::ws::Ws| {
         let message_sender = actor_sender.clone();
@@ -33,7 +33,7 @@ async fn main() -> io::Result<()> {
 
 async fn handle_connection<C>(
     ws: WebSocket,
-    actor_sender: mpsc::Sender<server_actor::Message>,
+    actor_sender: mpsc::Sender<room_actor::Message>,
     bincode_config: C,
 ) where
     C: bincode::config::Config + Send + 'static,
@@ -55,7 +55,7 @@ async fn handle_connection<C>(
     });
 
     actor_sender
-        .send(server_actor::Message::PlayerConnected { player_id, connection: event_sender })
+        .send(room_actor::Message::PlayerConnected { player_id, connection: event_sender })
         .await
         .unwrap();
 
@@ -65,7 +65,7 @@ async fn handle_connection<C>(
             let (command, _) = bincode::decode_from_slice(bytes, bincode_config).unwrap();
             log::debug!("{player_id} {command:?}");
             actor_sender
-                .send(server_actor::Message::PlayerCommand { player_id, command })
+                .send(room_actor::Message::PlayerCommand { player_id, command })
                 .await
                 .unwrap();
         } else {
@@ -74,7 +74,7 @@ async fn handle_connection<C>(
         }
     }
     actor_sender
-        .send(server_actor::Message::PlayerDisconnected { player_id })
+        .send(room_actor::Message::PlayerDisconnected { player_id })
         .await
         .unwrap();
     log::debug!("Receiver closed");
