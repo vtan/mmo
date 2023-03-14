@@ -88,30 +88,30 @@ pub fn create_tile_vao(
 }
 
 pub fn render(state: &mut AppState) {
+    let game_state = &state.game_state;
+
     let gl = &state.gl;
     gl.clear_color(0.0, 0.0, 0.0, 1.0);
     gl.clear(GL::COLOR_BUFFER_BIT);
 
-    if state.connection.is_none() {
+    if game_state.connection.is_none() {
         return;
     }
 
     state.buffers.tile_attrib_data.clear();
-    for i in 0..16 {
-        for j in 0..16 {
-            state.buffers.tile_attrib_data.push(TileAttribs {
-                world_position: Vector2::new(i as f32, j as f32),
-                texture_position: Vector2::new(0.0, 0.0),
-                texture_index: 0,
-            });
-        }
+    for (x, y) in game_state.tiles.iter().copied() {
+        state.buffers.tile_attrib_data.push(TileAttribs {
+            world_position: Vector2::new(x as f32, y as f32),
+            texture_position: Vector2::new(0.0, 0.0),
+            texture_index: 0,
+        });
     }
     state.buffers.tile_attrib_data.push(TileAttribs {
-        world_position: state.player_position,
+        world_position: game_state.player_position,
         texture_position: Vector2::new(0.0, 0.0),
         texture_index: 1,
     });
-    for other_position in state.other_positions.values() {
+    for other_position in game_state.other_positions.values() {
         let attribs = TileAttribs {
             world_position: *other_position,
             texture_position: Vector2::new(

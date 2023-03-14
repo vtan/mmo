@@ -18,8 +18,19 @@ struct Player {
     position: Vector2<f32>,
 }
 
-pub async fn run(mut messages: mpsc::Receiver<Message>) {
+pub async fn run(room_id: u64, mut messages: mpsc::Receiver<Message>) {
+    log::debug!("Spawned for room {room_id}");
+
     let mut players: HashMap<u64, Player> = HashMap::new();
+    let tiles = {
+        let mut v = vec![];
+        for x in 0..16 {
+            for y in 0..16 {
+                v.push((x, y));
+            }
+        }
+        v
+    };
 
     while let Some(message) = messages.recv().await {
         match message {
@@ -30,6 +41,12 @@ pub async fn run(mut messages: mpsc::Receiver<Message>) {
                     connection: connection.clone(),
                     position: player_position,
                 };
+                player
+                    .connection
+                    .send(PlayerEvent::SyncRoom { room_id, tiles: tiles.clone() })
+                    .await
+                    .unwrap(); // TODO: unwrap
+
                 for player in players.values() {
                     connection
                         .send(PlayerEvent::PlayerMoved {
@@ -37,7 +54,7 @@ pub async fn run(mut messages: mpsc::Receiver<Message>) {
                             position: player.position,
                         })
                         .await
-                        .unwrap();
+                        .unwrap(); // TODO: unwrap
                 }
                 for observer in players.values() {
                     if observer.id != player_id {
@@ -45,7 +62,7 @@ pub async fn run(mut messages: mpsc::Receiver<Message>) {
                             .connection
                             .send(PlayerEvent::PlayerMoved { player_id, position: player_position })
                             .await
-                            .unwrap();
+                            .unwrap(); // TODO: unwrap
                     }
                 }
                 players.insert(player_id, player);
@@ -57,7 +74,7 @@ pub async fn run(mut messages: mpsc::Receiver<Message>) {
                         .connection
                         .send(PlayerEvent::PlayerDisappeared { player_id })
                         .await
-                        .unwrap();
+                        .unwrap(); // TODO: unwrap
                 }
             }
             Message::PlayerCommand { player_id, command } => {
@@ -74,4 +91,13 @@ pub async fn run(mut messages: mpsc::Receiver<Message>) {
             }
         }
     }
+
+    if !players.is_empty() {
+        log::warn!(
+            "Terminating room {room_id} but still has {len} players",
+            len = players.len()
+        );
+    }
+
+    log::debug!("Terminated for room {room_id}");
 }

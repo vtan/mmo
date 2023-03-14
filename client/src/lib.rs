@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use game_state::GameState;
 use js_sys::{ArrayBuffer, Uint8Array};
 use nalgebra::Vector2;
 use texture::load_texture;
@@ -16,6 +17,7 @@ use crate::fps_counter::FpsCounter;
 mod app_event;
 mod app_state;
 mod fps_counter;
+mod game_state;
 mod render;
 mod shader;
 mod texture;
@@ -94,10 +96,13 @@ pub async fn start() -> Result<(), JsValue> {
         textures,
         vaos,
         buffers,
-        ticks: 0,
-        connection: None,
-        player_position: Vector2::new(0.0, 0.0),
-        other_positions: HashMap::new(),
+        game_state: GameState {
+            connection: None,
+            room_id: 0,
+            tiles: vec![],
+            player_position: Vector2::new(0.0, 0.0),
+            other_positions: HashMap::new(),
+        },
     };
     let events = Rc::new(RefCell::new(vec![]));
 

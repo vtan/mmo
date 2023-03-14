@@ -1,11 +1,9 @@
-use std::collections::HashMap;
-
-use mmo_common::player_command::PlayerCommand;
 use nalgebra::Vector2;
 use web_sys::{
     WebGl2RenderingContext, WebGlBuffer, WebGlProgram, WebGlUniformLocation, WebGlVertexArrayObject,
 };
 
+use crate::game_state::GameState;
 use crate::texture::Texture;
 
 pub struct AppState {
@@ -16,10 +14,7 @@ pub struct AppState {
     pub textures: Textures,
     pub vaos: Vaos,
     pub buffers: Buffers,
-    pub ticks: u64,
-    pub connection: Option<Box<dyn Fn(PlayerCommand)>>,
-    pub player_position: Vector2<f32>,
-    pub other_positions: HashMap<u64, Vector2<f32>>,
+    pub game_state: GameState,
 }
 
 pub struct AttribLocations {
