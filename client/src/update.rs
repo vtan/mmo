@@ -33,6 +33,11 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
 
 fn update_server_event(game_state: &mut GameState, event: PlayerEvent) {
     match event {
+        PlayerEvent::Ping { sequence_number, sent_at } => {
+            if let Some(ws_sender) = &game_state.connection {
+                ws_sender(PlayerCommand::Pong { sequence_number, ping_sent_at: sent_at });
+            }
+        }
         PlayerEvent::SyncRoom { room_id, tiles } => {
             game_state.room_id = room_id;
             game_state.tiles = tiles;

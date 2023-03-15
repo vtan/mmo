@@ -81,6 +81,9 @@ pub async fn run(room_id: u64, mut messages: mpsc::Receiver<Message>) {
                 for (recipient_id, player) in players.iter() {
                     if *recipient_id != player_id {
                         match command {
+                            PlayerCommand::Pong { .. } => {
+                                log::error!("Room actor received pong");
+                            }
                             PlayerCommand::Move { position } => {
                                 let event = PlayerEvent::PlayerMoved { player_id, position };
                                 player.connection.send(event).await.unwrap();
