@@ -1,9 +1,4 @@
-unstable_features = true
-
 chain_width = 80
 single_line_if_else_max_width = 60
 struct_lit_width = 60
 struct_variant_width = 60
-
-imports_granularity = "Module"
-group_imports = "StdExternalCrate"
