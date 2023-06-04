@@ -2,15 +2,23 @@ mod client_connection;
 mod room_actor;
 mod server_actor;
 
+use std::net::SocketAddr;
 use std::time::{Duration, SystemTime};
 
-use tokio::io;
+use axum::extract::{State, WebSocketUpgrade};
+use axum::response::IntoResponse;
+use axum::routing::get;
+use axum::Router;
 use tokio::sync::{broadcast, mpsc};
 use tokio::time::{Instant, MissedTickBehavior};
-use warp::Filter;
+
+struct AppState {
+    server_actor_sender: mpsc::Sender<server_actor::Message>,
+    tick_sender: broadcast::Sender<(SystemTime, Duration)>,
+}
 
 #[tokio::main]
-async fn main() -> io::Result<()> {
+async fn main() -> anyhow::Result<()> {
     pretty_env_logger::init();
 
     let start_monotonic = Instant::now();
@@ -31,15 +39,22 @@ async fn main() -> io::Result<()> {
     let (server_actor_sender, server_actor_receiver) = mpsc::channel::<server_actor::Message>(4096);
     tokio::spawn(async move { server_actor::run(server_actor_receiver).await });
 
-    let routes = warp::path!("api" / "ws").and(warp::ws()).map(move |ws: warp::ws::Ws| {
-        let message_sender = server_actor_sender.clone();
-        let tick_receiver = tick_sender.subscribe();
-        ws.on_upgrade(move |websocket| {
-            client_connection::handle(websocket, message_sender, tick_receiver)
-        })
-    });
+    let app_state = Box::leak(Box::new(AppState { server_actor_sender, tick_sender }));
 
-    let socket_addr = ([0, 0, 0, 0], 8081);
-    warp::serve(routes).run(socket_addr).await;
+    let app = Router::new().route("/api/ws", get(ws_handler)).with_state(app_state);
+
+    axum::Server::bind(&SocketAddr::from(([0, 0, 0, 0], 8081)))
+        .serve(app.into_make_service_with_connect_info::<SocketAddr>())
+        .await?;
+
     Ok(())
+}
+
+async fn ws_handler(
+    ws_upgrade: WebSocketUpgrade,
+    State(app): State<&'static AppState>,
+) -> impl IntoResponse {
+    let message_sender = app.server_actor_sender.clone();
+    let tick_receiver = app.tick_sender.subscribe();
+    ws_upgrade.on_upgrade(move |ws| client_connection::handle(ws, message_sender, tick_receiver))
 }

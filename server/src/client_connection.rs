@@ -2,13 +2,14 @@ use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
+use axum::extract::ws;
+use axum::extract::ws::WebSocket;
 use bincode::config::{Limit, LittleEndian, Varint};
 use futures_util::stream::SplitSink;
 use futures_util::{SinkExt, StreamExt};
 use mmo_common::player_command::PlayerCommand;
 use mmo_common::player_event::PlayerEvent;
 use tokio::sync::{broadcast, mpsc};
-use warp::ws::{self, WebSocket};
 
 use crate::server_actor;
 
@@ -70,9 +71,8 @@ pub async fn handle(
         .unwrap();
 
     while let Some(Ok(message)) = ws_stream.next().await {
-        if message.is_binary() {
-            let bytes = message.as_bytes();
-            let (command, _) = bincode::decode_from_slice(bytes, BINCODE_CONFIG).unwrap();
+        if let ws::Message::Binary(bytes) = message {
+            let (command, _) = bincode::decode_from_slice(&bytes, BINCODE_CONFIG).unwrap();
             log::debug!("{player_id} {command:?}");
 
             match command {
@@ -106,5 +106,5 @@ async fn send_player_event(event: PlayerEvent, ws_sink: &mut SplitSink<WebSocket
     let encoded = bincode::encode_to_vec(event, BINCODE_CONFIG)
         .map_err(|e| e.to_string())
         .unwrap();
-    ws_sink.send(warp::ws::Message::binary(encoded)).await.unwrap(); // TODO: unwrap
+    ws_sink.send(ws::Message::Binary(encoded)).await.unwrap(); // TODO: unwrap
 }
