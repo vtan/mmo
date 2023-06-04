@@ -7,11 +7,7 @@ jobs:
     name: Build server
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          override: true
+      - uses: actions/checkout@v3
       - uses: actions-rs/cargo@v1
         with:
           command: build
@@ -21,12 +17,7 @@ jobs:
     name: Build client
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          target: wasm32-unknown-unknown
-          override: true
+      - uses: actions/checkout@v3
       - uses: actions-rs/cargo@v1
         with:
           command: build
@@ -36,12 +27,7 @@ jobs:
     name: Check formatting
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          override: true
-      - run: rustup component add rustfmt
+      - uses: actions/checkout@v3
       - uses: actions-rs/cargo@v1
         with:
           command: fmt
