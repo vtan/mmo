@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
-use bincode::config::{Limit, LittleEndian, Varint, WriteFixedArrayLength};
+use bincode::config::{Limit, LittleEndian, Varint};
 use futures_util::stream::SplitSink;
 use futures_util::{SinkExt, StreamExt};
 use mmo_common::player_command::PlayerCommand;
@@ -14,12 +14,8 @@ use crate::server_actor;
 
 static NEXT_PLAYER_ID: AtomicU64 = AtomicU64::new(0);
 
-const BINCODE_CONFIG: bincode::config::Configuration<
-    LittleEndian,
-    Varint,
-    WriteFixedArrayLength,
-    Limit<32_768>,
-> = bincode::config::standard().with_limit::<32_768>();
+const BINCODE_CONFIG: bincode::config::Configuration<LittleEndian, Varint, Limit<32_768>> =
+    bincode::config::standard().with_limit::<32_768>();
 
 pub async fn handle(
     ws: WebSocket,
