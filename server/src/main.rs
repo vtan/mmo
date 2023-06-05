@@ -1,5 +1,7 @@
 mod client_connection;
 mod room_actor;
+mod room_logic;
+mod room_state;
 mod server_actor;
 
 use std::net::SocketAddr;

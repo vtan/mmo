@@ -7,7 +7,7 @@ use axum::extract::ws::WebSocket;
 use bincode::config::{Limit, LittleEndian, Varint};
 use futures_util::stream::SplitSink;
 use futures_util::{SinkExt, StreamExt};
-use mmo_common::player_command::PlayerCommand;
+use mmo_common::player_command::{GlobalCommand, PlayerCommand};
 use mmo_common::player_event::PlayerEvent;
 use tokio::sync::{broadcast, mpsc};
 
@@ -73,10 +73,12 @@ pub async fn handle(
     while let Some(Ok(message)) = ws_stream.next().await {
         if let ws::Message::Binary(bytes) = message {
             let (command, _) = bincode::decode_from_slice(&bytes, BINCODE_CONFIG).unwrap();
-            log::debug!("{player_id} {command:?}");
+            //log::debug!("{player_id} {command:?}");
 
             match command {
-                PlayerCommand::Pong { sequence_number, ping_sent_at } => {
+                PlayerCommand::GlobalCommand {
+                    command: GlobalCommand::Pong { sequence_number, ping_sent_at },
+                } => {
                     let expected = next_ping_sequence_number.load(Ordering::SeqCst) - 1;
                     if expected == sequence_number {
                     } else {
@@ -106,5 +108,6 @@ async fn send_player_event(event: PlayerEvent, ws_sink: &mut SplitSink<WebSocket
     let encoded = bincode::encode_to_vec(event, BINCODE_CONFIG)
         .map_err(|e| e.to_string())
         .unwrap();
-    ws_sink.send(ws::Message::Binary(encoded)).await.unwrap(); // TODO: unwrap
+    // TODO: this happens with ConnectionClosed sometimes
+    ws_sink.send(ws::Message::Binary(encoded)).await.unwrap();
 }

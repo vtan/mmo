@@ -98,8 +98,7 @@ pub async fn start() -> Result<(), JsValue> {
         buffers,
         game_state: GameState {
             connection: None,
-            room_id: 0,
-            tiles: vec![],
+            room: None,
             player_position: Vector2::new(0.0, 0.0),
             other_positions: HashMap::new(),
         },

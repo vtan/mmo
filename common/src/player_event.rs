@@ -1,6 +1,8 @@
 use bincode::{Decode, Encode};
 use nalgebra::Vector2;
 
+use crate::room::RoomSync;
+
 #[derive(Debug, Clone, Encode, Decode)]
 pub enum PlayerEvent {
     Ping {
@@ -8,8 +10,9 @@ pub enum PlayerEvent {
         sent_at: u64,
     },
     SyncRoom {
-        room_id: u64,
-        tiles: Vec<(i32, i32)>,
+        room: RoomSync,
+        #[bincode(with_serde)]
+        players: Vec<(u64, Vector2<f32>)>,
     },
     PlayerMoved {
         player_id: u64,

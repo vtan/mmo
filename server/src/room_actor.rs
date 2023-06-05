@@ -1,106 +1,137 @@
 use std::collections::HashMap;
 
-use mmo_common::player_command::PlayerCommand;
+use mmo_common::player_command::RoomCommand;
 use mmo_common::player_event::PlayerEvent;
+use mmo_common::room::{RoomSync, Tile, TileIndex};
 use nalgebra::Vector2;
 use tokio::sync::mpsc;
+
+use crate::room_logic;
+use crate::room_state::{Portal, RoomState, RoomWriter, UpstreamMessage};
 
 #[derive(Debug)]
 pub enum Message {
     PlayerConnected { player_id: u64, connection: mpsc::Sender<PlayerEvent> },
     PlayerDisconnected { player_id: u64 },
-    PlayerCommand { player_id: u64, command: PlayerCommand },
+    PlayerCommand { player_id: u64, command: RoomCommand },
 }
 
-struct Player {
-    id: u64,
-    connection: mpsc::Sender<PlayerEvent>,
-    position: Vector2<f32>,
-}
-
-pub async fn run(room_id: u64, mut messages: mpsc::Receiver<Message>) {
+pub async fn run(
+    room_id: u64,
+    mut messages: mpsc::Receiver<Message>,
+    upstream_sender: mpsc::Sender<UpstreamMessage>,
+) {
     log::debug!("Spawned for room {room_id}");
 
-    let mut players: HashMap<u64, Player> = HashMap::new();
-    let tiles = {
-        let mut v = vec![];
-        for x in 0..16 {
-            for y in 0..16 {
-                v.push((x, y));
+    let mut state = {
+        let room_sync = if room_id == 0 {
+            RoomSync {
+                room_id,
+                size: Vector2::new(8, 8),
+                tiles: (0..8)
+                    .flat_map(move |x| {
+                        (0..8).filter_map(move |y| {
+                            if x >= 2 && x < 5 && y >= 2 && y < 5 {
+                                Some(Tile {
+                                    position: Vector2::new(x, y),
+                                    tile_index: TileIndex(21),
+                                })
+                            } else if y < 7 || x == 4 {
+                                Some(Tile {
+                                    position: Vector2::new(x, y),
+                                    tile_index: TileIndex(0),
+                                })
+                            } else {
+                                None
+                            }
+                        })
+                    })
+                    .collect(),
             }
-        }
-        v
+        } else {
+            RoomSync {
+                room_id,
+                size: Vector2::new(8, 8),
+                tiles: (0..8)
+                    .flat_map(move |x| {
+                        (0..8).filter_map(move |y| {
+                            if x >= 2 && x <= 5 && y >= 2 && y <= 5 && y != 4 {
+                                Some(Tile {
+                                    position: Vector2::new(x, y),
+                                    tile_index: TileIndex(21),
+                                })
+                            } else if y > 0 || x == 4 {
+                                Some(Tile {
+                                    position: Vector2::new(x, y),
+                                    tile_index: TileIndex(0),
+                                })
+                            } else {
+                                None
+                            }
+                        })
+                    })
+                    .collect(),
+            }
+        };
+
+        let portals = if room_id == 0 {
+            vec![Portal { position: Vector2::new(4, 7), target_room_id: 1 }]
+        } else {
+            vec![Portal { position: Vector2::new(4, 0), target_room_id: 0 }]
+        };
+        RoomState { room: room_sync, portals, players: HashMap::new() }
     };
+    let mut writer = RoomWriter::new();
 
     while let Some(message) = messages.recv().await {
         match message {
             Message::PlayerConnected { player_id, connection } => {
-                let player_position = Vector2::new(0.0, 0.0);
-                let player = Player {
-                    id: player_id,
-                    connection: connection.clone(),
-                    position: player_position,
-                };
-                player
-                    .connection
-                    .send(PlayerEvent::SyncRoom { room_id, tiles: tiles.clone() })
-                    .await
-                    .unwrap(); // TODO: unwrap
+                room_logic::on_connect(player_id, connection, &mut state, &mut writer);
+                flush_writer(&mut writer, &state, &upstream_sender).await;
+            }
 
-                for player in players.values() {
-                    connection
-                        .send(PlayerEvent::PlayerMoved {
-                            player_id: player.id,
-                            position: player.position,
-                        })
-                        .await
-                        .unwrap(); // TODO: unwrap
-                }
-                for observer in players.values() {
-                    if observer.id != player_id {
-                        observer
-                            .connection
-                            .send(PlayerEvent::PlayerMoved { player_id, position: player_position })
-                            .await
-                            .unwrap(); // TODO: unwrap
-                    }
-                }
-                players.insert(player_id, player);
-            }
             Message::PlayerDisconnected { player_id } => {
-                players.remove(&player_id);
-                for observer in players.values() {
-                    observer
-                        .connection
-                        .send(PlayerEvent::PlayerDisappeared { player_id })
-                        .await
-                        .unwrap(); // TODO: unwrap
-                }
+                room_logic::on_disconnect(player_id, &mut state, &mut writer);
+                flush_writer(&mut writer, &state, &upstream_sender).await;
             }
+
             Message::PlayerCommand { player_id, command } => {
-                for (recipient_id, player) in players.iter() {
-                    if *recipient_id != player_id {
-                        match command {
-                            PlayerCommand::Pong { .. } => {
-                                log::error!("Room actor received pong");
-                            }
-                            PlayerCommand::Move { position } => {
-                                let event = PlayerEvent::PlayerMoved { player_id, position };
-                                player.connection.send(event).await.unwrap();
-                            }
-                        }
-                    }
+                if state.players.contains_key(&player_id) {
+                    room_logic::on_command(player_id, command, &mut state, &mut writer);
+                    flush_writer(&mut writer, &state, &upstream_sender).await;
+                } else {
+                    log::error!("Player not found: {player_id}");
                 }
             }
         }
     }
 
-    if !players.is_empty() {
+    if !state.players.is_empty() {
         log::warn!(
             "Terminating room {room_id} but still has {len} players",
-            len = players.len()
+            len = state.players.len()
         );
     }
 
     log::debug!("Terminated for room {room_id}");
+}
+
+// TODO: less awaits?
+async fn flush_writer(
+    writer: &mut RoomWriter,
+    state: &RoomState,
+    upstream_sender: &mpsc::Sender<UpstreamMessage>,
+) {
+    for (player_id, events) in writer.events.drain() {
+        if let Some(player) = state.players.get(&player_id) {
+            for event in events {
+                player.connection.send(event).await.unwrap(); // TODO: unwrap
+            }
+        } else {
+            log::error!("Player not found: {player_id}");
+        }
+    }
+    for message in writer.upstream_messages.drain(..) {
+        upstream_sender.send(message).await.unwrap(); // TODO: unwrap
+    }
 }

@@ -1,4 +1,4 @@
-use mmo_common::player_command::PlayerCommand;
+use mmo_common::player_command::{GlobalCommand, PlayerCommand, RoomCommand};
 use mmo_common::player_event::PlayerEvent;
 use nalgebra::Vector2;
 
@@ -9,8 +9,14 @@ use crate::game_state::GameState;
 pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
     let move_player = |state: &mut AppState, delta: Vector2<f32>| {
         state.game_state.player_position += delta;
-        if let Some(ws_sender) = &state.game_state.connection {
-            ws_sender(PlayerCommand::Move { position: state.game_state.player_position });
+        if let Some(room) = &state.game_state.room {
+            if let Some(ws_sender) = &state.game_state.connection {
+                let command = PlayerCommand::RoomCommand {
+                    room_id: room.room_id,
+                    command: RoomCommand::Move { position: state.game_state.player_position },
+                };
+                ws_sender(command);
+            }
         }
     };
     for event in events {
@@ -35,12 +41,15 @@ fn update_server_event(game_state: &mut GameState, event: PlayerEvent) {
     match event {
         PlayerEvent::Ping { sequence_number, sent_at } => {
             if let Some(ws_sender) = &game_state.connection {
-                ws_sender(PlayerCommand::Pong { sequence_number, ping_sent_at: sent_at });
+                let command = PlayerCommand::GlobalCommand {
+                    command: GlobalCommand::Pong { sequence_number, ping_sent_at: sent_at },
+                };
+                ws_sender(command);
             }
         }
-        PlayerEvent::SyncRoom { room_id, tiles } => {
-            game_state.room_id = room_id;
-            game_state.tiles = tiles;
+        PlayerEvent::SyncRoom { room, players } => {
+            game_state.room = Some(room);
+            game_state.other_positions = players.into_iter().collect();
         }
         PlayerEvent::PlayerMoved { player_id, position } => {
             game_state.other_positions.insert(player_id, position);
