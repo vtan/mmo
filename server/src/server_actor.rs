@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use mmo_common::player_command::{GlobalCommand, PlayerCommand};
 use mmo_common::player_event::PlayerEvent;
 use tokio::sync::mpsc;
+use tracing::instrument;
 
 use crate::{room_actor, room_state};
 
@@ -11,6 +12,16 @@ pub enum Message {
     PlayerConnected { player_id: u64, connection: mpsc::Sender<PlayerEvent> },
     PlayerDisconnected { player_id: u64 },
     PlayerCommand { player_id: u64, command: PlayerCommand },
+}
+
+impl Message {
+    pub fn player_id(&self) -> u64 {
+        match self {
+            Message::PlayerConnected { player_id, .. } => *player_id,
+            Message::PlayerDisconnected { player_id } => *player_id,
+            Message::PlayerCommand { player_id, .. } => *player_id,
+        }
+    }
 }
 
 struct State {
@@ -29,6 +40,7 @@ struct Room {
     sender: mpsc::Sender<room_actor::Message>,
 }
 
+#[instrument(skip_all)]
 pub async fn run(mut messages: mpsc::Receiver<Message>) {
     let (room_actor_upstream_sender, mut room_actor_upstream_receiver) =
         mpsc::channel::<room_state::UpstreamMessage>(4096);
@@ -57,6 +69,7 @@ pub async fn run(mut messages: mpsc::Receiver<Message>) {
     }
 }
 
+#[instrument(skip_all, fields(player_id = message.player_id()))]
 async fn handle_message(state: &mut State, message: Message) {
     match message {
         Message::PlayerConnected { player_id, connection } => {
@@ -85,13 +98,13 @@ async fn handle_message(state: &mut State, message: Message) {
                         .unwrap(); // TODO: unwrap
                 } else {
                     tracing::warn!(
-                        "Player {player_id} disconnected but room {room_id} not found",
+                        "Player disconnected but room {room_id} not found",
                         room_id = player.room_id
                     );
                     remove_room_if_empty(state, room_id);
                 }
             } else {
-                tracing::warn!("Player {player_id} disconnected but not found");
+                tracing::warn!("Player disconnected but not found");
             }
         }
         Message::PlayerCommand { player_id, command: PlayerCommand::GlobalCommand { command } } => {
@@ -111,9 +124,9 @@ async fn handle_message(state: &mut State, message: Message) {
                         .unwrap()
                 }
                 Some(_) => {
-                    tracing::warn!("Got command from {player_id} with wrong room id {room_id}")
+                    tracing::warn!("Got command with wrong room id {room_id}")
                 }
-                None => tracing::error!("Player {player_id} sent command but not found"),
+                None => tracing::error!("Player sent command but not found"),
             }
         }
     }
@@ -146,7 +159,7 @@ async fn handle_upstream_message(state: &mut State, message: room_state::Upstrea
                     .await
                     .unwrap(); // TODO: unwrap
             } else {
-                tracing::error!("Player {player_id} not found");
+                tracing::error!("Player not found");
             }
             remove_room_if_empty(state, sender_room_id);
         }

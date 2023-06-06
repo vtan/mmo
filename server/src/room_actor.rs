@@ -5,6 +5,7 @@ use mmo_common::player_event::PlayerEvent;
 use mmo_common::room::{RoomSync, Tile, TileIndex};
 use nalgebra::Vector2;
 use tokio::sync::mpsc;
+use tracing::instrument;
 
 use crate::room_logic;
 use crate::room_state::{Portal, RoomState, RoomWriter, UpstreamMessage};
@@ -16,12 +17,13 @@ pub enum Message {
     PlayerCommand { player_id: u64, command: RoomCommand },
 }
 
+#[instrument(skip_all, fields(room_id = room_id))]
 pub async fn run(
     room_id: u64,
     mut messages: mpsc::Receiver<Message>,
     upstream_sender: mpsc::Sender<UpstreamMessage>,
 ) {
-    tracing::debug!("Spawned for room {room_id}");
+    tracing::debug!("Spawned");
 
     let mut state = {
         let room_sync = if room_id == 0 {
@@ -100,20 +102,17 @@ pub async fn run(
                     room_logic::on_command(player_id, command, &mut state, &mut writer);
                     flush_writer(&mut writer, &state, &upstream_sender).await;
                 } else {
-                    tracing::error!("Player not found: {player_id}");
+                    tracing::error!(player_id, "Player not found");
                 }
             }
         }
     }
 
     if !state.players.is_empty() {
-        tracing::warn!(
-            "Terminating room {room_id} but still has {len} players",
-            len = state.players.len()
-        );
+        tracing::warn!("Terminating but still have {} players", state.players.len());
     }
 
-    tracing::debug!("Terminated for room {room_id}");
+    tracing::debug!("Terminated");
 }
 
 // TODO: less awaits?
@@ -128,7 +127,7 @@ async fn flush_writer(
                 player.connection.send(event).await.unwrap(); // TODO: unwrap
             }
         } else {
-            tracing::error!("Player not found: {player_id}");
+            tracing::error!(player_id, "Player not found");
         }
     }
     for message in writer.upstream_messages.drain(..) {

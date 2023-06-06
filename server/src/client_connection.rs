@@ -9,17 +9,18 @@ use futures_util::{SinkExt, StreamExt};
 use mmo_common::player_command::{GlobalCommand, PlayerCommand};
 use mmo_common::player_event::PlayerEvent;
 use tokio::sync::{broadcast, mpsc};
+use tracing::instrument;
 
 use crate::server_actor;
 
 static NEXT_PLAYER_ID: AtomicU64 = AtomicU64::new(0);
 
+#[instrument(skip_all)]
 pub async fn handle(
     ws: WebSocket,
     server_actor_sender: mpsc::Sender<server_actor::Message>,
     mut tick_receiver: broadcast::Receiver<(SystemTime, Duration)>,
 ) {
-    tracing::debug!("New connection");
     let player_id = NEXT_PLAYER_ID.fetch_add(1, Ordering::SeqCst);
 
     let next_ping_sequence_number = Arc::new(AtomicU32::new(0));
@@ -58,7 +59,6 @@ pub async fn handle(
             }
         }
         ws_sink.close().await.unwrap(); // TODO: unwrap
-        tracing::debug!("Sender closed");
     });
 
     server_actor_sender
@@ -69,16 +69,18 @@ pub async fn handle(
     while let Some(Ok(message)) = ws_stream.next().await {
         if let ws::Message::Binary(bytes) = message {
             let command = postcard::from_bytes(&bytes).unwrap(); // TODO unwrap
-                                                                 //tracing::debug!("{player_id} {command:?}");
 
             match command {
                 PlayerCommand::GlobalCommand {
-                    command: GlobalCommand::Pong { sequence_number, ping_sent_at },
+                    command: GlobalCommand::Pong { sequence_number, .. },
                 } => {
                     let expected = next_ping_sequence_number.load(Ordering::SeqCst) - 1;
                     if expected == sequence_number {
                     } else {
-                        tracing::debug!("Overdue pong from {player_id}: got {sequence_number}, expected {expected}");
+                        tracing::debug!(
+                            player_id,
+                            "Overdue pong from: got {sequence_number}, expected {expected}"
+                        );
                     }
                 }
                 command => {
