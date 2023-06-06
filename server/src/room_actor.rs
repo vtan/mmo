@@ -12,9 +12,18 @@ use crate::room_state::{Portal, RoomState, RoomWriter, UpstreamMessage};
 
 #[derive(Debug)]
 pub enum Message {
-    PlayerConnected { player_id: u64, connection: mpsc::Sender<PlayerEvent> },
-    PlayerDisconnected { player_id: u64 },
-    PlayerCommand { player_id: u64, command: RoomCommand },
+    PlayerConnected {
+        player_id: u64,
+        connection: mpsc::Sender<PlayerEvent>,
+        position: Vector2<u32>,
+    },
+    PlayerDisconnected {
+        player_id: u64,
+    },
+    PlayerCommand {
+        player_id: u64,
+        command: RoomCommand,
+    },
 }
 
 #[instrument(skip_all, fields(room_id = room_id))]
@@ -77,9 +86,17 @@ pub async fn run(
         };
 
         let portals = if room_id == 0 {
-            vec![Portal { position: Vector2::new(4, 7), target_room_id: 1 }]
+            vec![Portal {
+                position: Vector2::new(4, 7),
+                target_room_id: 1,
+                target_position: Vector2::new(4, 1),
+            }]
         } else {
-            vec![Portal { position: Vector2::new(4, 0), target_room_id: 0 }]
+            vec![Portal {
+                position: Vector2::new(4, 0),
+                target_room_id: 0,
+                target_position: Vector2::new(4, 6),
+            }]
         };
         RoomState { room: room_sync, portals, players: HashMap::new() }
     };
@@ -87,8 +104,8 @@ pub async fn run(
 
     while let Some(message) = messages.recv().await {
         match message {
-            Message::PlayerConnected { player_id, connection } => {
-                room_logic::on_connect(player_id, connection, &mut state, &mut writer);
+            Message::PlayerConnected { player_id, connection, position } => {
+                room_logic::on_connect(player_id, connection, position, &mut state, &mut writer);
                 flush_writer(&mut writer, &state, &upstream_sender).await;
             }
 

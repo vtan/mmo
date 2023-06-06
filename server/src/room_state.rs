@@ -22,6 +22,7 @@ pub struct Player {
 pub struct Portal {
     pub position: Vector2<u32>,
     pub target_room_id: u64,
+    pub target_position: Vector2<u32>,
 }
 
 #[derive(Debug, Clone)]
@@ -49,5 +50,10 @@ impl RoomWriter {
 #[derive(Debug, Clone)]
 pub enum UpstreamMessage {
     // TODO: add target position
-    PlayerLeftRoom { sender_room_id: u64, player_id: u64, target_room_id: u64 },
+    PlayerLeftRoom {
+        sender_room_id: u64,
+        player_id: u64,
+        target_room_id: u64,
+        target_position: Vector2<u32>,
+    },
 }

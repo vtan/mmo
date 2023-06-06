@@ -9,10 +9,15 @@ use crate::room_state::{Player, RoomState, RoomWriter, UpstreamMessage};
 pub fn on_connect(
     player_id: u64,
     connection: mpsc::Sender<PlayerEvent>,
+    position: Vector2<u32>,
     state: &mut RoomState,
     writer: &mut RoomWriter,
 ) {
-    let player = Player { id: player_id, connection, position: Vector2::new(0.0, 0.0) };
+    let player = Player {
+        id: player_id,
+        connection,
+        position: position.map(|a| a as _),
+    };
     player_entered(player, state, writer);
 }
 
@@ -22,6 +27,7 @@ fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter
         player_id,
         PlayerEvent::SyncRoom {
             room: state.room.clone(),
+            position: player.position,
             players: state.players.iter().map(|(k, v)| (*k, v.position)).collect(),
         },
     );
@@ -64,11 +70,13 @@ pub fn on_command(
 
             if let Some(portal) = portal {
                 let target_room_id = portal.target_room_id;
+                let target_position = portal.target_position;
                 player_left(player_id, state, writer);
                 writer.upstream_messages.push(UpstreamMessage::PlayerLeftRoom {
                     sender_room_id: state.room.room_id,
                     player_id,
                     target_room_id,
+                    target_position,
                 });
             } else {
                 state.players.entry(player_id).and_modify(|p| p.position = position);

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use mmo_common::player_command::{GlobalCommand, PlayerCommand};
 use mmo_common::player_event::PlayerEvent;
+use nalgebra::Vector2;
 use tokio::sync::mpsc;
 use tracing::instrument;
 
@@ -84,7 +85,11 @@ async fn handle_message(state: &mut State, message: Message) {
 
             let room = get_or_create_room(state, start_room_id);
             room.sender
-                .send(room_actor::Message::PlayerConnected { player_id, connection })
+                .send(room_actor::Message::PlayerConnected {
+                    player_id,
+                    connection,
+                    position: Vector2::new(0, 0),
+                })
                 .await
                 .unwrap(); // TODO: unwrap
         }
@@ -146,6 +151,7 @@ async fn handle_upstream_message(state: &mut State, message: room_state::Upstrea
             sender_room_id,
             player_id,
             target_room_id,
+            target_position,
         } => {
             // TODO: propagate to other players
             if let Some(player) = state.players.get_mut(&player_id) {
@@ -155,7 +161,11 @@ async fn handle_upstream_message(state: &mut State, message: room_state::Upstrea
                 let target_room = get_or_create_room(state, target_room_id);
                 target_room
                     .sender
-                    .send(room_actor::Message::PlayerConnected { player_id, connection })
+                    .send(room_actor::Message::PlayerConnected {
+                        player_id,
+                        connection,
+                        position: target_position,
+                    })
                     .await
                     .unwrap(); // TODO: unwrap
             } else {

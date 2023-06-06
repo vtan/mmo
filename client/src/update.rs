@@ -47,8 +47,9 @@ fn update_server_event(game_state: &mut GameState, event: PlayerEvent) {
                 ws_sender(command);
             }
         }
-        PlayerEvent::SyncRoom { room, players } => {
+        PlayerEvent::SyncRoom { room, position, players } => {
             game_state.room = Some(room);
+            game_state.player_position = position;
             game_state.other_positions = players.into_iter().collect();
         }
         PlayerEvent::PlayerMoved { player_id, position } => {
