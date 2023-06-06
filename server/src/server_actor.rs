@@ -84,14 +84,14 @@ async fn handle_message(state: &mut State, message: Message) {
                         .await
                         .unwrap(); // TODO: unwrap
                 } else {
-                    log::warn!(
+                    tracing::warn!(
                         "Player {player_id} disconnected but room {room_id} not found",
                         room_id = player.room_id
                     );
                     remove_room_if_empty(state, room_id);
                 }
             } else {
-                log::warn!("Player {player_id} disconnected but not found");
+                tracing::warn!("Player {player_id} disconnected but not found");
             }
         }
         Message::PlayerCommand { player_id, command: PlayerCommand::GlobalCommand { command } } => {
@@ -110,8 +110,10 @@ async fn handle_message(state: &mut State, message: Message) {
                         .await
                         .unwrap()
                 }
-                Some(_) => log::warn!("Got command from {player_id} with wrong room id {room_id}"),
-                None => log::error!("Player {player_id} sent command but not found"),
+                Some(_) => {
+                    tracing::warn!("Got command from {player_id} with wrong room id {room_id}")
+                }
+                None => tracing::error!("Player {player_id} sent command but not found"),
             }
         }
     }
@@ -120,7 +122,7 @@ async fn handle_message(state: &mut State, message: Message) {
 async fn handle_global_command(state: &mut State, player_id: u64, message: GlobalCommand) {
     match message {
         GlobalCommand::Pong { .. } => {
-            log::error!("Received pong in server actor")
+            tracing::error!("Received pong in server actor")
         }
     }
 }
@@ -144,7 +146,7 @@ async fn handle_upstream_message(state: &mut State, message: room_state::Upstrea
                     .await
                     .unwrap(); // TODO: unwrap
             } else {
-                log::error!("Player {player_id} not found");
+                tracing::error!("Player {player_id} not found");
             }
             remove_room_if_empty(state, sender_room_id);
         }

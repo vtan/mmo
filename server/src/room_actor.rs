@@ -21,7 +21,7 @@ pub async fn run(
     mut messages: mpsc::Receiver<Message>,
     upstream_sender: mpsc::Sender<UpstreamMessage>,
 ) {
-    log::debug!("Spawned for room {room_id}");
+    tracing::debug!("Spawned for room {room_id}");
 
     let mut state = {
         let room_sync = if room_id == 0 {
@@ -100,20 +100,20 @@ pub async fn run(
                     room_logic::on_command(player_id, command, &mut state, &mut writer);
                     flush_writer(&mut writer, &state, &upstream_sender).await;
                 } else {
-                    log::error!("Player not found: {player_id}");
+                    tracing::error!("Player not found: {player_id}");
                 }
             }
         }
     }
 
     if !state.players.is_empty() {
-        log::warn!(
+        tracing::warn!(
             "Terminating room {room_id} but still has {len} players",
             len = state.players.len()
         );
     }
 
-    log::debug!("Terminated for room {room_id}");
+    tracing::debug!("Terminated for room {room_id}");
 }
 
 // TODO: less awaits?
@@ -128,7 +128,7 @@ async fn flush_writer(
                 player.connection.send(event).await.unwrap(); // TODO: unwrap
             }
         } else {
-            log::error!("Player not found: {player_id}");
+            tracing::error!("Player not found: {player_id}");
         }
     }
     for message in writer.upstream_messages.drain(..) {

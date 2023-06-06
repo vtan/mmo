@@ -42,7 +42,7 @@ fn player_left(player_id: u64, state: &mut RoomState, writer: &mut RoomWriter) {
             PlayerEvent::PlayerDisappeared { player_id },
         );
     } else {
-        log::error!("Player not found: {player_id}");
+        tracing::error!("Player not found: {player_id}");
     }
 }
 

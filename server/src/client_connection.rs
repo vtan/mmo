@@ -19,7 +19,7 @@ pub async fn handle(
     server_actor_sender: mpsc::Sender<server_actor::Message>,
     mut tick_receiver: broadcast::Receiver<(SystemTime, Duration)>,
 ) {
-    log::debug!("New connection");
+    tracing::debug!("New connection");
     let player_id = NEXT_PLAYER_ID.fetch_add(1, Ordering::SeqCst);
 
     let next_ping_sequence_number = Arc::new(AtomicU32::new(0));
@@ -58,7 +58,7 @@ pub async fn handle(
             }
         }
         ws_sink.close().await.unwrap(); // TODO: unwrap
-        log::debug!("Sender closed");
+        tracing::debug!("Sender closed");
     });
 
     server_actor_sender
@@ -69,7 +69,7 @@ pub async fn handle(
     while let Some(Ok(message)) = ws_stream.next().await {
         if let ws::Message::Binary(bytes) = message {
             let command = postcard::from_bytes(&bytes).unwrap(); // TODO unwrap
-                                                                 //log::debug!("{player_id} {command:?}");
+                                                                 //tracing::debug!("{player_id} {command:?}");
 
             match command {
                 PlayerCommand::GlobalCommand {
@@ -78,7 +78,7 @@ pub async fn handle(
                     let expected = next_ping_sequence_number.load(Ordering::SeqCst) - 1;
                     if expected == sequence_number {
                     } else {
-                        log::debug!("Overdue pong from {player_id}: got {sequence_number}, expected {expected}");
+                        tracing::debug!("Overdue pong from {player_id}: got {sequence_number}, expected {expected}");
                     }
                 }
                 command => {
@@ -89,7 +89,7 @@ pub async fn handle(
                 }
             }
         } else {
-            log::warn!("Unexpected websocket message type");
+            tracing::warn!("Unexpected websocket message type");
             break;
         }
     }
@@ -97,7 +97,7 @@ pub async fn handle(
         .send(server_actor::Message::PlayerDisconnected { player_id })
         .await
         .unwrap(); // TODO: unwrap
-    log::debug!("Receiver closed");
+    tracing::debug!("Receiver closed");
 }
 
 async fn send_player_event(event: &PlayerEvent, ws_sink: &mut SplitSink<WebSocket, ws::Message>) {

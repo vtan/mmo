@@ -21,7 +21,7 @@ struct AppState {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    pretty_env_logger::init();
+    tracing_subscriber::fmt::init();
 
     let start_monotonic = Instant::now();
 
