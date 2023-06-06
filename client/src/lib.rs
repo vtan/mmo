@@ -30,8 +30,6 @@ static QUAD_VERTICES: [f32; 8] = [1.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0];
 
 #[wasm_bindgen(start)]
 pub async fn start() -> Result<(), JsValue> {
-    let bincode_config = bincode::config::standard().with_limit::<32_768>();
-
     let window = web_sys::window().ok_or("No window")?;
     let document = window.document().ok_or("No document")?;
     let canvas = document.get_element_by_id("canvas").ok_or("No canvas")?;
@@ -116,7 +114,7 @@ pub async fn start() -> Result<(), JsValue> {
         let ws = ws.clone();
         Closure::once_into_js(move || {
             let sender = Box::new(move |command| {
-                let bytes = bincode::encode_to_vec(command, bincode_config).unwrap();
+                let bytes = postcard::to_stdvec(&command).unwrap();
                 ws.send_with_u8_array(&bytes).unwrap();
             });
             (*events).borrow_mut().push(AppEvent::WebsocketConnected { sender });
@@ -149,7 +147,7 @@ pub async fn start() -> Result<(), JsValue> {
         Closure::<dyn FnMut(_)>::new(move |ws_event: MessageEvent| {
             if let Ok(buf) = ws_event.data().dyn_into::<ArrayBuffer>() {
                 let bytes = Uint8Array::new(&buf).to_vec();
-                let (message, _) = bincode::decode_from_slice(&bytes, bincode_config).unwrap();
+                let message = postcard::from_bytes(&bytes).unwrap();
                 let app_event = AppEvent::WebsocketMessage { message };
                 (*events).borrow_mut().push(app_event);
             } else {

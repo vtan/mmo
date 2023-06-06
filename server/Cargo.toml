@@ -6,8 +6,8 @@ edition = "2021"
 [dependencies]
 mmo-common = { path = "../common" }
 
-bincode = { version = "2.0.0-rc.1", features = ["serde"] }
 nalgebra = { version = "0.31", features = ["serde-serialize"] }
+postcard = { version = "1.0", features = ["use-std"] }
 
 anyhow = "1.0.71"
 axum = { version = "0.6.18", features = ["ws", "tracing"] }

@@ -4,7 +4,6 @@ use std::time::{Duration, SystemTime};
 
 use axum::extract::ws;
 use axum::extract::ws::WebSocket;
-use bincode::config::{Limit, LittleEndian, Varint};
 use futures_util::stream::SplitSink;
 use futures_util::{SinkExt, StreamExt};
 use mmo_common::player_command::{GlobalCommand, PlayerCommand};
@@ -14,9 +13,6 @@ use tokio::sync::{broadcast, mpsc};
 use crate::server_actor;
 
 static NEXT_PLAYER_ID: AtomicU64 = AtomicU64::new(0);
-
-const BINCODE_CONFIG: bincode::config::Configuration<LittleEndian, Varint, Limit<32_768>> =
-    bincode::config::standard().with_limit::<32_768>();
 
 pub async fn handle(
     ws: WebSocket,
@@ -39,7 +35,7 @@ pub async fn handle(
             tokio::select! {
                 event = event_receiver.recv() => {
                     if let Some(event) = event {
-                        send_player_event(event, &mut ws_sink).await;
+                        send_player_event(&event, &mut ws_sink).await;
                     } else {
                         break;
                     }
@@ -53,7 +49,7 @@ pub async fn handle(
                                 sequence_number,
                                 sent_at: since_start.as_millis() as u64
                             };
-                            send_player_event(event, &mut ws_sink).await;
+                            send_player_event(&event, &mut ws_sink).await;
 
                             ticks_since_last_ping = 0;
                         }
@@ -72,8 +68,8 @@ pub async fn handle(
 
     while let Some(Ok(message)) = ws_stream.next().await {
         if let ws::Message::Binary(bytes) = message {
-            let (command, _) = bincode::decode_from_slice(&bytes, BINCODE_CONFIG).unwrap();
-            //log::debug!("{player_id} {command:?}");
+            let command = postcard::from_bytes(&bytes).unwrap(); // TODO unwrap
+                                                                 //log::debug!("{player_id} {command:?}");
 
             match command {
                 PlayerCommand::GlobalCommand {
@@ -104,10 +100,8 @@ pub async fn handle(
     log::debug!("Receiver closed");
 }
 
-async fn send_player_event(event: PlayerEvent, ws_sink: &mut SplitSink<WebSocket, ws::Message>) {
-    let encoded = bincode::encode_to_vec(event, BINCODE_CONFIG)
-        .map_err(|e| e.to_string())
-        .unwrap();
+async fn send_player_event(event: &PlayerEvent, ws_sink: &mut SplitSink<WebSocket, ws::Message>) {
+    let encoded = postcard::to_stdvec(&event).unwrap();
     // TODO: this happens with ConnectionClosed sometimes
     ws_sink.send(ws::Message::Binary(encoded)).await.unwrap();
 }
