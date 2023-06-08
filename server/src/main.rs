@@ -1,4 +1,5 @@
 mod client_connection;
+mod player;
 mod room_actor;
 mod room_logic;
 mod room_state;

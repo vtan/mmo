@@ -1,7 +1,17 @@
+use std::ops::Deref;
+
 use nalgebra::Vector2;
 use serde::{Deserialize, Serialize};
 
 use crate::room::RoomSync;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlayerEventEnvelope<T>
+where
+    T: Deref<Target = PlayerEvent>,
+{
+    pub events: Vec<T>,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PlayerEvent {

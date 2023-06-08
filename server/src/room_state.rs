@@ -1,8 +1,9 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
+
+use crate::player::PlayerConnection;
 
 use mmo_common::{player_event::PlayerEvent, room::RoomSync};
 use nalgebra::Vector2;
-use tokio::sync::mpsc;
 
 #[derive(Debug, Clone)]
 pub struct RoomState {
@@ -14,7 +15,7 @@ pub struct RoomState {
 #[derive(Debug, Clone)]
 pub struct Player {
     pub id: u64,
-    pub connection: mpsc::Sender<PlayerEvent>,
+    pub connection: PlayerConnection,
     pub position: Vector2<f32>,
 }
 
@@ -27,7 +28,7 @@ pub struct Portal {
 
 #[derive(Debug, Clone)]
 pub struct RoomWriter {
-    pub events: HashMap<u64, Vec<PlayerEvent>>,
+    pub events: HashMap<u64, Vec<Arc<PlayerEvent>>>,
     pub upstream_messages: Vec<UpstreamMessage>,
 }
 
@@ -37,10 +38,11 @@ impl RoomWriter {
     }
 
     pub fn tell(&mut self, player_id: u64, event: PlayerEvent) {
-        self.events.entry(player_id).or_default().push(event);
+        self.events.entry(player_id).or_default().push(Arc::new(event));
     }
 
     pub fn tell_many(&mut self, player_ids: impl Iterator<Item = u64>, event: PlayerEvent) {
+        let event = Arc::new(event);
         for player_id in player_ids {
             self.events.entry(player_id).or_default().push(event.clone());
         }

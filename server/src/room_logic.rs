@@ -1,14 +1,16 @@
 use mmo_common::{player_command::RoomCommand, player_event::PlayerEvent};
 use nalgebra::Vector2;
-use tokio::sync::mpsc;
 use tracing::instrument;
 
-use crate::room_state::{Player, RoomState, RoomWriter, UpstreamMessage};
+use crate::{
+    player::PlayerConnection,
+    room_state::{Player, RoomState, RoomWriter, UpstreamMessage},
+};
 
 #[instrument(skip_all, fields(player_id = player_id))]
 pub fn on_connect(
     player_id: u64,
-    connection: mpsc::Sender<PlayerEvent>,
+    connection: PlayerConnection,
     position: Vector2<u32>,
     state: &mut RoomState,
     writer: &mut RoomWriter,

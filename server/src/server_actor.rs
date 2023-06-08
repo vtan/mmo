@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use mmo_common::player_command::{GlobalCommand, PlayerCommand};
 use mmo_common::player_event::PlayerEvent;
@@ -6,11 +7,12 @@ use nalgebra::Vector2;
 use tokio::sync::mpsc;
 use tracing::instrument;
 
+use crate::player::PlayerConnection;
 use crate::{room_actor, room_state};
 
 #[derive(Debug)]
 pub enum Message {
-    PlayerConnected { player_id: u64, connection: mpsc::Sender<PlayerEvent> },
+    PlayerConnected { player_id: u64, connection: PlayerConnection },
     PlayerDisconnected { player_id: u64 },
     PlayerCommand { player_id: u64, command: PlayerCommand },
 }
@@ -34,7 +36,7 @@ struct State {
 struct Player {
     id: u64,
     room_id: u64,
-    connection: mpsc::Sender<PlayerEvent>,
+    connection: mpsc::Sender<Vec<Arc<PlayerEvent>>>,
 }
 
 struct Room {

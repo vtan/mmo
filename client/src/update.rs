@@ -1,5 +1,5 @@
 use mmo_common::player_command::{GlobalCommand, PlayerCommand, RoomCommand};
-use mmo_common::player_event::PlayerEvent;
+use mmo_common::player_event::{PlayerEvent, PlayerEventEnvelope};
 use nalgebra::Vector2;
 
 use crate::app_event::AppEvent;
@@ -31,9 +31,15 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
             AppEvent::WebsocketConnected { sender } => state.game_state.connection = Some(sender),
             AppEvent::WebsocketDisconnected => state.game_state.connection = None,
             AppEvent::WebsocketMessage { message } => {
-                update_server_event(&mut state.game_state, message)
+                update_server_events(&mut state.game_state, message)
             }
         }
+    }
+}
+
+fn update_server_events(game_state: &mut GameState, events: PlayerEventEnvelope<Box<PlayerEvent>>) {
+    for event in events.events {
+        update_server_event(game_state, *event);
     }
 }
 

@@ -1,9 +1,9 @@
 use mmo_common::player_command::PlayerCommand;
-use mmo_common::player_event::PlayerEvent;
+use mmo_common::player_event::{PlayerEvent, PlayerEventEnvelope};
 
 pub enum AppEvent {
     KeyDown { code: String },
     WebsocketConnected { sender: Box<dyn Fn(PlayerCommand)> },
     WebsocketDisconnected,
-    WebsocketMessage { message: PlayerEvent },
+    WebsocketMessage { message: PlayerEventEnvelope<Box<PlayerEvent>> },
 }

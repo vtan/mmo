@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
 use mmo_common::player_command::RoomCommand;
-use mmo_common::player_event::PlayerEvent;
 use mmo_common::room::{RoomSync, Tile, TileIndex};
 use nalgebra::Vector2;
 use tokio::sync::mpsc;
 use tracing::instrument;
 
+use crate::player::PlayerConnection;
 use crate::room_logic;
 use crate::room_state::{Portal, RoomState, RoomWriter, UpstreamMessage};
 
@@ -14,7 +14,7 @@ use crate::room_state::{Portal, RoomState, RoomWriter, UpstreamMessage};
 pub enum Message {
     PlayerConnected {
         player_id: u64,
-        connection: mpsc::Sender<PlayerEvent>,
+        connection: PlayerConnection,
         position: Vector2<u32>,
     },
     PlayerDisconnected {
@@ -140,9 +140,7 @@ async fn flush_writer(
 ) {
     for (player_id, events) in writer.events.drain() {
         if let Some(player) = state.players.get(&player_id) {
-            for event in events {
-                player.connection.send(event).await.unwrap(); // TODO: unwrap
-            }
+            player.connection.send(events).await.unwrap(); // TODO: unwrap
         } else {
             tracing::error!(player_id, "Player not found");
         }

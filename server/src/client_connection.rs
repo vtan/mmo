@@ -7,7 +7,7 @@ use axum::extract::ws::WebSocket;
 use futures_util::stream::SplitSink;
 use futures_util::{SinkExt, StreamExt};
 use mmo_common::player_command::{GlobalCommand, PlayerCommand};
-use mmo_common::player_event::PlayerEvent;
+use mmo_common::player_event::{PlayerEvent, PlayerEventEnvelope};
 use tokio::sync::{broadcast, mpsc};
 use tracing::instrument;
 
@@ -27,16 +27,17 @@ pub async fn handle(
 
     let (mut ws_sink, mut ws_stream) = ws.split();
 
-    let (event_sender, mut event_receiver) = mpsc::channel::<PlayerEvent>(64);
+    let (event_sender, mut event_receiver) = mpsc::channel::<Vec<Arc<PlayerEvent>>>(64);
     let next_ping_sequence_number_for_sender = next_ping_sequence_number.clone();
     tokio::spawn(async move {
         let next_ping_sequence_number = next_ping_sequence_number_for_sender;
         let mut ticks_since_last_ping = 0;
         loop {
             tokio::select! {
-                event = event_receiver.recv() => {
-                    if let Some(event) = event {
-                        send_player_event(&event, &mut ws_sink).await;
+                events = event_receiver.recv() => {
+                    if let Some(events) = events {
+                        let envelope = PlayerEventEnvelope { events };
+                        send_player_event(&envelope, &mut ws_sink).await;
                     } else {
                         break;
                     }
@@ -50,7 +51,10 @@ pub async fn handle(
                                 sequence_number,
                                 sent_at: since_start.as_millis() as u64
                             };
-                            send_player_event(&event, &mut ws_sink).await;
+                            let envelope = PlayerEventEnvelope {
+                                events: vec![Arc::new(event)]
+                            };
+                            send_player_event(&envelope, &mut ws_sink).await;
 
                             ticks_since_last_ping = 0;
                         }
@@ -102,8 +106,11 @@ pub async fn handle(
     tracing::debug!("Receiver closed");
 }
 
-async fn send_player_event(event: &PlayerEvent, ws_sink: &mut SplitSink<WebSocket, ws::Message>) {
-    let encoded = postcard::to_stdvec(&event).unwrap();
+async fn send_player_event(
+    envelope: &PlayerEventEnvelope<Arc<PlayerEvent>>,
+    ws_sink: &mut SplitSink<WebSocket, ws::Message>,
+) {
+    let encoded = postcard::to_stdvec(envelope).unwrap();
     // TODO: this happens with ConnectionClosed sometimes
     ws_sink.send(ws::Message::Binary(encoded)).await.unwrap();
 }
