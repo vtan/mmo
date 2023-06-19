@@ -1,10 +1,8 @@
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::rc::Rc;
 
-use game_state::GameState;
+use game_state::PartialGameState;
 use js_sys::{ArrayBuffer, Uint8Array};
-use nalgebra::Vector2;
 use texture::load_texture;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -94,12 +92,7 @@ pub async fn start() -> Result<(), JsValue> {
         textures,
         vaos,
         buffers,
-        game_state: GameState {
-            connection: None,
-            room: None,
-            player_position: Vector2::new(0.0, 0.0),
-            other_positions: HashMap::new(),
-        },
+        game_state: Err(PartialGameState::new()),
     };
     let events = Rc::new(RefCell::new(vec![]));
 
@@ -158,7 +151,7 @@ pub async fn start() -> Result<(), JsValue> {
     };
     ws.set_onmessage(Some(ws_onmessage.unchecked_ref()));
 
-    let key_listener = {
+    let keydown_listener = {
         let events = events.clone();
         Closure::<dyn FnMut(_)>::new(move |event: KeyboardEvent| {
             if !event.repeat() {
@@ -168,7 +161,17 @@ pub async fn start() -> Result<(), JsValue> {
         })
         .into_js_value()
     };
-    document.add_event_listener_with_callback("keydown", key_listener.unchecked_ref())?;
+    document.add_event_listener_with_callback("keydown", keydown_listener.unchecked_ref())?;
+
+    let keyup_listener = {
+        let events = events.clone();
+        Closure::<dyn FnMut(_)>::new(move |event: KeyboardEvent| {
+            let app_event = AppEvent::KeyUp { code: event.code() };
+            (*events).borrow_mut().push(app_event);
+        })
+        .into_js_value()
+    };
+    document.add_event_listener_with_callback("keyup", keyup_listener.unchecked_ref())?;
 
     let f = Rc::new(RefCell::new(None::<Closure<dyn FnMut()>>));
     let g = f.clone();

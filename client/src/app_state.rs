@@ -3,7 +3,7 @@ use web_sys::{
     WebGl2RenderingContext, WebGlBuffer, WebGlProgram, WebGlUniformLocation, WebGlVertexArrayObject,
 };
 
-use crate::game_state::GameState;
+use crate::game_state::{GameState, PartialGameState};
 use crate::texture::Texture;
 
 pub struct AppState {
@@ -14,7 +14,7 @@ pub struct AppState {
     pub textures: Textures,
     pub vaos: Vaos,
     pub buffers: Buffers,
-    pub game_state: GameState,
+    pub game_state: Result<GameState, PartialGameState>,
 }
 
 pub struct AttribLocations {

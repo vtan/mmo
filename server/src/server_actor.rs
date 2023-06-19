@@ -85,6 +85,11 @@ async fn handle_message(state: &mut State, message: Message) {
             };
             state.players.insert(player_id, player);
 
+            connection
+                .send(vec![Arc::new(PlayerEvent::Initial { player_id })])
+                .await
+                .unwrap(); // TODO: unwrap
+
             let room = get_or_create_room(state, start_room_id);
             room.sender
                 .send(room_actor::Message::PlayerConnected {

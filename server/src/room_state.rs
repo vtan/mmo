@@ -41,7 +41,7 @@ impl RoomWriter {
         self.events.entry(player_id).or_default().push(Arc::new(event));
     }
 
-    pub fn tell_many(&mut self, player_ids: impl Iterator<Item = u64>, event: PlayerEvent) {
+    pub fn broadcast(&mut self, player_ids: impl Iterator<Item = u64>, event: PlayerEvent) {
         let event = Arc::new(event);
         for player_id in player_ids {
             self.events.entry(player_id).or_default().push(event.clone());

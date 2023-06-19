@@ -25,20 +25,28 @@ pub fn on_connect(
 
 fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter) {
     let player_id = player.id;
-    writer.tell(
-        player_id,
-        PlayerEvent::SyncRoom {
-            room: state.room.clone(),
-            position: player.position,
-            players: state.players.iter().map(|(k, v)| (*k, v.position)).collect(),
-        },
-    );
-    writer.tell_many(
+
+    writer.broadcast(
         state.players.keys().copied().filter(|pid| *pid != player_id),
-        PlayerEvent::PlayerMoved { player_id, position: player.position },
+        PlayerEvent::PlayerMoved { player_id, position: player.position, direction: None },
     );
 
     state.players.insert(player_id, player);
+
+    writer.tell(
+        player_id,
+        PlayerEvent::SyncRoom { room: state.room.clone() },
+    );
+    for player_in_room in state.players.values() {
+        writer.tell(
+            player_id,
+            PlayerEvent::PlayerMoved {
+                player_id: player_in_room.id,
+                position: player_in_room.position,
+                direction: None,
+            },
+        );
+    }
 }
 
 #[instrument(skip_all, fields(player_id = player_id))]
@@ -48,7 +56,7 @@ pub fn on_disconnect(player_id: u64, state: &mut RoomState, writer: &mut RoomWri
 
 fn player_left(player_id: u64, state: &mut RoomState, writer: &mut RoomWriter) {
     if state.players.remove(&player_id).is_some() {
-        writer.tell_many(
+        writer.broadcast(
             state.players.keys().copied(),
             PlayerEvent::PlayerDisappeared { player_id },
         );
@@ -64,7 +72,7 @@ pub fn on_command(
     writer: &mut RoomWriter,
 ) {
     match command {
-        RoomCommand::Move { position } => {
+        RoomCommand::Move { position, direction: _ } => {
             let portal = state
                 .portals
                 .iter()
@@ -82,9 +90,9 @@ pub fn on_command(
                 });
             } else {
                 state.players.entry(player_id).and_modify(|p| p.position = position);
-                writer.tell_many(
+                writer.broadcast(
                     state.players.keys().copied().filter(|pid| *pid != player_id),
-                    PlayerEvent::PlayerMoved { player_id, position },
+                    PlayerEvent::PlayerMoved { player_id, position, direction: None },
                 );
             }
         }

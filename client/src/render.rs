@@ -88,37 +88,34 @@ pub fn create_tile_vao(
 }
 
 pub fn render(state: &mut AppState) {
-    let game_state = &state.game_state;
-
     let gl = &state.gl;
     gl.clear_color(0.0, 0.0, 0.0, 1.0);
     gl.clear(GL::COLOR_BUFFER_BIT);
 
-    if game_state.connection.is_none() {
-        return;
-    }
+    let game_state = match &state.game_state {
+        Ok(game_state) => game_state,
+        Err(_) => return,
+    };
 
     state.buffers.tile_attrib_data.clear();
 
     let tileset_width = state.textures.tileset.width / PIXELS_PER_TILE;
 
-    if let Some(room) = &game_state.room {
-        for tile in room.tiles.iter().copied() {
-            let tex_x = (tile.tile_index.0 as u32) % tileset_width;
-            let tex_y = (tile.tile_index.0 as u32) / tileset_width;
-            state.buffers.tile_attrib_data.push(TileAttribs {
-                world_position: Vector2::new(tile.position.x as f32, tile.position.y as f32),
-                texture_position: Vector2::new(
-                    tex_x as f32 / (PIXELS_PER_TILE as f32),
-                    tex_y as f32 / (PIXELS_PER_TILE as f32),
-                ),
-                texture_index: 0,
-            });
-        }
+    for tile in game_state.room.tiles.iter().copied() {
+        let tex_x = (tile.tile_index.0 as u32) % tileset_width;
+        let tex_y = (tile.tile_index.0 as u32) / tileset_width;
+        state.buffers.tile_attrib_data.push(TileAttribs {
+            world_position: Vector2::new(tile.position.x as f32, tile.position.y as f32),
+            texture_position: Vector2::new(
+                tex_x as f32 / (PIXELS_PER_TILE as f32),
+                tex_y as f32 / (PIXELS_PER_TILE as f32),
+            ),
+            texture_index: 0,
+        });
     }
 
     state.buffers.tile_attrib_data.push(TileAttribs {
-        world_position: game_state.player_position,
+        world_position: game_state.self_movement.position,
         texture_position: Vector2::new(0.0, 0.0),
         texture_index: 1,
     });
