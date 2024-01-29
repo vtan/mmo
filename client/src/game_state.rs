@@ -8,12 +8,19 @@ pub struct GameState {
     pub player_id: u64,
     pub room: RoomSync,
     pub self_movement: Movement,
-    pub other_positions: HashMap<u64, Vector2<f32>>,
+    pub other_positions: HashMap<u64, RemoteMovement>,
 }
 
 pub struct Movement {
     pub position: Vector2<f32>,
     pub direction: Option<Direction>,
+}
+
+pub struct RemoteMovement {
+    pub position: Vector2<f32>,
+    pub direction: Option<Direction>,
+    pub started_at: f32,
+    pub velocity: f32,
 }
 
 pub struct PartialGameState {

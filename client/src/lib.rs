@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use app_state::Timestamps;
 use game_state::PartialGameState;
 use js_sys::{ArrayBuffer, Uint8Array};
 use texture::load_texture;
@@ -84,6 +85,8 @@ pub async fn start() -> Result<(), JsValue> {
         tile: render::create_tile_vao(&gl, &buffers, &attrib_locations)?,
     };
 
+    let time = Timestamps { now_ms: 0.0, now: 0.0, frame_delta: 0.0 };
+
     let mut app_state = AppState {
         gl,
         program,
@@ -92,6 +95,7 @@ pub async fn start() -> Result<(), JsValue> {
         textures,
         vaos,
         buffers,
+        time,
         game_state: Err(PartialGameState::new()),
     };
     let events = Rc::new(RefCell::new(vec![]));
@@ -178,12 +182,15 @@ pub async fn start() -> Result<(), JsValue> {
 
     let w = window.clone();
     *g.borrow_mut() = Some(Closure::new(move || {
-        fps_counter.record_start();
+        let prev_time_ms = app_state.time.now_ms;
+        app_state.time.now_ms = fps_counter.record_start();
+        app_state.time.now = (0.001 * app_state.time.now_ms) as f32;
+        app_state.time.frame_delta = (0.001 * (app_state.time.now_ms - prev_time_ms)) as f32;
 
         let events = (*events).take();
 
-        render::render(&mut app_state);
         update::update(&mut app_state, events);
+        render::render(&mut app_state);
 
         w.request_animation_frame(f.borrow().as_ref().unwrap().as_ref().unchecked_ref())
             .unwrap();

@@ -24,11 +24,12 @@ impl FpsCounter {
         }
     }
 
-    pub fn record_start(&mut self) {
+    pub fn record_start(&mut self) -> f64 {
         self.sample_started = self.performance.now();
         if self.samples.is_empty() {
             self.window_started = self.sample_started;
         }
+        self.sample_started
     }
 
     pub fn record_end(&mut self) {

@@ -72,7 +72,7 @@ pub fn on_command(
     writer: &mut RoomWriter,
 ) {
     match command {
-        RoomCommand::Move { position, direction: _ } => {
+        RoomCommand::Move { position, direction } => {
             let portal = state
                 .portals
                 .iter()
@@ -92,7 +92,7 @@ pub fn on_command(
                 state.players.entry(player_id).and_modify(|p| p.position = position);
                 writer.broadcast(
                     state.players.keys().copied().filter(|pid| *pid != player_id),
-                    PlayerEvent::PlayerMoved { player_id, position, direction: None },
+                    PlayerEvent::PlayerMoved { player_id, position, direction },
                 );
             }
         }

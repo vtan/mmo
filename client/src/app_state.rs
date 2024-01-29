@@ -14,6 +14,7 @@ pub struct AppState {
     pub textures: Textures,
     pub vaos: Vaos,
     pub buffers: Buffers,
+    pub time: Timestamps,
     pub game_state: Result<GameState, PartialGameState>,
 }
 
@@ -42,6 +43,12 @@ pub struct Buffers {
     pub quad_vertex: WebGlBuffer,
     pub tile_attrib: WebGlBuffer,
     pub tile_attrib_data: Vec<TileAttribs>,
+}
+
+pub struct Timestamps {
+    pub now_ms: f64,
+    pub now: f32,
+    pub frame_delta: f32,
 }
 
 #[repr(C)]

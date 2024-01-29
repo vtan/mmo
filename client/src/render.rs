@@ -120,8 +120,16 @@ pub fn render(state: &mut AppState) {
         texture_index: 1,
     });
     for other_position in game_state.other_positions.values() {
+        let current_position = match other_position.direction {
+            Some(dir) => {
+                let mov_distance =
+                    other_position.velocity * (state.time.now - other_position.started_at);
+                other_position.position + mov_distance * dir.to_vector()
+            }
+            None => other_position.position,
+        };
         let attribs = TileAttribs {
-            world_position: *other_position,
+            world_position: current_position,
             texture_position: Vector2::new(
                 5.0 / (PIXELS_PER_TILE as f32),
                 1.0 / (PIXELS_PER_TILE as f32),

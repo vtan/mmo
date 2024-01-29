@@ -4,7 +4,7 @@ use mmo_common::player_event::{PlayerEvent, PlayerEventEnvelope};
 
 use crate::app_event::AppEvent;
 use crate::app_state::AppState;
-use crate::game_state::{GameState, PartialGameState};
+use crate::game_state::{GameState, PartialGameState, RemoteMovement};
 
 pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
     let move_player = |state: &mut AppState, direction: Direction| {
@@ -67,7 +67,7 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
             },
             AppEvent::WebsocketDisconnected => state.game_state = Err(PartialGameState::new()),
             AppEvent::WebsocketMessage { message } => match &mut state.game_state {
-                Ok(game_state) => update_server_events(game_state, message),
+                Ok(game_state) => update_server_events(game_state, state.time.now, message),
                 Err(partial) => {
                     update_partial(partial, message);
                     if let Some(full) = partial.to_full() {
@@ -80,7 +80,7 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
 
     if let Ok(game_state) = &mut state.game_state {
         if let Some(direction) = game_state.self_movement.direction {
-            game_state.self_movement.position += 0.01 * direction.to_vector();
+            game_state.self_movement.position += state.time.frame_delta * direction.to_vector();
         }
     }
 }
@@ -107,13 +107,18 @@ fn update_partial(partial: &mut PartialGameState, events: PlayerEventEnvelope<Bo
     }
 }
 
-fn update_server_events(game_state: &mut GameState, events: PlayerEventEnvelope<Box<PlayerEvent>>) {
+fn update_server_events(
+    game_state: &mut GameState,
+    now: f32,
+    events: PlayerEventEnvelope<Box<PlayerEvent>>,
+) {
     for event in events.events {
-        update_server_event(game_state, *event);
+        web_sys::console::info_1(&format!("{event:?}").into());
+        update_server_event(game_state, now, *event);
     }
 }
 
-fn update_server_event(game_state: &mut GameState, event: PlayerEvent) {
+fn update_server_event(game_state: &mut GameState, now: f32, event: PlayerEvent) {
     match event {
         PlayerEvent::Ping { sequence_number, sent_at } => {
             let command = PlayerCommand::GlobalCommand {
@@ -125,8 +130,11 @@ fn update_server_event(game_state: &mut GameState, event: PlayerEvent) {
         PlayerEvent::SyncRoom { room } => {
             game_state.room = room;
         }
-        PlayerEvent::PlayerMoved { player_id, position, direction: _ } => {
-            game_state.other_positions.insert(player_id, position);
+        PlayerEvent::PlayerMoved { player_id, position, direction } => {
+            let started_at = now;
+            let velocity = 1.0;
+            let remote_movement = RemoteMovement { position, direction, started_at, velocity };
+            game_state.other_positions.insert(player_id, remote_movement);
         }
         PlayerEvent::PlayerDisappeared { player_id } => {
             game_state.other_positions.remove(&player_id);
