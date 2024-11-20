@@ -25,6 +25,9 @@ mod update;
 static VERTEX_SHADER: &str = include_str!("shader-vert.glsl");
 static FRAGMENT_SHADER: &str = include_str!("shader-frag.glsl");
 
+static VERTEX_SHADER2: &str = include_str!("shader2-vert.glsl");
+static FRAGMENT_SHADER2: &str = include_str!("shader2-frag.glsl");
+
 static QUAD_VERTICES: [f32; 8] = [1.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0];
 
 #[wasm_bindgen(start)]
@@ -48,7 +51,13 @@ pub async fn start() -> Result<(), JsValue> {
     let vert_shader = shader::compile(&gl, GL::VERTEX_SHADER, VERTEX_SHADER)?;
     let frag_shader = shader::compile(&gl, GL::FRAGMENT_SHADER, FRAGMENT_SHADER)?;
     let program = shader::link(&gl, &vert_shader, &frag_shader)?;
-    gl.use_program(Some(&program));
+    //gl.use_program(Some(&program));
+
+    let program2 = {
+        let vert_shader = shader::compile(&gl, GL::VERTEX_SHADER, VERTEX_SHADER2)?;
+        let frag_shader = shader::compile(&gl, GL::FRAGMENT_SHADER, FRAGMENT_SHADER2)?;
+        shader::link(&gl, &vert_shader, &frag_shader)?
+    };
 
     let attrib_locations = AttribLocations {
         position: gl.get_attrib_location(&program, "position") as u32,
@@ -57,12 +66,20 @@ pub async fn start() -> Result<(), JsValue> {
             .get_attrib_location(&program, "instanceTextureCoordOffset")
             as u32,
         instance_texture_index: gl.get_attrib_location(&program, "instanceTextureIndex") as u32,
+        //
+        position2: gl.get_attrib_location(&program2, "position") as u32,
+        texture_position2: gl.get_attrib_location(&program2, "texturePosition") as u32,
     };
     let uniform_locations = UniformLocations {
         view_projection: gl
             .get_uniform_location(&program, "viewProjection")
             .ok_or("No uniform location")?,
         sampler: gl.get_uniform_location(&program, "sampler").ok_or("No uniform location")?,
+        //
+        view_projection2: gl
+            .get_uniform_location(&program2, "viewProjection")
+            .ok_or("No uniform location")?,
+        sampler2: gl.get_uniform_location(&program2, "sampler").ok_or("No uniform location")?,
     };
     let textures = Textures {
         tileset: load_texture(&gl, "/assets/tileset.png").await?,
@@ -72,6 +89,7 @@ pub async fn start() -> Result<(), JsValue> {
         quad_vertex: gl.create_buffer().ok_or("Failed to create buffer")?,
         tile_attrib: gl.create_buffer().ok_or("Failed to create buffer")?,
         tile_attrib_data: vec![],
+        textured_vertex: gl.create_buffer().ok_or("Failed to create buffer")?,
     };
 
     gl.bind_buffer(GL::ARRAY_BUFFER, Some(&buffers.quad_vertex));
@@ -83,6 +101,7 @@ pub async fn start() -> Result<(), JsValue> {
 
     let vaos = Vaos {
         tile: render::create_tile_vao(&gl, &buffers, &attrib_locations)?,
+        textured_vertex: render::create_textured_vertex_vao(&gl, &buffers, &attrib_locations)?,
     };
 
     let time = Timestamps { now_ms: 0.0, now: 0.0, frame_delta: 0.0 };
@@ -90,6 +109,7 @@ pub async fn start() -> Result<(), JsValue> {
     let mut app_state = AppState {
         gl,
         program,
+        program2,
         attrib_locations,
         uniform_locations,
         textures,

@@ -113,7 +113,7 @@ fn update_server_events(
     events: PlayerEventEnvelope<Box<PlayerEvent>>,
 ) {
     for event in events.events {
-        web_sys::console::info_1(&format!("{event:?}").into());
+        //web_sys::console::info_1(&format!("{event:?}").into());
         update_server_event(game_state, now, *event);
     }
 }
