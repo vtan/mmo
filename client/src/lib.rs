@@ -5,12 +5,13 @@ use app_state::Timestamps;
 use game_state::PartialGameState;
 use js_sys::{ArrayBuffer, Uint8Array};
 use texture::load_texture;
+use vertex_buffer_renderer::VertexBufferRenderer;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::{KeyboardEvent, MessageEvent, WebGl2RenderingContext as GL, WebSocket};
 
 use crate::app_event::AppEvent;
-use crate::app_state::{AppState, AttribLocations, Buffers, Textures, UniformLocations, Vaos};
+use crate::app_state::{AppState, Textures, UniformLocations};
 use crate::fps_counter::FpsCounter;
 
 mod app_event;
@@ -22,14 +23,10 @@ mod shader;
 mod texture;
 mod update;
 mod vertex_buffer;
+mod vertex_buffer_renderer;
 
 static VERTEX_SHADER: &str = include_str!("shader-vert.glsl");
 static FRAGMENT_SHADER: &str = include_str!("shader-frag.glsl");
-
-static VERTEX_SHADER2: &str = include_str!("shader2-vert.glsl");
-static FRAGMENT_SHADER2: &str = include_str!("shader2-frag.glsl");
-
-static QUAD_VERTICES: [f32; 8] = [1.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0];
 
 #[wasm_bindgen(start)]
 pub async fn start() -> Result<(), JsValue> {
@@ -49,73 +46,43 @@ pub async fn start() -> Result<(), JsValue> {
     gl.enable(GL::BLEND);
     gl.blend_func(GL::SRC_ALPHA, GL::ONE_MINUS_SRC_ALPHA);
 
-    let vert_shader = shader::compile(&gl, GL::VERTEX_SHADER, VERTEX_SHADER)?;
-    let frag_shader = shader::compile(&gl, GL::FRAGMENT_SHADER, FRAGMENT_SHADER)?;
-    let program = shader::link(&gl, &vert_shader, &frag_shader)?;
-    //gl.use_program(Some(&program));
-
-    let program2 = {
-        let vert_shader = shader::compile(&gl, GL::VERTEX_SHADER, VERTEX_SHADER2)?;
-        let frag_shader = shader::compile(&gl, GL::FRAGMENT_SHADER, FRAGMENT_SHADER2)?;
+    let program = {
+        let vert_shader = shader::compile(&gl, GL::VERTEX_SHADER, VERTEX_SHADER)?;
+        let frag_shader = shader::compile(&gl, GL::FRAGMENT_SHADER, FRAGMENT_SHADER)?;
         shader::link(&gl, &vert_shader, &frag_shader)?
     };
+    gl.bind_attrib_location(
+        &program,
+        vertex_buffer_renderer::ATTRIB_LOC_POSITION,
+        "position",
+    );
+    gl.bind_attrib_location(
+        &program,
+        vertex_buffer_renderer::ATTRIB_LOC_TEXTURE_POSITION,
+        "texturePosition",
+    );
 
-    let attrib_locations = AttribLocations {
-        position: gl.get_attrib_location(&program, "position") as u32,
-        instance_translation: gl.get_attrib_location(&program, "instanceTranslation") as u32,
-        instance_texture_coord_offset: gl
-            .get_attrib_location(&program, "instanceTextureCoordOffset")
-            as u32,
-        instance_texture_index: gl.get_attrib_location(&program, "instanceTextureIndex") as u32,
-        //
-        position2: gl.get_attrib_location(&program2, "position") as u32,
-        texture_position2: gl.get_attrib_location(&program2, "texturePosition") as u32,
-    };
     let uniform_locations = UniformLocations {
         view_projection: gl
             .get_uniform_location(&program, "viewProjection")
             .ok_or("No uniform location")?,
         sampler: gl.get_uniform_location(&program, "sampler").ok_or("No uniform location")?,
-        //
-        view_projection2: gl
-            .get_uniform_location(&program2, "viewProjection")
-            .ok_or("No uniform location")?,
-        sampler2: gl.get_uniform_location(&program2, "sampler").ok_or("No uniform location")?,
     };
     let textures = Textures {
         tileset: load_texture(&gl, "/assets/tileset.png").await?,
         charset: load_texture(&gl, "/assets/charset.png").await?,
     };
-    let buffers = Buffers {
-        quad_vertex: gl.create_buffer().ok_or("Failed to create buffer")?,
-        tile_attrib: gl.create_buffer().ok_or("Failed to create buffer")?,
-        tile_attrib_data: vec![],
-        textured_vertex: gl.create_buffer().ok_or("Failed to create buffer")?,
-    };
 
-    gl.bind_buffer(GL::ARRAY_BUFFER, Some(&buffers.quad_vertex));
-    // Unsafe: do not allocate memory until the view is dropped
-    unsafe {
-        let buffer_view = js_sys::Float32Array::view(&QUAD_VERTICES);
-        gl.buffer_data_with_array_buffer_view(GL::ARRAY_BUFFER, &buffer_view, GL::STATIC_DRAW);
-    }
-
-    let vaos = Vaos {
-        tile: render::create_tile_vao(&gl, &buffers, &attrib_locations)?,
-        textured_vertex: render::create_textured_vertex_vao(&gl, &buffers, &attrib_locations)?,
-    };
+    let vertex_buffer_renderer = VertexBufferRenderer::new(&gl)?;
 
     let time = Timestamps { now_ms: 0.0, now: 0.0, frame_delta: 0.0 };
 
     let mut app_state = AppState {
         gl,
         program,
-        program2,
-        attrib_locations,
         uniform_locations,
         textures,
-        vaos,
-        buffers,
+        vertex_buffer_renderer,
         time,
         game_state: Err(PartialGameState::new()),
     };

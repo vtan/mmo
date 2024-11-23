@@ -1,19 +1,12 @@
 #version 300 es
 in vec2 position;
-in vec2 instanceTranslation;
-in vec2 instanceTextureCoordOffset;
-in float instanceTextureIndex;
+in vec2 texturePosition;
 
-out vec2 fragTextureCoord;
-flat out float fragTextureIndex;
+out vec2 vertTexturePosition;
 
 uniform mat4 viewProjection;
 
-// TODO: do not hardcode
-const float TILES_ON_TEXTURE = 16.0;
-
 void main() {
-    gl_Position = viewProjection * vec4(position + instanceTranslation, 0.0, 1.0);
-    fragTextureCoord = instanceTextureCoordOffset + position / TILES_ON_TEXTURE;
-    fragTextureIndex = instanceTextureIndex;
+    gl_Position = viewProjection * vec4(position, 0.0, 1.0);
+    vertTexturePosition = texturePosition;
 }
