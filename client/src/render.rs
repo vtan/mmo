@@ -1,7 +1,12 @@
-use nalgebra::{Orthographic3, Vector2};
+use std::f32::consts::PI;
+
+use nalgebra::{Orthographic3, Vector2, Vector4};
 use web_sys::WebGl2RenderingContext as GL;
 
-use crate::{app_state::AppState, vertex_buffer::TileVertexBuffer};
+use crate::{
+    app_state::AppState,
+    vertex_buffer::{LineVertexBuffer, TileVertexBuffer},
+};
 
 pub fn render(state: &mut AppState) {
     let gl = &state.gl;
@@ -39,8 +44,21 @@ pub fn render(state: &mut AppState) {
         charset_vertices.push_tile(current_position * 16.0, 5 + 16 * 1);
     }
 
+    let mut line_vertices = LineVertexBuffer::new();
+
+    for i in 0..16 {
+        let (y, x) = ((i as f32) / 16.0 * PI).sin_cos();
+        let r = (i % 2) as f32;
+        let g = (i % 3) as f32;
+        let b = (i % 5) as f32;
+        let start = Vector2::new(240.0, 135.0);
+        let end = Vector2::new(240.0 + 100.0 * x, 135.0 + 100.0 * y);
+        line_vertices.push_line(start, end, Vector4::new(r, g, b, 1.0));
+    }
+
     let tileset_vertices = tileset_vertices.vertex_buffer;
     let charset_vertices = charset_vertices.vertex_buffer;
+    let line_vertices = line_vertices.vertex_buffer;
     gl.use_program(Some(&state.program));
 
     let projection = Orthographic3::new(0.0, 480.0, 270.0, 0.0, -1.0, 1.0).to_homogeneous();
@@ -54,9 +72,12 @@ pub fn render(state: &mut AppState) {
     gl.active_texture(GL::TEXTURE0);
     gl.bind_texture(GL::TEXTURE_2D, Some(&state.textures.tileset.texture));
 
-    state.vertex_buffer_renderer.render(&tileset_vertices, gl);
+    state.vertex_buffer_renderer.render_triangles(&tileset_vertices, gl);
 
     gl.bind_texture(GL::TEXTURE_2D, Some(&state.textures.charset.texture));
 
-    state.vertex_buffer_renderer.render(&charset_vertices, gl);
+    state.vertex_buffer_renderer.render_triangles(&charset_vertices, gl);
+
+    gl.bind_texture(GL::TEXTURE_2D, Some(&state.textures.tileset.texture));
+    state.vertex_buffer_renderer.render_lines(&line_vertices, gl);
 }

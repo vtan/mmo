@@ -1,9 +1,12 @@
-use nalgebra::Vector2;
+use nalgebra::{Vector2, Vector4};
+
+pub const WHITE: Vector4<f32> = Vector4::new(1.0, 1.0, 1.0, 1.0);
 
 #[repr(C)]
 pub struct TexturedVertex {
     pub position: Vector2<f32>,
     pub texture_position: Vector2<f32>,
+    pub color: Vector4<f32>,
 }
 
 pub struct VertexBuffer {
@@ -28,6 +31,7 @@ impl VertexBuffer {
         extent: Vector2<f32>,
         texture_top_left: Vector2<f32>,
         texture_extent: Vector2<f32>,
+        color: Vector4<f32>,
     ) {
         let vs = &mut self.vertices;
         let dx = Vector2::new(extent.x, 0.0);
@@ -36,28 +40,37 @@ impl VertexBuffer {
         let dv = Vector2::new(0.0, texture_extent.y);
 
         // first triangle
-        vs.push(TexturedVertex { position: top_left, texture_position: texture_top_left });
+        vs.push(TexturedVertex {
+            position: top_left,
+            texture_position: texture_top_left,
+            color,
+        });
         vs.push(TexturedVertex {
             position: top_left + dx,
             texture_position: texture_top_left + du,
+            color,
         });
         vs.push(TexturedVertex {
             position: top_left + dy,
             texture_position: texture_top_left + dv,
+            color,
         });
 
         // second triangle
         vs.push(TexturedVertex {
             position: top_left + dx,
             texture_position: texture_top_left + du,
+            color,
         });
         vs.push(TexturedVertex {
             position: top_left + dx + dy,
             texture_position: texture_top_left + du + dv,
+            color,
         });
         vs.push(TexturedVertex {
             position: top_left + dy,
             texture_position: texture_top_left + dv,
+            color,
         });
     }
 }
@@ -91,6 +104,30 @@ impl TileVertexBuffer {
             self.tile_size_on_screen,
             texture_top_left,
             self.tile_size_on_texture,
+            Vector4::new(1.0, 1.0, 1.0, 1.0),
         );
+    }
+}
+
+pub struct LineVertexBuffer {
+    pub vertex_buffer: VertexBuffer,
+}
+
+impl LineVertexBuffer {
+    pub fn new() -> Self {
+        Self { vertex_buffer: VertexBuffer::new() }
+    }
+
+    pub fn push_line(&mut self, start: Vector2<f32>, end: Vector2<f32>, color: Vector4<f32>) {
+        self.vertex_buffer.vertices.push(TexturedVertex {
+            position: start,
+            texture_position: Vector2::new(0.0, 0.0),
+            color,
+        });
+        self.vertex_buffer.vertices.push(TexturedVertex {
+            position: end,
+            texture_position: Vector2::new(0.0, 0.0),
+            color,
+        });
     }
 }

@@ -2,11 +2,12 @@
 precision mediump float;
 
 in vec2 vertTexturePosition;
+in vec4 vertColor;
 
 out vec4 fragColor;
 
 uniform sampler2D sampler;
 
 void main() {
-    fragColor = texture(sampler, vertTexturePosition);
+    fragColor = vertColor * texture(sampler, vertTexturePosition);
 }
