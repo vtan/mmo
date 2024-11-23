@@ -66,9 +66,3 @@ pub struct TileAttribs {
     pub texture_position: Vector2<f32>,
     pub texture_index: u32,
 }
-
-#[repr(C)]
-pub struct TexturedVertex {
-    pub position: Vector2<f32>,
-    pub texture_position: Vector2<f32>,
-}

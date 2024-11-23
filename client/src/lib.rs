@@ -21,6 +21,7 @@ mod render;
 mod shader;
 mod texture;
 mod update;
+mod vertex_buffer;
 
 static VERTEX_SHADER: &str = include_str!("shader-vert.glsl");
 static FRAGMENT_SHADER: &str = include_str!("shader-frag.glsl");
