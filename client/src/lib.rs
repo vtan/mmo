@@ -4,7 +4,6 @@ use std::rc::Rc;
 use app_state::Timestamps;
 use game_state::PartialGameState;
 use js_sys::{ArrayBuffer, Uint8Array};
-use texture::load_texture;
 use vertex_buffer_renderer::VertexBufferRenderer;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -37,6 +36,7 @@ pub async fn start() -> Result<(), JsValue> {
 
     let gl = {
         let options = js_sys::Object::new();
+        js_sys::Reflect::set(&options, &"antialias".into(), &JsValue::FALSE).unwrap();
         js_sys::Reflect::set(&options, &"alpha".into(), &JsValue::FALSE).unwrap();
         canvas
             .get_context_with_context_options("webgl2", &options)?
@@ -69,8 +69,9 @@ pub async fn start() -> Result<(), JsValue> {
         sampler: gl.get_uniform_location(&program, "sampler").ok_or("No uniform location")?,
     };
     let textures = Textures {
-        tileset: load_texture(&gl, "/assets/tileset.png").await?,
-        charset: load_texture(&gl, "/assets/charset.png").await?,
+        tileset: texture::load_texture(&gl, "/assets/tileset.png").await?,
+        charset: texture::load_texture(&gl, "/assets/charset.png").await?,
+        white: texture::create_white_texture(&gl)?,
     };
 
     let vertex_buffer_renderer = VertexBufferRenderer::new(&gl)?;

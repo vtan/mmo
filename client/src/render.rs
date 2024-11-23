@@ -52,7 +52,7 @@ pub fn render(state: &mut AppState) {
         let g = (i % 3) as f32;
         let b = (i % 5) as f32;
         let start = Vector2::new(240.0, 135.0);
-        let end = Vector2::new(240.0 + 100.0 * x, 135.0 + 100.0 * y);
+        let end = Vector2::new(240.0 + 100.0 * x, 135.0 + 100.0 * y).map(|x| x.round());
         line_vertices.push_line(start, end, Vector4::new(r, g, b, 1.0));
     }
 
@@ -78,6 +78,6 @@ pub fn render(state: &mut AppState) {
 
     state.vertex_buffer_renderer.render_triangles(&charset_vertices, gl);
 
-    gl.bind_texture(GL::TEXTURE_2D, Some(&state.textures.tileset.texture));
+    gl.bind_texture(GL::TEXTURE_2D, Some(&state.textures.white.texture));
     state.vertex_buffer_renderer.render_lines(&line_vertices, gl);
 }

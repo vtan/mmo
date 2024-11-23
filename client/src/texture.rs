@@ -48,3 +48,30 @@ pub async fn load_texture(gl: &GL, uri: &str) -> Result<Texture, JsValue> {
     gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MAG_FILTER, GL::NEAREST as i32);
     Ok(Texture { texture, width, height })
 }
+
+pub fn create_white_texture(gl: &GL) -> Result<Texture, JsValue> {
+    let level = 0;
+    let internal_format = GL::RGBA;
+    let src_format = GL::RGBA;
+    let src_type = GL::UNSIGNED_BYTE;
+    let data = [255, 255, 255, 255];
+    let width = 1;
+    let height = 1;
+    let border = 0;
+    let texture = gl.create_texture().ok_or("Could not create texture")?;
+    gl.bind_texture(GL::TEXTURE_2D, Some(&texture));
+    gl.tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array(
+        GL::TEXTURE_2D,
+        level,
+        internal_format as i32,
+        width,
+        height,
+        border,
+        src_format,
+        src_type,
+        Some(&data),
+    )?;
+    gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MIN_FILTER, GL::NEAREST as i32);
+    gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MAG_FILTER, GL::NEAREST as i32);
+    Ok(Texture { texture, width: width as u32, height: height as u32 })
+}

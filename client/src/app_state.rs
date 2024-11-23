@@ -22,6 +22,7 @@ pub struct UniformLocations {
 pub struct Textures {
     pub tileset: Texture,
     pub charset: Texture,
+    pub white: Texture,
 }
 
 pub struct Timestamps {
