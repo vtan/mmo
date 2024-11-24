@@ -473,6 +473,8 @@ dependencies = [
  "mmo-common",
  "nalgebra",
  "postcard",
+ "serde",
+ "serde-wasm-bindgen",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
@@ -799,6 +801,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2113ab51b87a539ae008b5c6c02dc020ffa39afd2d83cffcb3f4eb2722cebec2"
 dependencies = [
  "serde_derive",
+]
+
+[[package]]
+name = "serde-wasm-bindgen"
+version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3b4c031cd0d9014307d82b8abf653c0290fbdaeb4c02d00c63cf52f728628bf"
+dependencies = [
+ "js-sys",
+ "serde",
+ "wasm-bindgen",
 ]
 
 [[package]]

@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use app_state::Timestamps;
+use font_atlas::FontAtlas;
 use game_state::PartialGameState;
 use js_sys::{ArrayBuffer, Uint8Array};
 use vertex_buffer_renderer::VertexBufferRenderer;
@@ -15,6 +16,8 @@ use crate::fps_counter::FpsCounter;
 
 mod app_event;
 mod app_state;
+mod fetch;
+mod font_atlas;
 mod fps_counter;
 mod game_state;
 mod render;
@@ -26,6 +29,7 @@ mod vertex_buffer_renderer;
 
 static VERTEX_SHADER: &str = include_str!("shader-vert.glsl");
 static FRAGMENT_SHADER: &str = include_str!("shader-frag.glsl");
+static TEXT_FRAGMENT_SHADER: &str = include_str!("text-frag.glsl");
 
 #[wasm_bindgen(start)]
 pub async fn start() -> Result<(), JsValue> {
@@ -62,17 +66,44 @@ pub async fn start() -> Result<(), JsValue> {
         "texturePosition",
     );
 
+    let text_program = {
+        let vert_shader = shader::compile(&gl, GL::VERTEX_SHADER, VERTEX_SHADER)?;
+        let frag_shader = shader::compile(&gl, GL::FRAGMENT_SHADER, TEXT_FRAGMENT_SHADER)?;
+        shader::link(&gl, &vert_shader, &frag_shader)?
+    };
+    // FIXME: duplication
+    gl.bind_attrib_location(
+        &text_program,
+        vertex_buffer_renderer::ATTRIB_LOC_POSITION,
+        "position",
+    );
+    gl.bind_attrib_location(
+        &text_program,
+        vertex_buffer_renderer::ATTRIB_LOC_TEXTURE_POSITION,
+        "texturePosition",
+    );
+
     let uniform_locations = UniformLocations {
         view_projection: gl
             .get_uniform_location(&program, "viewProjection")
             .ok_or("No uniform location")?,
         sampler: gl.get_uniform_location(&program, "sampler").ok_or("No uniform location")?,
+        text_view_projection: gl
+            .get_uniform_location(&text_program, "viewProjection")
+            .ok_or("No uniform location")?,
+        text_sampler: gl
+            .get_uniform_location(&text_program, "sampler")
+            .ok_or("No uniform location")?,
     };
     let textures = Textures {
-        tileset: texture::load_texture(&gl, "/assets/tileset.png").await?,
-        charset: texture::load_texture(&gl, "/assets/charset.png").await?,
+        tileset: texture::load_texture(&gl, "/assets/tileset.png", GL::NEAREST).await?,
+        charset: texture::load_texture(&gl, "/assets/charset.png", GL::NEAREST).await?,
+        font: texture::load_texture(&gl, "/assets/notosans.png", GL::LINEAR).await?,
         white: texture::create_white_texture(&gl)?,
     };
+
+    let font_atlas =
+        FontAtlas::from_meta(fetch::fetch_json(&window, "/assets/notosans.json").await?);
 
     let vertex_buffer_renderer = VertexBufferRenderer::new(&gl)?;
 
@@ -81,8 +112,10 @@ pub async fn start() -> Result<(), JsValue> {
     let mut app_state = AppState {
         gl,
         program,
+        text_program,
         uniform_locations,
         textures,
+        font_atlas,
         vertex_buffer_renderer,
         time,
         game_state: Err(PartialGameState::new()),

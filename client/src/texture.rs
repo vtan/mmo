@@ -10,7 +10,7 @@ pub struct Texture {
     pub height: u32,
 }
 
-pub async fn load_texture(gl: &GL, uri: &str) -> Result<Texture, JsValue> {
+pub async fn load_texture(gl: &GL, uri: &str, filter: u32) -> Result<Texture, JsValue> {
     let level = 0;
     let internal_format = GL::RGBA;
     let src_format = GL::RGBA;
@@ -44,8 +44,8 @@ pub async fn load_texture(gl: &GL, uri: &str) -> Result<Texture, JsValue> {
         src_type,
         &image,
     )?;
-    gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MIN_FILTER, GL::NEAREST as i32);
-    gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MAG_FILTER, GL::NEAREST as i32);
+    gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MIN_FILTER, filter as i32);
+    gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MAG_FILTER, filter as i32);
     Ok(Texture { texture, width, height })
 }
 

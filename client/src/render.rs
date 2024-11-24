@@ -5,7 +5,7 @@ use web_sys::WebGl2RenderingContext as GL;
 
 use crate::{
     app_state::AppState,
-    vertex_buffer::{LineVertexBuffer, TileVertexBuffer},
+    vertex_buffer::{LineVertexBuffer, TileVertexBuffer, VertexBuffer},
 };
 
 pub fn render(state: &mut AppState) {
@@ -51,8 +51,8 @@ pub fn render(state: &mut AppState) {
         let r = (i % 2) as f32;
         let g = (i % 3) as f32;
         let b = (i % 5) as f32;
-        let start = Vector2::new(240.0, 135.0);
-        let end = Vector2::new(240.0 + 100.0 * x, 135.0 + 100.0 * y).map(|x| x.round());
+        let start = Vector2::new(100.0, 135.0);
+        let end = Vector2::new(100.0 + 100.0 * x, 135.0 + 100.0 * y).map(|x| x.round());
         line_vertices.push_line(start, end, Vector4::new(r, g, b, 1.0));
     }
 
@@ -80,4 +80,24 @@ pub fn render(state: &mut AppState) {
 
     gl.bind_texture(GL::TEXTURE_2D, Some(&state.textures.white.texture));
     state.vertex_buffer_renderer.render_lines(&line_vertices, gl);
+
+    gl.use_program(Some(&state.text_program));
+
+    gl.uniform_matrix4fv_with_f32_array(
+        Some(&state.uniform_locations.text_view_projection),
+        false,
+        projection.as_slice(),
+    );
+    gl.uniform1i(Some(&state.uniform_locations.text_sampler), 0);
+    gl.active_texture(GL::TEXTURE0);
+    gl.bind_texture(GL::TEXTURE_2D, Some(&state.textures.font.texture));
+
+    let mut text_vertices = VertexBuffer::new();
+    for i in 0..8 {
+        let i = i as f32;
+        let pos = Vector2::new(140.0, 24.0 * i);
+        let h = 6.0 + 4.0 * i;
+        state.font_atlas.push_glyph('Q', pos, h, &mut text_vertices);
+    }
+    state.vertex_buffer_renderer.render_triangles(&text_vertices, gl);
 }

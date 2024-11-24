@@ -6,4 +6,4 @@ edition = "2021"
 [dependencies]
 nalgebra = { version = "0.31", features = ["serde-serialize"] }
 postcard = { version = "1.0", features = ["use-std"] }
-serde = { version = "1.0", features = ["rc"] }
+serde = { version = "1.0", features = ["derive", "rc"] }
