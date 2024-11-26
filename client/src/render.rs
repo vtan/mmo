@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use nalgebra::{Orthographic3, Vector2, Vector4};
+use nalgebra::{Orthographic3, Scale3, Vector2, Vector4};
 use web_sys::WebGl2RenderingContext as GL;
 
 use crate::{
@@ -18,18 +18,14 @@ pub fn render(state: &mut AppState) {
         Err(_) => return,
     };
 
-    let mut tileset_vertices =
-        TileVertexBuffer::new(Vector2::new(16.0, 16.0), Vector2::new(16, 16));
-    let mut charset_vertices =
-        TileVertexBuffer::new(Vector2::new(16.0, 16.0), Vector2::new(16, 16));
-
-    // TODO: multiplications with 16
+    let mut tileset_vertices = TileVertexBuffer::new(Vector2::new(1.0, 1.0), Vector2::new(16, 16));
+    let mut charset_vertices = TileVertexBuffer::new(Vector2::new(1.0, 1.0), Vector2::new(16, 16));
 
     for tile in game_state.room.tiles.iter().copied() {
-        tileset_vertices.push_tile((tile.position * 16).cast(), tile.tile_index.0 as u32);
+        tileset_vertices.push_tile(tile.position.cast(), tile.tile_index.0 as u32);
     }
 
-    charset_vertices.push_tile(game_state.self_movement.position * 16.0, 0);
+    charset_vertices.push_tile(game_state.self_movement.position, 0);
 
     for other_position in game_state.other_positions.values() {
         let current_position = match other_position.direction {
@@ -41,7 +37,7 @@ pub fn render(state: &mut AppState) {
             None => other_position.position,
         };
 
-        charset_vertices.push_tile(current_position * 16.0, 5 + 16 * 1);
+        charset_vertices.push_tile(current_position, 5 + 16 * 1);
     }
 
     let mut line_vertices = LineVertexBuffer::new();
@@ -61,11 +57,14 @@ pub fn render(state: &mut AppState) {
     let line_vertices = line_vertices.vertex_buffer;
     gl.use_program(Some(&state.program));
 
-    let projection = Orthographic3::new(0.0, 480.0, 270.0, 0.0, -1.0, 1.0).to_homogeneous();
+    let logical_screen_to_ndc =
+        Orthographic3::new(0.0, 480.0, 270.0, 0.0, -1.0, 1.0).to_homogeneous();
+    let tile_to_pixel = Scale3::new(16.0, 16.0, 1.0).to_homogeneous();
+    let tile_to_ndc = logical_screen_to_ndc * tile_to_pixel;
     gl.uniform_matrix4fv_with_f32_array(
         Some(&state.uniform_locations.view_projection),
         false,
-        projection.as_slice(),
+        tile_to_ndc.as_slice(),
     );
 
     gl.uniform1i(Some(&state.uniform_locations.sampler), 0);
@@ -78,6 +77,12 @@ pub fn render(state: &mut AppState) {
 
     state.vertex_buffer_renderer.render_triangles(&charset_vertices, gl);
 
+    gl.uniform_matrix4fv_with_f32_array(
+        Some(&state.uniform_locations.view_projection),
+        false,
+        logical_screen_to_ndc.as_slice(),
+    );
+
     gl.bind_texture(GL::TEXTURE_2D, Some(&state.textures.white.texture));
     state.vertex_buffer_renderer.render_lines(&line_vertices, gl);
 
@@ -86,7 +91,7 @@ pub fn render(state: &mut AppState) {
     gl.uniform_matrix4fv_with_f32_array(
         Some(&state.uniform_locations.text_view_projection),
         false,
-        projection.as_slice(),
+        logical_screen_to_ndc.as_slice(),
     );
     gl.uniform1i(Some(&state.uniform_locations.text_sampler), 0);
     gl.active_texture(GL::TEXTURE0);
@@ -95,7 +100,7 @@ pub fn render(state: &mut AppState) {
     let mut text_vertices = VertexBuffer::new();
     for i in 0..8 {
         let i = i as f32;
-        let pos = Vector2::new(140.0, 24.0 * i);
+        let pos = Vector2::new(140.0, 8.0 * i.powf(1.5));
         let h = 6.0 + 4.0 * i;
         state.font_atlas.push_glyph('Q', pos, h, &mut text_vertices);
     }

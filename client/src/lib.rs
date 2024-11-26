@@ -5,6 +5,7 @@ use app_state::Timestamps;
 use font_atlas::FontAtlas;
 use game_state::PartialGameState;
 use js_sys::{ArrayBuffer, Uint8Array};
+use nalgebra::Vector2;
 use vertex_buffer_renderer::VertexBufferRenderer;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -211,6 +212,7 @@ pub async fn start() -> Result<(), JsValue> {
 
         let events = (*events).take();
 
+        update_canvas_size(&canvas, &mut app_state.gl);
         update::update(&mut app_state, events);
         render::render(&mut app_state);
 
@@ -224,4 +226,14 @@ pub async fn start() -> Result<(), JsValue> {
         .unwrap();
 
     Ok(())
+}
+
+fn update_canvas_size(canvas: &web_sys::HtmlCanvasElement, gl: &mut GL) {
+    let client_width = canvas.client_width() as u32;
+    let client_height = canvas.client_height() as u32;
+    if (canvas.width(), canvas.height()) != (client_width, client_height) {
+        canvas.set_width(client_width);
+        canvas.set_height(client_height);
+        gl.viewport(0, 0, client_width as i32, client_height as i32);
+    }
 }
