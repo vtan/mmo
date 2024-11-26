@@ -102,7 +102,7 @@ pub fn render(state: &mut AppState) {
         let i = i as f32;
         let pos = Vector2::new(140.0, 8.0 * i.powf(1.5));
         let h = 6.0 + 4.0 * i;
-        state.font_atlas.push_glyph('Q', pos, h, &mut text_vertices);
+        state.font_atlas.push_text("Árvíztűrő tükörfúrógép", pos, h, &mut text_vertices);
     }
     state.vertex_buffer_renderer.render_triangles(&text_vertices, gl);
 }
