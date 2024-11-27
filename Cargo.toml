@@ -1,2 +1,5 @@
 [workspace]
 members = ["common", "client", "server"]
+
+[profile.dev]
+opt-level = 1
