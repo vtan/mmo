@@ -99,11 +99,28 @@ pub fn render(state: &mut AppState) {
     gl.bind_texture(GL::TEXTURE_2D, Some(&state.textures.font.texture));
 
     let mut text_vertices = VertexBuffer::new();
+
+    let fps_lines = [
+        ("FPS:", &format!("{:.0}", state.fps_counter.agg.fps)),
+        ("p50:", &format!("{:.2}ms", state.fps_counter.agg.median_ms)),
+        ("max:", &format!("{:.2}ms", state.fps_counter.agg.max_ms)),
+    ];
+    for (i, (str1, str2)) in fps_lines.iter().enumerate() {
+        let y = i as f32 * 5.5;
+        let color = Vector4::new(1.0, 1.0, 1.0, 0.6);
+        let fa = &state.font_atlas;
+        fa.push_text(str1, Vector2::new(420.0, y), 6.0, color, &mut text_vertices);
+        fa.push_text(str2, Vector2::new(432.0, y), 6.0, color, &mut text_vertices);
+    }
+
     for i in 0..8 {
         let i = i as f32;
         let pos = Vector2::new(140.0, 8.0 * i.powf(1.5));
         let h = 6.0 + 4.0 * i;
-        state.font_atlas.push_text("Árvíztűrő tükörfúrógép", pos, h, &mut text_vertices);
+        let c = Vector4::new(1.0, 1.0, 1.0, 1.0);
+        state
+            .font_atlas
+            .push_text("Árvíztűrő tükörfúrógép", pos, h, c, &mut text_vertices);
     }
     state.vertex_buffer_renderer.render_triangles(&text_vertices, gl);
 }

@@ -108,6 +108,7 @@ pub async fn start() -> Result<(), JsValue> {
     let vertex_buffer_renderer = VertexBufferRenderer::new(&gl)?;
 
     let time = Timestamps { now_ms: 0.0, now: 0.0, frame_delta: 0.0 };
+    let fps_counter = FpsCounter::new(&window);
 
     let mut app_state = AppState {
         gl,
@@ -118,11 +119,10 @@ pub async fn start() -> Result<(), JsValue> {
         font_atlas,
         vertex_buffer_renderer,
         time,
+        fps_counter,
         game_state: Err(PartialGameState::new()),
     };
     let events = Rc::new(RefCell::new(vec![]));
-
-    let mut fps_counter = FpsCounter::new(&window);
 
     // TODO: construct URL from window.location
     let ws = WebSocket::new("ws://localhost:8081/api/ws")?;
@@ -205,7 +205,7 @@ pub async fn start() -> Result<(), JsValue> {
     let w = window.clone();
     *g.borrow_mut() = Some(Closure::new(move || {
         let prev_time_ms = app_state.time.now_ms;
-        app_state.time.now_ms = fps_counter.record_start();
+        app_state.time.now_ms = app_state.fps_counter.record_start();
         app_state.time.now = (0.001 * app_state.time.now_ms) as f32;
         app_state.time.frame_delta = (0.001 * (app_state.time.now_ms - prev_time_ms)) as f32;
 
@@ -218,7 +218,7 @@ pub async fn start() -> Result<(), JsValue> {
         w.request_animation_frame(f.borrow().as_ref().unwrap().as_ref().unchecked_ref())
             .unwrap();
 
-        fps_counter.record_end();
+        app_state.fps_counter.record_end();
     }));
     window
         .request_animation_frame(g.borrow().as_ref().unwrap().as_ref().unchecked_ref())

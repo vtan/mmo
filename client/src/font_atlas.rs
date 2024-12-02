@@ -31,12 +31,13 @@ impl FontAtlas {
         text: &str,
         top_left: Vector2<f32>,
         height: f32,
+        color: Vector4<f32>,
         vertex_buffer: &mut VertexBuffer,
     ) {
         let mut cursor = top_left;
         for ch in text.chars() {
             if let Some(glyph) = self.glyphs.get(&ch) {
-                self.push_glyph(glyph, cursor, height, vertex_buffer);
+                self.push_glyph(glyph, cursor, height, color, vertex_buffer);
                 cursor.x += height / self.metrics.line_height * glyph.advance;
             }
         }
@@ -47,6 +48,7 @@ impl FontAtlas {
         glyph: &Glyph,
         top_left: Vector2<f32>,
         height: f32,
+        color: Vector4<f32>,
         vertex_buffer: &mut VertexBuffer,
     ) {
         let plane_bounds = if let Some(plane_bounds) = glyph.plane_bounds {
@@ -82,7 +84,6 @@ impl FontAtlas {
             atlas_bounds.top - atlas_bounds.bottom,
         )
         .component_div(&atlas);
-        let color = Vector4::new(1.0, 1.0, 1.0, 1.0);
         vertex_buffer.push_quad(
             screen_top_left,
             screen_extent,

@@ -1,23 +1,28 @@
 use std::cmp::Ordering;
 
-use web_sys::{Element, Performance, Window};
+use web_sys::{Performance, Window};
 
 const MILLISECS_PER_WINDOW: f64 = 1000.0;
-const OUTPUT_HEADER: &str = "p50 | p90 | p95 | max | FPS";
 
 pub struct FpsCounter {
+    pub agg: FpsCounterAgg,
     performance: Performance,
-    output_element: Option<Element>,
     window_started: f64,
     sample_started: f64,
     samples: Vec<f64>,
 }
 
+pub struct FpsCounterAgg {
+    pub fps: f32,
+    pub median_ms: f32,
+    pub max_ms: f32,
+}
+
 impl FpsCounter {
     pub fn new(window: &Window) -> FpsCounter {
         FpsCounter {
+            agg: FpsCounterAgg { fps: 0.0, median_ms: 0.0, max_ms: 0.0 },
             performance: window.performance().expect("Performance not available"),
-            output_element: window.document().and_then(|doc| doc.get_element_by_id("debug")),
             window_started: 0.0,
             sample_started: 0.0,
             samples: vec![],
@@ -46,15 +51,11 @@ impl FpsCounter {
         let len = self.samples.len();
         if len > 0 {
             self.samples.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Less));
-            let p50 = self.samples[len / 2];
-            let p90 = self.samples[len * 90 / 100];
-            let p95 = self.samples[len * 95 / 100];
-            let max = self.samples[len - 1];
-            if let Some(output_element) = &self.output_element {
-                let text =
-                    &format!("{OUTPUT_HEADER}\n{p50:.1} | {p90:.1} | {p95:.1} | {max:.1} | {len}");
-                output_element.set_inner_html(text);
-            }
+            self.agg = FpsCounterAgg {
+                fps: len as f32,
+                median_ms: self.samples[len / 2] as f32,
+                max_ms: self.samples[len - 1] as f32,
+            };
         }
     }
 }

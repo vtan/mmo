@@ -1,6 +1,7 @@
 use web_sys::{WebGl2RenderingContext, WebGlProgram, WebGlUniformLocation};
 
 use crate::font_atlas::FontAtlas;
+use crate::fps_counter::FpsCounter;
 use crate::game_state::{GameState, PartialGameState};
 use crate::texture::Texture;
 use crate::vertex_buffer_renderer::VertexBufferRenderer;
@@ -14,6 +15,7 @@ pub struct AppState {
     pub font_atlas: FontAtlas,
     pub vertex_buffer_renderer: VertexBufferRenderer,
     pub time: Timestamps,
+    pub fps_counter: FpsCounter,
     pub game_state: Result<GameState, PartialGameState>,
 }
 
