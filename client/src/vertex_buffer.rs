@@ -93,17 +93,28 @@ impl TileVertexBuffer {
     }
 
     pub fn push_tile(&mut self, top_left: Vector2<f32>, texture_index: u32) {
+        self.push_tile_multi(top_left, Vector2::new(1, 1), texture_index);
+    }
+
+    pub fn push_tile_multi(
+        &mut self,
+        top_left: Vector2<f32>,
+        tile_extent: Vector2<i32>,
+        texture_index: u32,
+    ) {
         let u = (texture_index % self.texture_columns) as f32;
         let v = (texture_index / self.texture_columns) as f32;
         let texture_top_left = Vector2::new(
             u * self.tile_size_on_texture.x,
             v * self.tile_size_on_texture.y,
         );
+        let screen_extent = self.tile_size_on_screen.component_mul(&tile_extent.cast());
+        let texture_extent = self.tile_size_on_texture.component_mul(&tile_extent.cast());
         self.vertex_buffer.push_quad(
             top_left,
-            self.tile_size_on_screen,
+            screen_extent,
             texture_top_left,
-            self.tile_size_on_texture,
+            texture_extent,
             Vector4::new(1.0, 1.0, 1.0, 1.0),
         );
     }
@@ -129,5 +140,20 @@ impl LineVertexBuffer {
             texture_position: Vector2::new(0.0, 0.0),
             color,
         });
+    }
+
+    pub fn push_rect(&mut self, top_left: Vector2<f32>, extent: Vector2<f32>, color: Vector4<f32>) {
+        self.push_line(top_left, top_left + Vector2::new(extent.x, 0.0), color);
+        self.push_line(
+            top_left + Vector2::new(extent.x, 0.0),
+            top_left + extent,
+            color,
+        );
+        self.push_line(
+            top_left + extent,
+            top_left + Vector2::new(0.0, extent.y),
+            color,
+        );
+        self.push_line(top_left + Vector2::new(0.0, extent.y), top_left, color);
     }
 }

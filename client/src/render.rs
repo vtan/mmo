@@ -1,5 +1,3 @@
-use std::f32::consts::PI;
-
 use nalgebra::{Orthographic3, Scale3, Vector2, Vector4};
 use web_sys::WebGl2RenderingContext as GL;
 
@@ -7,6 +5,8 @@ use crate::{
     app_state::AppState,
     vertex_buffer::{LineVertexBuffer, TileVertexBuffer, VertexBuffer},
 };
+
+const PLAYER_OFFSET: Vector2<f32> = Vector2::new(-0.5, -2.0);
 
 pub fn render(state: &mut AppState) {
     let gl = &state.gl;
@@ -25,8 +25,13 @@ pub fn render(state: &mut AppState) {
         tileset_vertices.push_tile(tile.position.cast(), tile.tile_index.0 as u32);
     }
 
-    charset_vertices.push_tile(game_state.self_movement.position, 0);
+    charset_vertices.push_tile_multi(
+        game_state.self_movement.position + PLAYER_OFFSET,
+        Vector2::new(1, 2),
+        0,
+    );
 
+    // TODO: calculate the position in the update function
     for other_position in game_state.other_positions.values() {
         let current_position = match other_position.direction {
             Some(dir) => {
@@ -37,20 +42,16 @@ pub fn render(state: &mut AppState) {
             None => other_position.position,
         };
 
-        charset_vertices.push_tile(current_position, 5 + 16 * 1);
+        charset_vertices.push_tile_multi(current_position + PLAYER_OFFSET, Vector2::new(1, 2), 0);
     }
 
     let mut line_vertices = LineVertexBuffer::new();
 
-    for i in 0..16 {
-        let (y, x) = ((i as f32) / 16.0 * PI).sin_cos();
-        let r = (i % 2) as f32;
-        let g = (i % 3) as f32;
-        let b = (i % 5) as f32;
-        let start = Vector2::new(100.0, 135.0);
-        let end = Vector2::new(100.0 + 100.0 * x, 135.0 + 100.0 * y).map(|x| x.round());
-        line_vertices.push_line(start, end, Vector4::new(r, g, b, 1.0));
-    }
+    line_vertices.push_rect(
+        game_state.self_movement.position - Vector2::new(0.2, 0.05),
+        Vector2::new(0.4, 0.1),
+        Vector4::new(1.0, 0.0, 1.0, 1.0),
+    );
 
     let tileset_vertices = tileset_vertices.vertex_buffer;
     let charset_vertices = charset_vertices.vertex_buffer;
@@ -77,14 +78,14 @@ pub fn render(state: &mut AppState) {
 
     state.vertex_buffer_renderer.render_triangles(&charset_vertices, gl);
 
+    gl.bind_texture(GL::TEXTURE_2D, Some(&state.textures.white.texture));
+    state.vertex_buffer_renderer.render_lines(&line_vertices, gl);
+
     gl.uniform_matrix4fv_with_f32_array(
         Some(&state.uniform_locations.view_projection),
         false,
         logical_screen_to_ndc.as_slice(),
     );
-
-    gl.bind_texture(GL::TEXTURE_2D, Some(&state.textures.white.texture));
-    state.vertex_buffer_renderer.render_lines(&line_vertices, gl);
 
     gl.use_program(Some(&state.text_program));
 
