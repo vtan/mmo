@@ -24,6 +24,7 @@ pub struct UniformLocations {
     pub sampler: WebGlUniformLocation,
     pub text_view_projection: WebGlUniformLocation,
     pub text_sampler: WebGlUniformLocation,
+    pub text_distance_range: WebGlUniformLocation,
 }
 
 pub struct Textures {

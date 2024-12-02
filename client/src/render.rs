@@ -89,6 +89,11 @@ pub fn render(state: &mut AppState) {
 
     gl.use_program(Some(&state.text_program));
 
+    gl.uniform1f(
+        Some(&state.uniform_locations.text_distance_range),
+        state.font_atlas.distance_range,
+    );
+
     gl.uniform_matrix4fv_with_f32_array(
         Some(&state.uniform_locations.text_view_projection),
         false,

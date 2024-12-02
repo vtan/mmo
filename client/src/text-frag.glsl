@@ -7,14 +7,14 @@ in vec4 vertColor;
 out vec4 fragColor;
 
 uniform sampler2D sampler;
+uniform float distanceRange;
 
 float median(vec3 v) {
     return max(min(v.x, v.y), min(max(v.x, v.y), v.z));
 }
 
 float screenPxRange() {
-    float distanceFieldRangePx = 2.0;
-    vec2 unitRange = vec2(distanceFieldRangePx) / vec2(textureSize(sampler, 0));
+    vec2 unitRange = vec2(distanceRange) / vec2(textureSize(sampler, 0));
     vec2 screenTexSize = vec2(1.0) / fwidth(vertTexturePosition);
     return max(0.5 * dot(unitRange, screenTexSize), 1.0);
 }

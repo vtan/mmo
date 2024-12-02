@@ -94,6 +94,9 @@ pub async fn start() -> Result<(), JsValue> {
         text_sampler: gl
             .get_uniform_location(&text_program, "sampler")
             .ok_or("No uniform location")?,
+        text_distance_range: gl
+            .get_uniform_location(&text_program, "distanceRange")
+            .ok_or("No uniform location")?,
     };
     let textures = Textures {
         tileset: texture::load_texture(&gl, "/assets/tileset.png", GL::NEAREST).await?,
