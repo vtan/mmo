@@ -11,27 +11,24 @@ use crate::{
 pub fn on_connect(
     player_id: u64,
     connection: PlayerConnection,
-    position: Vector2<u32>,
+    position: Vector2<f32>,
     state: &mut RoomState,
     writer: &mut RoomWriter,
 ) {
-    let player = Player {
-        id: player_id,
-        connection,
-        position: position.map(|a| a as _),
-    };
+    let player = Player { id: player_id, connection, position };
     player_entered(player, state, writer);
 }
 
 fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter) {
     let player_id = player.id;
-
-    writer.broadcast(
-        state.players.keys().copied().filter(|pid| *pid != player_id),
-        PlayerEvent::PlayerMoved { player_id, position: player.position, direction: None },
-    );
+    let player_position = player.position;
 
     state.players.insert(player_id, player);
+
+    writer.broadcast(
+        state.players.keys().copied(),
+        PlayerEvent::PlayerMoved { player_id, position: player_position, direction: None },
+    );
 
     writer.tell(
         player_id,

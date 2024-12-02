@@ -1,7 +1,5 @@
 use nalgebra::{Vector2, Vector4};
 
-pub const WHITE: Vector4<f32> = Vector4::new(1.0, 1.0, 1.0, 1.0);
-
 #[repr(C)]
 pub struct TexturedVertex {
     pub position: Vector2<f32>,

@@ -23,7 +23,7 @@ pub struct Player {
 pub struct Portal {
     pub position: Vector2<u32>,
     pub target_room_id: u64,
-    pub target_position: Vector2<u32>,
+    pub target_position: Vector2<f32>,
 }
 
 #[derive(Debug, Clone)]
@@ -56,6 +56,6 @@ pub enum UpstreamMessage {
         sender_room_id: u64,
         player_id: u64,
         target_room_id: u64,
-        target_position: Vector2<u32>,
+        target_position: Vector2<f32>,
     },
 }

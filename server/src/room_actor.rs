@@ -15,7 +15,7 @@ pub enum Message {
     PlayerConnected {
         player_id: u64,
         connection: PlayerConnection,
-        position: Vector2<u32>,
+        position: Vector2<f32>,
     },
     PlayerDisconnected {
         player_id: u64,
@@ -89,13 +89,13 @@ pub async fn run(
             vec![Portal {
                 position: Vector2::new(4, 7),
                 target_room_id: 1,
-                target_position: Vector2::new(4, 1),
+                target_position: Vector2::new(4.5, 1.5),
             }]
         } else {
             vec![Portal {
                 position: Vector2::new(4, 0),
                 target_room_id: 0,
-                target_position: Vector2::new(4, 6),
+                target_position: Vector2::new(4.5, 6.5),
             }]
         };
         RoomState { room: room_sync, portals, players: HashMap::new() }

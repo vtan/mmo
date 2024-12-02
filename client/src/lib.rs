@@ -5,7 +5,6 @@ use app_state::Timestamps;
 use font_atlas::FontAtlas;
 use game_state::PartialGameState;
 use js_sys::{ArrayBuffer, Uint8Array};
-use nalgebra::Vector2;
 use vertex_buffer_renderer::VertexBufferRenderer;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;

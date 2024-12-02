@@ -4,7 +4,7 @@ use mmo_common::player_event::{PlayerEvent, PlayerEventEnvelope};
 
 use crate::app_event::AppEvent;
 use crate::app_state::AppState;
-use crate::game_state::{GameState, PartialGameState, RemoteMovement};
+use crate::game_state::{GameState, Movement, PartialGameState, RemoteMovement};
 
 pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
     let move_player = |state: &mut AppState, direction: Direction| {
@@ -116,7 +116,9 @@ fn update_server_events(
     events: PlayerEventEnvelope<Box<PlayerEvent>>,
 ) {
     for event in events.events {
-        //web_sys::console::info_1(&format!("{event:?}").into());
+        if !matches!(*event, PlayerEvent::Ping { .. }) {
+            web_sys::console::info_1(&format!("{event:?}").into());
+        }
         update_server_event(game_state, now, *event);
     }
 }
@@ -134,10 +136,14 @@ fn update_server_event(game_state: &mut GameState, now: f32, event: PlayerEvent)
             game_state.room = room;
         }
         PlayerEvent::PlayerMoved { player_id, position, direction } => {
-            let started_at = now;
-            let velocity = game_state.client_config.player_velocity;
-            let remote_movement = RemoteMovement { position, direction, started_at, velocity };
-            game_state.other_positions.insert(player_id, remote_movement);
+            if player_id == game_state.player_id {
+                game_state.self_movement = Movement { position, direction };
+            } else {
+                let started_at = now;
+                let velocity = game_state.client_config.player_velocity;
+                let remote_movement = RemoteMovement { position, direction, started_at, velocity };
+                game_state.other_positions.insert(player_id, remote_movement);
+            }
         }
         PlayerEvent::PlayerDisappeared { player_id } => {
             game_state.other_positions.remove(&player_id);

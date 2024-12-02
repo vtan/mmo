@@ -98,7 +98,7 @@ async fn handle_message(state: &mut State, message: Message) {
                 .send(room_actor::Message::PlayerConnected {
                     player_id,
                     connection,
-                    position: Vector2::new(0, 0),
+                    position: Vector2::new(0.5, 2.5),
                 })
                 .await
                 .unwrap(); // TODO: unwrap
