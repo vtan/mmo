@@ -3,7 +3,7 @@ use std::ops::Deref;
 use nalgebra::Vector2;
 use serde::{Deserialize, Serialize};
 
-use crate::{movement::Direction, room::RoomSync};
+use crate::{client_config::ClientConfig, movement::Direction, room::RoomSync};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlayerEventEnvelope<T>
@@ -17,6 +17,7 @@ where
 pub enum PlayerEvent {
     Initial {
         player_id: u64,
+        client_config: ClientConfig,
     },
     Ping {
         sequence_number: u32,

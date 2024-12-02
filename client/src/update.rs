@@ -80,7 +80,9 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
 
     if let Ok(game_state) = &mut state.game_state {
         if let Some(direction) = game_state.self_movement.direction {
-            game_state.self_movement.position += state.time.frame_delta * direction.to_vector();
+            game_state.self_movement.position += state.time.frame_delta
+                * game_state.client_config.player_velocity
+                * direction.to_vector();
         }
     }
 }
@@ -96,8 +98,9 @@ fn update_partial(partial: &mut PartialGameState, events: PlayerEventEnvelope<Bo
                     ws_sender(command);
                 }
             }
-            PlayerEvent::Initial { player_id } => {
+            PlayerEvent::Initial { player_id, client_config } => {
                 partial.player_id = Some(player_id);
+                partial.client_config = Some(client_config);
             }
             PlayerEvent::SyncRoom { room } => {
                 partial.room = Some(room);
@@ -132,7 +135,7 @@ fn update_server_event(game_state: &mut GameState, now: f32, event: PlayerEvent)
         }
         PlayerEvent::PlayerMoved { player_id, position, direction } => {
             let started_at = now;
-            let velocity = 1.0;
+            let velocity = game_state.client_config.player_velocity;
             let remote_movement = RemoteMovement { position, direction, started_at, velocity };
             game_state.other_positions.insert(player_id, remote_movement);
         }

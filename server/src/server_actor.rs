@@ -7,7 +7,7 @@ use nalgebra::Vector2;
 use tokio::sync::mpsc;
 use tracing::instrument;
 
-use crate::player::PlayerConnection;
+use crate::player::{PlayerConnection, CLIENT_CONFIG};
 use crate::{room_actor, room_state};
 
 #[derive(Debug)]
@@ -86,7 +86,10 @@ async fn handle_message(state: &mut State, message: Message) {
             state.players.insert(player_id, player);
 
             connection
-                .send(vec![Arc::new(PlayerEvent::Initial { player_id })])
+                .send(vec![Arc::new(PlayerEvent::Initial {
+                    player_id,
+                    client_config: CLIENT_CONFIG,
+                })])
                 .await
                 .unwrap(); // TODO: unwrap
 
