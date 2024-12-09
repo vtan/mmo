@@ -13,6 +13,11 @@ pub fn render(state: &mut AppState) {
     gl.clear_color(0.0, 0.0, 0.0, 1.0);
     gl.clear(GL::COLOR_BUFFER_BIT);
 
+    let assets = match &state.assets {
+        Some(assets) => assets,
+        None => return,
+    };
+
     let game_state = match &state.game_state {
         Ok(game_state) => game_state,
         Err(_) => return,
@@ -70,15 +75,15 @@ pub fn render(state: &mut AppState) {
 
     gl.uniform1i(Some(&state.uniform_locations.sampler), 0);
     gl.active_texture(GL::TEXTURE0);
-    gl.bind_texture(GL::TEXTURE_2D, Some(&state.textures.tileset.texture));
+    gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tileset.texture));
 
     state.vertex_buffer_renderer.render_triangles(&tileset_vertices, gl);
 
-    gl.bind_texture(GL::TEXTURE_2D, Some(&state.textures.charset.texture));
+    gl.bind_texture(GL::TEXTURE_2D, Some(&assets.charset.texture));
 
     state.vertex_buffer_renderer.render_triangles(&charset_vertices, gl);
 
-    gl.bind_texture(GL::TEXTURE_2D, Some(&state.textures.white.texture));
+    gl.bind_texture(GL::TEXTURE_2D, Some(&assets.white.texture));
     state.vertex_buffer_renderer.render_lines(&line_vertices, gl);
 
     gl.uniform_matrix4fv_with_f32_array(
@@ -91,7 +96,7 @@ pub fn render(state: &mut AppState) {
 
     gl.uniform1f(
         Some(&state.uniform_locations.text_distance_range),
-        state.font_atlas.distance_range,
+        assets.font_atlas.distance_range,
     );
 
     gl.uniform_matrix4fv_with_f32_array(
@@ -101,7 +106,7 @@ pub fn render(state: &mut AppState) {
     );
     gl.uniform1i(Some(&state.uniform_locations.text_sampler), 0);
     gl.active_texture(GL::TEXTURE0);
-    gl.bind_texture(GL::TEXTURE_2D, Some(&state.textures.font.texture));
+    gl.bind_texture(GL::TEXTURE_2D, Some(&assets.font.texture));
 
     let mut text_vertices = VertexBuffer::new();
 
@@ -113,7 +118,7 @@ pub fn render(state: &mut AppState) {
     for (i, (str1, str2)) in fps_lines.iter().enumerate() {
         let y = i as f32 * 5.5;
         let color = Vector4::new(1.0, 1.0, 1.0, 0.6);
-        let fa = &state.font_atlas;
+        let fa = &assets.font_atlas;
         fa.push_text(str1, Vector2::new(420.0, y), 6.0, color, &mut text_vertices);
         fa.push_text(str2, Vector2::new(432.0, y), 6.0, color, &mut text_vertices);
     }
@@ -123,7 +128,7 @@ pub fn render(state: &mut AppState) {
         let pos = Vector2::new(140.0, 8.0 * i.powf(1.5));
         let h = 6.0 + 4.0 * i;
         let c = Vector4::new(1.0, 1.0, 1.0, 1.0);
-        state
+        assets
             .font_atlas
             .push_text("Árvíztűrő tükörfúrógép", pos, h, c, &mut text_vertices);
     }

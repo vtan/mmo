@@ -1,13 +1,14 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use mmo_common::client_config::ClientConfig;
 use mmo_common::player_command::{GlobalCommand, PlayerCommand};
 use mmo_common::player_event::PlayerEvent;
 use nalgebra::Vector2;
 use tokio::sync::mpsc;
 use tracing::instrument;
 
-use crate::player::{PlayerConnection, CLIENT_CONFIG};
+use crate::player::{self, PlayerConnection};
 use crate::{room_actor, room_state};
 
 #[derive(Debug)]
@@ -28,6 +29,7 @@ impl Message {
 }
 
 struct State {
+    client_config: ClientConfig,
     players: HashMap<u64, Player>,
     rooms: HashMap<u64, Room>,
     room_actor_upstream_sender: mpsc::Sender<room_state::UpstreamMessage>,
@@ -49,6 +51,7 @@ pub async fn run(mut messages: mpsc::Receiver<Message>) {
         mpsc::channel::<room_state::UpstreamMessage>(4096);
 
     let mut state = State {
+        client_config: player::client_config(),
         players: HashMap::new(),
         rooms: HashMap::new(),
         room_actor_upstream_sender,
@@ -88,7 +91,7 @@ async fn handle_message(state: &mut State, message: Message) {
             connection
                 .send(vec![Arc::new(PlayerEvent::Initial {
                     player_id,
-                    client_config: CLIENT_CONFIG,
+                    client_config: state.client_config.clone(),
                 })])
                 .await
                 .unwrap(); // TODO: unwrap

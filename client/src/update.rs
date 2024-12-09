@@ -4,6 +4,7 @@ use mmo_common::player_event::{PlayerEvent, PlayerEventEnvelope};
 
 use crate::app_event::AppEvent;
 use crate::app_state::AppState;
+use crate::assets;
 use crate::game_state::{GameState, Movement, PartialGameState, RemoteMovement};
 
 pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
@@ -66,15 +67,24 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
                 }
             },
             AppEvent::WebsocketDisconnected => state.game_state = Err(PartialGameState::new()),
-            AppEvent::WebsocketMessage { message } => match &mut state.game_state {
-                Ok(game_state) => update_server_events(game_state, state.time.now, message),
-                Err(partial) => {
-                    update_partial(partial, message);
-                    if let Some(full) = partial.to_full() {
-                        state.game_state = Ok(full);
+            AppEvent::WebsocketMessage { message } => {
+                update_async(state, &message);
+
+                match &mut state.game_state {
+                    Ok(game_state) => {
+                        handle_server_events(game_state, state.time.now, message);
+                    }
+                    Err(partial) => {
+                        update_partial(partial, message);
+                        if let Some(full) = partial.to_full() {
+                            state.game_state = Ok(full);
+                        }
                     }
                 }
-            },
+            }
+            AppEvent::AssetsLoaded { assets } => {
+                state.assets = Some(assets);
+            }
         }
     }
 
@@ -83,6 +93,20 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
             game_state.self_movement.position += state.time.frame_delta
                 * game_state.client_config.player_velocity
                 * direction.to_vector();
+        }
+    }
+}
+
+fn update_async(state: &mut AppState, message: &PlayerEventEnvelope<Box<PlayerEvent>>) {
+    for event in message.events.iter() {
+        if let PlayerEvent::Initial { client_config, .. } = event.as_ref() {
+            let gl = state.gl.clone();
+            let events = state.events.clone();
+            let asset_paths = client_config.asset_paths.clone();
+            wasm_bindgen_futures::spawn_local(async move {
+                let assets = assets::load(&gl, &asset_paths).await.unwrap();
+                (*events).borrow_mut().push(AppEvent::AssetsLoaded { assets });
+            });
         }
     }
 }
@@ -110,7 +134,7 @@ fn update_partial(partial: &mut PartialGameState, events: PlayerEventEnvelope<Bo
     }
 }
 
-fn update_server_events(
+fn handle_server_events(
     game_state: &mut GameState,
     now: f32,
     events: PlayerEventEnvelope<Box<PlayerEvent>>,
@@ -119,11 +143,11 @@ fn update_server_events(
         if !matches!(*event, PlayerEvent::Ping { .. }) {
             web_sys::console::info_1(&format!("{event:?}").into());
         }
-        update_server_event(game_state, now, *event);
+        handle_server_event(game_state, now, *event);
     }
 }
 
-fn update_server_event(game_state: &mut GameState, now: f32, event: PlayerEvent) {
+fn handle_server_event(game_state: &mut GameState, now: f32, event: PlayerEvent) {
     match event {
         PlayerEvent::Ping { sequence_number, sent_at } => {
             let command = PlayerCommand::GlobalCommand {

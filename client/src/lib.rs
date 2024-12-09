@@ -2,7 +2,6 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use app_state::Timestamps;
-use font_atlas::FontAtlas;
 use game_state::PartialGameState;
 use js_sys::{ArrayBuffer, Uint8Array};
 use vertex_buffer_renderer::VertexBufferRenderer;
@@ -11,11 +10,12 @@ use wasm_bindgen::JsCast;
 use web_sys::{KeyboardEvent, MessageEvent, WebGl2RenderingContext as GL, WebSocket};
 
 use crate::app_event::AppEvent;
-use crate::app_state::{AppState, Textures, UniformLocations};
+use crate::app_state::{AppState, UniformLocations};
 use crate::fps_counter::FpsCounter;
 
 mod app_event;
 mod app_state;
+mod assets;
 mod fetch;
 mod font_atlas;
 mod fps_counter;
@@ -98,15 +98,6 @@ pub async fn start() -> Result<(), JsValue> {
             .get_uniform_location(&text_program, "distanceRange")
             .ok_or("No uniform location")?,
     };
-    let textures = Textures {
-        tileset: texture::load_texture(&gl, "/assets/tileset.png", GL::NEAREST).await?,
-        charset: texture::load_texture(&gl, "/assets/charset.png", GL::NEAREST).await?,
-        font: texture::load_texture(&gl, "/assets/notosans.png", GL::LINEAR).await?,
-        white: texture::create_white_texture(&gl)?,
-    };
-
-    let font_atlas =
-        FontAtlas::from_meta(fetch::fetch_json(&window, "/assets/notosans.json").await?);
 
     let vertex_buffer_renderer = VertexBufferRenderer::new(&gl)?;
 
@@ -118,21 +109,20 @@ pub async fn start() -> Result<(), JsValue> {
         program,
         text_program,
         uniform_locations,
-        textures,
-        font_atlas,
+        assets: None,
         vertex_buffer_renderer,
         time,
         fps_counter,
+        events: Rc::new(RefCell::new(vec![])),
         game_state: Err(PartialGameState::new()),
     };
-    let events = Rc::new(RefCell::new(vec![]));
 
     // TODO: construct URL from window.location
     let ws = WebSocket::new("ws://localhost:8081/api/ws")?;
     ws.set_binary_type(web_sys::BinaryType::Arraybuffer);
 
     let ws_onopen = {
-        let events = events.clone();
+        let events = app_state.events.clone();
         let ws = ws.clone();
         Closure::once_into_js(move || {
             let sender = Box::new(move |command| {
@@ -145,7 +135,7 @@ pub async fn start() -> Result<(), JsValue> {
     ws.set_onopen(Some(ws_onopen.unchecked_ref()));
 
     let ws_onclose = {
-        let events = events.clone();
+        let events = app_state.events.clone();
         Closure::<dyn FnMut()>::new(move || {
             web_sys::console::error_1(&"Websocket disconnected".into());
             (*events).borrow_mut().push(AppEvent::WebsocketDisconnected);
@@ -155,7 +145,7 @@ pub async fn start() -> Result<(), JsValue> {
     ws.set_onclose(Some(ws_onclose.unchecked_ref()));
 
     let ws_onerror = {
-        let events = events.clone();
+        let events = app_state.events.clone();
         Closure::<dyn FnMut()>::new(move || {
             web_sys::console::error_1(&"Websocket error".into());
             (*events).borrow_mut().push(AppEvent::WebsocketDisconnected);
@@ -165,7 +155,7 @@ pub async fn start() -> Result<(), JsValue> {
     ws.set_onerror(Some(ws_onerror.unchecked_ref()));
 
     let ws_onmessage = {
-        let events = events.clone();
+        let events = app_state.events.clone();
         Closure::<dyn FnMut(_)>::new(move |ws_event: MessageEvent| {
             if let Ok(buf) = ws_event.data().dyn_into::<ArrayBuffer>() {
                 let bytes = Uint8Array::new(&buf).to_vec();
@@ -181,7 +171,7 @@ pub async fn start() -> Result<(), JsValue> {
     ws.set_onmessage(Some(ws_onmessage.unchecked_ref()));
 
     let keydown_listener = {
-        let events = events.clone();
+        let events = app_state.events.clone();
         Closure::<dyn FnMut(_)>::new(move |event: KeyboardEvent| {
             if !event.repeat() {
                 let app_event = AppEvent::KeyDown { code: event.code() };
@@ -193,7 +183,7 @@ pub async fn start() -> Result<(), JsValue> {
     document.add_event_listener_with_callback("keydown", keydown_listener.unchecked_ref())?;
 
     let keyup_listener = {
-        let events = events.clone();
+        let events = app_state.events.clone();
         Closure::<dyn FnMut(_)>::new(move |event: KeyboardEvent| {
             let app_event = AppEvent::KeyUp { code: event.code() };
             (*events).borrow_mut().push(app_event);
@@ -212,7 +202,7 @@ pub async fn start() -> Result<(), JsValue> {
         app_state.time.now = (0.001 * app_state.time.now_ms) as f32;
         app_state.time.frame_delta = (0.001 * (app_state.time.now_ms - prev_time_ms)) as f32;
 
-        let events = (*events).take();
+        let events = (*app_state.events).take();
 
         update_canvas_size(&canvas, &mut app_state.gl);
         update::update(&mut app_state, events);

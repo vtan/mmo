@@ -46,7 +46,7 @@ impl PartialGameState {
     pub fn to_full(&self) -> Option<GameState> {
         let connection = self.connection.clone()?;
         let player_id = self.player_id?;
-        let client_config = self.client_config?;
+        let client_config = self.client_config.clone()?;
         let room = self.room.clone()?;
         Some(GameState {
             connection,

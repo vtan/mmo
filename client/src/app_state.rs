@@ -1,9 +1,12 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use web_sys::{WebGl2RenderingContext, WebGlProgram, WebGlUniformLocation};
 
-use crate::font_atlas::FontAtlas;
+use crate::app_event::AppEvent;
+use crate::assets::Assets;
 use crate::fps_counter::FpsCounter;
 use crate::game_state::{GameState, PartialGameState};
-use crate::texture::Texture;
 use crate::vertex_buffer_renderer::VertexBufferRenderer;
 
 pub struct AppState {
@@ -11,11 +14,11 @@ pub struct AppState {
     pub program: WebGlProgram,
     pub text_program: WebGlProgram,
     pub uniform_locations: UniformLocations,
-    pub textures: Textures,
-    pub font_atlas: FontAtlas,
+    pub assets: Option<Assets>,
     pub vertex_buffer_renderer: VertexBufferRenderer,
     pub time: Timestamps,
     pub fps_counter: FpsCounter,
+    pub events: Rc<RefCell<Vec<AppEvent>>>,
     pub game_state: Result<GameState, PartialGameState>,
 }
 
@@ -25,13 +28,6 @@ pub struct UniformLocations {
     pub text_view_projection: WebGlUniformLocation,
     pub text_sampler: WebGlUniformLocation,
     pub text_distance_range: WebGlUniformLocation,
-}
-
-pub struct Textures {
-    pub tileset: Texture,
-    pub charset: Texture,
-    pub font: Texture,
-    pub white: Texture,
 }
 
 pub struct Timestamps {
