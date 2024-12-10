@@ -30,6 +30,9 @@ module.exports = {
             "/api/ws": {
                 target: "ws://localhost:8081",
                 ws: true
+            },
+            "/assets/": {
+                target: "http://localhost:8081"
             }
         }
     }
