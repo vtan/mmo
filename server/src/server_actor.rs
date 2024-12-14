@@ -9,6 +9,7 @@ use tokio::sync::mpsc;
 use tracing::instrument;
 
 use crate::player::{self, PlayerConnection};
+use crate::server_context::ServerContext;
 use crate::{room_actor, room_state};
 
 #[derive(Debug)]
@@ -46,12 +47,12 @@ struct Room {
 }
 
 #[instrument(skip_all)]
-pub async fn run(mut messages: mpsc::Receiver<Message>) {
+pub async fn run(server_context: Arc<ServerContext>, mut messages: mpsc::Receiver<Message>) {
     let (room_actor_upstream_sender, mut room_actor_upstream_receiver) =
         mpsc::channel::<room_state::UpstreamMessage>(4096);
 
     let mut state = State {
-        client_config: player::client_config(),
+        client_config: player::client_config(&server_context),
         players: HashMap::new(),
         rooms: HashMap::new(),
         room_actor_upstream_sender,

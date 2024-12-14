@@ -1,21 +1,15 @@
 use std::sync::Arc;
 
-use mmo_common::{
-    client_config::{AssetPaths, ClientConfig},
-    player_event::PlayerEvent,
-};
+use mmo_common::{client_config::ClientConfig, player_event::PlayerEvent};
 use tokio::sync::mpsc;
+
+use crate::server_context::ServerContext;
 
 pub type PlayerConnection = mpsc::Sender<Vec<Arc<PlayerEvent>>>;
 
-pub fn client_config() -> ClientConfig {
+pub fn client_config(server_context: &ServerContext) -> ClientConfig {
     ClientConfig {
         player_velocity: 3.0,
-        asset_paths: AssetPaths {
-            tileset: "/assets/tileset.png".to_string(),
-            charset: "/assets/charset.png".to_string(),
-            font: "/assets/notosans.png".to_string(),
-            font_meta: "/assets/notosans.json".to_string(),
-        },
+        asset_paths: server_context.asset_paths.paths.clone(),
     }
 }
