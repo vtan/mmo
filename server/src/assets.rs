@@ -1,6 +1,6 @@
 use std::{collections::HashMap, io::Read};
 
-use anyhow::Result;
+use eyre::Result;
 use sha1::{Digest, Sha1};
 
 #[derive(Debug, Clone)]

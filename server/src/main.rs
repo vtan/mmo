@@ -27,7 +27,7 @@ struct AppState {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> eyre::Result<()> {
     tracing_subscriber::fmt::init();
 
     tracing::info!("Loading assets...");
