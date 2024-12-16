@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use js_sys::{ArrayBuffer, Uint8Array};
+use mmo_common::player_command::PlayerCommand;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::{MessageEvent, WebSocket};
@@ -17,13 +18,8 @@ pub fn connect(events: Rc<RefCell<Vec<AppEvent>>>) -> Result<WebSocket, JsValue>
 
     let ws_onopen = {
         let events = events.clone();
-        let ws = ws.clone();
         Closure::once_into_js(move || {
-            let sender = Box::new(move |command| {
-                let bytes = postcard::to_stdvec(&command).unwrap();
-                ws.send_with_u8_array(&bytes).unwrap();
-            });
-            (*events).borrow_mut().push(AppEvent::WebsocketConnected { sender });
+            (*events).borrow_mut().push(AppEvent::WebsocketConnected);
         })
     };
     ws.set_onopen(Some(ws_onopen.unchecked_ref()));
@@ -66,4 +62,12 @@ pub fn connect(events: Rc<RefCell<Vec<AppEvent>>>) -> Result<WebSocket, JsValue>
     ws.set_onmessage(Some(ws_onmessage.unchecked_ref()));
 
     Ok(ws)
+}
+
+pub fn send(ws: &WebSocket, commands: &[PlayerCommand]) -> Result<(), JsValue> {
+    for command in commands {
+        let bytes = postcard::to_stdvec(command).map_err(|e| e.to_string())?;
+        ws.send_with_u8_array(&bytes)?;
+    }
+    Ok(())
 }

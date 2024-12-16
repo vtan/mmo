@@ -1,4 +1,3 @@
-use mmo_common::player_command::PlayerCommand;
 use mmo_common::player_event::{PlayerEvent, PlayerEventEnvelope};
 
 use crate::assets::Assets;
@@ -10,9 +9,7 @@ pub enum AppEvent {
     KeyUp {
         code: String,
     },
-    WebsocketConnected {
-        sender: Box<dyn Fn(PlayerCommand)>,
-    },
+    WebsocketConnected,
     WebsocketDisconnected,
     WebsocketMessage {
         message: PlayerEventEnvelope<Box<PlayerEvent>>,

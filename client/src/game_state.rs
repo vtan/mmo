@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 
 use mmo_common::{
     client_config::ClientConfig, movement::Direction, player_command::PlayerCommand, room::RoomSync,
@@ -7,7 +7,6 @@ use nalgebra::Vector2;
 
 pub struct GameState {
     pub time: Timestamps,
-    pub connection: Rc<Box<dyn Fn(PlayerCommand)>>, // TODO: delete from here
     pub ws_commands: Vec<PlayerCommand>,
     pub last_ping: Option<LastPing>,
     pub ping_rtt: f32,
@@ -46,7 +45,6 @@ pub struct LastPing {
 
 pub struct PartialGameState {
     pub time: Timestamps,
-    pub connection: Option<Rc<Box<dyn Fn(PlayerCommand)>>>,
     pub player_id: Option<u64>,
     pub client_config: Option<ClientConfig>,
     pub room: Option<RoomSync>,
@@ -56,7 +54,6 @@ impl PartialGameState {
     pub fn new() -> Self {
         Self {
             time: Timestamps { now: 0.0, frame_delta: 0.0 },
-            connection: None,
             player_id: None,
             client_config: None,
             room: None,
@@ -64,13 +61,11 @@ impl PartialGameState {
     }
 
     pub fn to_full(&self) -> Option<GameState> {
-        let connection = self.connection.clone()?;
         let player_id = self.player_id?;
         let client_config = self.client_config.clone()?;
         let room = self.room.clone()?;
         Some(GameState {
             time: self.time,
-            connection,
             ws_commands: Vec::new(),
             last_ping: None,
             ping_rtt: 0.0,

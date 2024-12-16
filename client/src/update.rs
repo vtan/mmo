@@ -57,15 +57,7 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
                 "KeyD" => stop_moving(state, Direction::Right),
                 _ => (),
             },
-            AppEvent::WebsocketConnected { sender } => match &mut state.game_state {
-                Ok(_) => unreachable!(),
-                Err(partial) => {
-                    partial.connection = Some(sender.into());
-                    if let Some(full) = partial.to_full() {
-                        state.game_state = Ok(full);
-                    }
-                }
-            },
+            AppEvent::WebsocketConnected => {}
             AppEvent::WebsocketDisconnected => state.game_state = Err(PartialGameState::new()),
             AppEvent::WebsocketMessage { message, received_at } => {
                 update_async(state, &message);
@@ -96,7 +88,6 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
         }
 
         add_ping_if_needed(game_state);
-        send_ws_commands(game_state);
     }
 }
 
@@ -192,11 +183,5 @@ fn add_ping_if_needed(gs: &mut GameState) {
             command: GlobalCommand::Ping { sequence_number },
         });
         gs.last_ping = Some(LastPing { sequence_number, sent_at: gs.time.now });
-    }
-}
-
-fn send_ws_commands(gs: &mut GameState) {
-    for command in gs.ws_commands.drain(..) {
-        (gs.connection)(command);
     }
 }

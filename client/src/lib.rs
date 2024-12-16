@@ -114,7 +114,7 @@ pub async fn start() -> Result<(), JsValue> {
         game_state: Err(PartialGameState::new()),
     };
 
-    let _ = ws_connection::connect(app_state.events.clone())?;
+    let ws = ws_connection::connect(app_state.events.clone())?;
 
     let keydown_listener = {
         let events = app_state.events.clone();
@@ -143,22 +143,17 @@ pub async fn start() -> Result<(), JsValue> {
 
     let w = window.clone();
     *g.borrow_mut() = Some(Closure::new(move || {
-        let now = app_state.fps_counter.record_start();
-        let now = (1e-3 * now) as f32;
-
-        let time = match app_state.game_state {
-            Ok(ref mut game_state) => &mut game_state.time,
-            Err(ref mut partial) => &mut partial.time,
-        };
-        let prev_time = time.now;
-        time.now = now;
-        time.frame_delta = now - prev_time;
+        update_time(&mut app_state);
+        update_canvas_size(&canvas, &mut app_state.gl);
 
         let events = (*app_state.events).take();
-
-        update_canvas_size(&canvas, &mut app_state.gl);
         update::update(&mut app_state, events);
         render::render(&mut app_state);
+
+        if let Ok(ref mut game_state) = &mut app_state.game_state {
+            ws_connection::send(&ws, &game_state.ws_commands).unwrap();
+            game_state.ws_commands.clear();
+        }
 
         w.request_animation_frame(f.borrow().as_ref().unwrap().as_ref().unchecked_ref())
             .unwrap();
@@ -170,6 +165,19 @@ pub async fn start() -> Result<(), JsValue> {
         .unwrap();
 
     Ok(())
+}
+
+fn update_time(app_state: &mut AppState) {
+    let now = app_state.fps_counter.record_start();
+    let now = (1e-3 * now) as f32;
+
+    let time = match app_state.game_state {
+        Ok(ref mut game_state) => &mut game_state.time,
+        Err(ref mut partial) => &mut partial.time,
+    };
+    let prev_time = time.now;
+    time.now = now;
+    time.frame_delta = now - prev_time;
 }
 
 fn update_canvas_size(canvas: &web_sys::HtmlCanvasElement, gl: &mut GL) {

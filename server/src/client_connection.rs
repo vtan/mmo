@@ -70,6 +70,9 @@ pub async fn handle_with_id(
                 .send(server_actor::Message::PlayerCommand { player_id, command })
                 .await
                 .unwrap(); // TODO: unwrap
+        } else if let ws::Message::Close(_) = message {
+            tracing::debug!("Received close message");
+            break;
         } else {
             tracing::warn!("Unexpected websocket message type");
             break;
