@@ -41,7 +41,7 @@ pub fn render(state: &mut AppState) {
         let current_position = match other_position.direction {
             Some(dir) => {
                 let mov_distance =
-                    other_position.velocity * (state.time.now - other_position.started_at);
+                    other_position.velocity * (game_state.time.now - other_position.started_at);
                 other_position.position + mov_distance * dir.to_vector()
             }
             None => other_position.position,
@@ -111,10 +111,10 @@ pub fn render(state: &mut AppState) {
     let mut text_vertices = VertexBuffer::new();
 
     let fps_lines = [
-        ("FPS:", &format!("{:.0}", state.fps_counter.agg.fps)),
-        ("p50:", &format!("{:.2}ms", state.fps_counter.agg.median_ms)),
-        ("max:", &format!("{:.2}ms", state.fps_counter.agg.max_ms)),
-        ("ping:", &format!("{:.2}ms", game_state.ping_rtt * 1000.0)),
+        ("FPS:", &format!("{:.}", state.fps_counter.agg.fps)),
+        ("p50:", &format!("{:.1}ms", state.fps_counter.agg.median_ms)),
+        ("max:", &format!("{:.1}ms", state.fps_counter.agg.max_ms)),
+        ("ping:", &format!("{:.1}ms", game_state.ping_rtt * 1000.0)),
     ];
     for (i, (str1, str2)) in fps_lines.iter().enumerate() {
         let y = i as f32 * 5.5;

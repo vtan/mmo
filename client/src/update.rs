@@ -67,12 +67,12 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
                 }
             },
             AppEvent::WebsocketDisconnected => state.game_state = Err(PartialGameState::new()),
-            AppEvent::WebsocketMessage { message } => {
+            AppEvent::WebsocketMessage { message, received_at } => {
                 update_async(state, &message);
 
                 match &mut state.game_state {
                     Ok(game_state) => {
-                        handle_server_events(game_state, state.time.now, message);
+                        handle_server_events(game_state, received_at, message);
                     }
                     Err(partial) => {
                         update_partial(partial, message);
@@ -90,12 +90,12 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
 
     if let Ok(game_state) = &mut state.game_state {
         if let Some(direction) = game_state.self_movement.direction {
-            game_state.self_movement.position += state.time.frame_delta
+            game_state.self_movement.position += game_state.time.frame_delta
                 * game_state.client_config.player_velocity
                 * direction.to_vector();
         }
 
-        add_ping_if_needed(game_state, state.time.now);
+        add_ping_if_needed(game_state);
         send_ws_commands(game_state);
     }
 }
@@ -133,23 +133,23 @@ fn update_partial(partial: &mut PartialGameState, events: PlayerEventEnvelope<Bo
 
 fn handle_server_events(
     game_state: &mut GameState,
-    now: f32,
+    received_at: f32,
     events: PlayerEventEnvelope<Box<PlayerEvent>>,
 ) {
     for event in events.events {
         if !matches!(*event, PlayerEvent::Pong { .. }) {
             web_sys::console::info_1(&format!("{event:?}").into());
         }
-        handle_server_event(game_state, now, *event);
+        handle_server_event(game_state, received_at, *event);
     }
 }
 
-fn handle_server_event(game_state: &mut GameState, now: f32, event: PlayerEvent) {
+fn handle_server_event(game_state: &mut GameState, received_at: f32, event: PlayerEvent) {
     match event {
         PlayerEvent::Pong { sequence_number } => {
             if let Some(last_ping) = &mut game_state.last_ping {
                 if sequence_number == last_ping.sequence_number {
-                    game_state.ping_rtt = now - last_ping.sent_at;
+                    game_state.ping_rtt = received_at - last_ping.sent_at;
                 } else {
                     let msg = format!("Unexpected pong sequence number, received: {sequence_number}, expected: {}", last_ping.sequence_number).into();
                     web_sys::console::warn_1(&msg);
@@ -164,7 +164,7 @@ fn handle_server_event(game_state: &mut GameState, now: f32, event: PlayerEvent)
             if player_id == game_state.player_id {
                 game_state.self_movement = Movement { position, direction };
             } else {
-                let started_at = now;
+                let started_at = game_state.time.now;
                 let velocity = game_state.client_config.player_velocity;
                 let remote_movement = RemoteMovement { position, direction, started_at, velocity };
                 game_state.other_positions.insert(player_id, remote_movement);
@@ -176,10 +176,10 @@ fn handle_server_event(game_state: &mut GameState, now: f32, event: PlayerEvent)
     }
 }
 
-// TODO: move timestamps to GameState
-fn add_ping_if_needed(gs: &mut GameState, now: f32) {
+fn add_ping_if_needed(gs: &mut GameState) {
     let should_send = if let Some(last_ping) = &gs.last_ping {
-        if now - last_ping.sent_at >= 1.0 {
+        let elapsed = gs.time.now - last_ping.sent_at;
+        if elapsed >= 1.0 || (elapsed >= 0.5 && !gs.ws_commands.is_empty()) {
             Some(last_ping.sequence_number + 1)
         } else {
             None
@@ -191,7 +191,7 @@ fn add_ping_if_needed(gs: &mut GameState, now: f32) {
         gs.ws_commands.push(PlayerCommand::GlobalCommand {
             command: GlobalCommand::Ping { sequence_number },
         });
-        gs.last_ping = Some(LastPing { sequence_number, sent_at: now });
+        gs.last_ping = Some(LastPing { sequence_number, sent_at: gs.time.now });
     }
 }
 

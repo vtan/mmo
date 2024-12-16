@@ -1,13 +1,11 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use app_state::Timestamps;
 use game_state::PartialGameState;
-use js_sys::{ArrayBuffer, Uint8Array};
 use vertex_buffer_renderer::VertexBufferRenderer;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use web_sys::{KeyboardEvent, MessageEvent, WebGl2RenderingContext as GL, WebSocket};
+use web_sys::{KeyboardEvent, WebGl2RenderingContext as GL};
 
 use crate::app_event::AppEvent;
 use crate::app_state::{AppState, UniformLocations};
@@ -26,6 +24,7 @@ mod texture;
 mod update;
 mod vertex_buffer;
 mod vertex_buffer_renderer;
+mod ws_connection;
 
 static VERTEX_SHADER: &str = include_str!("shader-vert.glsl");
 static FRAGMENT_SHADER: &str = include_str!("shader-frag.glsl");
@@ -101,7 +100,6 @@ pub async fn start() -> Result<(), JsValue> {
 
     let vertex_buffer_renderer = VertexBufferRenderer::new(&gl)?;
 
-    let time = Timestamps { now_ms: 0.0, now: 0.0, frame_delta: 0.0 };
     let fps_counter = FpsCounter::new(&window);
 
     let mut app_state = AppState {
@@ -111,64 +109,12 @@ pub async fn start() -> Result<(), JsValue> {
         uniform_locations,
         assets: None,
         vertex_buffer_renderer,
-        time,
         fps_counter,
         events: Rc::new(RefCell::new(vec![])),
         game_state: Err(PartialGameState::new()),
     };
 
-    // TODO: construct URL from window.location
-    let ws = WebSocket::new("ws://localhost:8081/api/ws")?;
-    ws.set_binary_type(web_sys::BinaryType::Arraybuffer);
-
-    let ws_onopen = {
-        let events = app_state.events.clone();
-        let ws = ws.clone();
-        Closure::once_into_js(move || {
-            let sender = Box::new(move |command| {
-                let bytes = postcard::to_stdvec(&command).unwrap();
-                ws.send_with_u8_array(&bytes).unwrap();
-            });
-            (*events).borrow_mut().push(AppEvent::WebsocketConnected { sender });
-        })
-    };
-    ws.set_onopen(Some(ws_onopen.unchecked_ref()));
-
-    let ws_onclose = {
-        let events = app_state.events.clone();
-        Closure::<dyn FnMut()>::new(move || {
-            web_sys::console::error_1(&"Websocket disconnected".into());
-            (*events).borrow_mut().push(AppEvent::WebsocketDisconnected);
-        })
-        .into_js_value()
-    };
-    ws.set_onclose(Some(ws_onclose.unchecked_ref()));
-
-    let ws_onerror = {
-        let events = app_state.events.clone();
-        Closure::<dyn FnMut()>::new(move || {
-            web_sys::console::error_1(&"Websocket error".into());
-            (*events).borrow_mut().push(AppEvent::WebsocketDisconnected);
-        })
-        .into_js_value()
-    };
-    ws.set_onerror(Some(ws_onerror.unchecked_ref()));
-
-    let ws_onmessage = {
-        let events = app_state.events.clone();
-        Closure::<dyn FnMut(_)>::new(move |ws_event: MessageEvent| {
-            if let Ok(buf) = ws_event.data().dyn_into::<ArrayBuffer>() {
-                let bytes = Uint8Array::new(&buf).to_vec();
-                let message = postcard::from_bytes(&bytes).unwrap();
-                let app_event = AppEvent::WebsocketMessage { message };
-                (*events).borrow_mut().push(app_event);
-            } else {
-                web_sys::console::warn_1(&"Unexpected websocket message type".into());
-            }
-        })
-        .into_js_value()
-    };
-    ws.set_onmessage(Some(ws_onmessage.unchecked_ref()));
+    let _ = ws_connection::connect(app_state.events.clone())?;
 
     let keydown_listener = {
         let events = app_state.events.clone();
@@ -197,10 +143,16 @@ pub async fn start() -> Result<(), JsValue> {
 
     let w = window.clone();
     *g.borrow_mut() = Some(Closure::new(move || {
-        let prev_time_ms = app_state.time.now_ms;
-        app_state.time.now_ms = app_state.fps_counter.record_start();
-        app_state.time.now = (0.001 * app_state.time.now_ms) as f32;
-        app_state.time.frame_delta = (0.001 * (app_state.time.now_ms - prev_time_ms)) as f32;
+        let now = app_state.fps_counter.record_start();
+        let now = (1e-3 * now) as f32;
+
+        let time = match app_state.game_state {
+            Ok(ref mut game_state) => &mut game_state.time,
+            Err(ref mut partial) => &mut partial.time,
+        };
+        let prev_time = time.now;
+        time.now = now;
+        time.frame_delta = now - prev_time;
 
         let events = (*app_state.events).take();
 

@@ -6,6 +6,7 @@ use mmo_common::{
 use nalgebra::Vector2;
 
 pub struct GameState {
+    pub time: Timestamps,
     pub connection: Rc<Box<dyn Fn(PlayerCommand)>>, // TODO: delete from here
     pub ws_commands: Vec<PlayerCommand>,
     pub last_ping: Option<LastPing>,
@@ -17,11 +18,19 @@ pub struct GameState {
     pub other_positions: HashMap<u64, RemoteMovement>,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct Timestamps {
+    pub now: f32,
+    pub frame_delta: f32,
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct Movement {
     pub position: Vector2<f32>,
     pub direction: Option<Direction>,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct RemoteMovement {
     pub position: Vector2<f32>,
     pub direction: Option<Direction>,
@@ -29,12 +38,14 @@ pub struct RemoteMovement {
     pub velocity: f32,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct LastPing {
     pub sequence_number: u32,
     pub sent_at: f32,
 }
 
 pub struct PartialGameState {
+    pub time: Timestamps,
     pub connection: Option<Rc<Box<dyn Fn(PlayerCommand)>>>,
     pub player_id: Option<u64>,
     pub client_config: Option<ClientConfig>,
@@ -44,6 +55,7 @@ pub struct PartialGameState {
 impl PartialGameState {
     pub fn new() -> Self {
         Self {
+            time: Timestamps { now: 0.0, frame_delta: 0.0 },
             connection: None,
             player_id: None,
             client_config: None,
@@ -57,6 +69,7 @@ impl PartialGameState {
         let client_config = self.client_config.clone()?;
         let room = self.room.clone()?;
         Some(GameState {
+            time: self.time,
             connection,
             ws_commands: Vec::new(),
             last_ping: None,
