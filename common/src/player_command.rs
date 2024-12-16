@@ -11,7 +11,7 @@ pub enum PlayerCommand {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum GlobalCommand {
-    Pong { sequence_number: u32, ping_sent_at: u64 },
+    Ping { sequence_number: u32 },
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

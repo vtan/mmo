@@ -19,9 +19,8 @@ pub enum PlayerEvent {
         player_id: u64,
         client_config: ClientConfig,
     },
-    Ping {
+    Pong {
         sequence_number: u32,
-        sent_at: u64,
     },
     SyncRoom {
         room: RoomSync,

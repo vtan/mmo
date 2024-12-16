@@ -114,6 +114,7 @@ pub fn render(state: &mut AppState) {
         ("FPS:", &format!("{:.0}", state.fps_counter.agg.fps)),
         ("p50:", &format!("{:.2}ms", state.fps_counter.agg.median_ms)),
         ("max:", &format!("{:.2}ms", state.fps_counter.agg.max_ms)),
+        ("ping:", &format!("{:.2}ms", game_state.ping_rtt * 1000.0)),
     ];
     for (i, (str1, str2)) in fps_lines.iter().enumerate() {
         let y = i as f32 * 5.5;

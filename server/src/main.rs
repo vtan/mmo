@@ -16,12 +16,13 @@ use axum::response::{ErrorResponse, IntoResponse};
 use axum::routing::get;
 use axum::Router;
 use server_context::ServerContext;
+use tokio::net::TcpSocket;
 use tokio::sync::{broadcast, mpsc};
-use tokio::time::{Instant, MissedTickBehavior};
+use tokio::time::MissedTickBehavior;
 
 struct AppState {
     server_actor_sender: mpsc::Sender<server_actor::Message>,
-    tick_sender: broadcast::Sender<(SystemTime, Duration)>,
+    tick_sender: broadcast::Sender<SystemTime>,
     server_context: Arc<ServerContext>,
 }
 
@@ -35,18 +36,15 @@ async fn main() -> anyhow::Result<()> {
 
     let server_context = Arc::new(ServerContext { asset_paths });
 
-    let start_monotonic = Instant::now();
-
     let (tick_sender, _) = broadcast::channel(8);
     let spawn_tick_sender = tick_sender.clone();
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_millis(100));
         interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
         loop {
-            let now_monotonic = interval.tick().await;
+            let _ = interval.tick().await;
             let now = SystemTime::now();
-            let since_start = now_monotonic - start_monotonic;
-            let _ = spawn_tick_sender.send((now, since_start));
+            let _ = spawn_tick_sender.send(now);
         }
     });
 
@@ -67,7 +65,13 @@ async fn main() -> anyhow::Result<()> {
         .route("/assets/:filename", get(serve_file_handler))
         .with_state(app_state);
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:8081").await?;
+    let listener = {
+        let socket = TcpSocket::new_v4()?;
+        socket.set_reuseaddr(true)?;
+        socket.set_nodelay(true)?;
+        socket.bind("0.0.0.0:8081".parse()?)?;
+        socket.listen(1024)?
+    };
     axum::serve(listener, app).await?;
 
     Ok(())

@@ -6,7 +6,10 @@ use mmo_common::{
 use nalgebra::Vector2;
 
 pub struct GameState {
-    pub connection: Rc<Box<dyn Fn(PlayerCommand)>>,
+    pub connection: Rc<Box<dyn Fn(PlayerCommand)>>, // TODO: delete from here
+    pub ws_commands: Vec<PlayerCommand>,
+    pub last_ping: Option<LastPing>,
+    pub ping_rtt: f32,
     pub player_id: u64,
     pub client_config: ClientConfig,
     pub room: RoomSync,
@@ -24,6 +27,11 @@ pub struct RemoteMovement {
     pub direction: Option<Direction>,
     pub started_at: f32,
     pub velocity: f32,
+}
+
+pub struct LastPing {
+    pub sequence_number: u32,
+    pub sent_at: f32,
 }
 
 pub struct PartialGameState {
@@ -50,6 +58,9 @@ impl PartialGameState {
         let room = self.room.clone()?;
         Some(GameState {
             connection,
+            ws_commands: Vec::new(),
+            last_ping: None,
+            ping_rtt: 0.0,
             player_id,
             client_config,
             room,

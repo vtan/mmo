@@ -5,7 +5,7 @@ use mmo_common::player_event::{PlayerEvent, PlayerEventEnvelope};
 use crate::app_event::AppEvent;
 use crate::app_state::AppState;
 use crate::assets;
-use crate::game_state::{GameState, Movement, PartialGameState, RemoteMovement};
+use crate::game_state::{GameState, LastPing, Movement, PartialGameState, RemoteMovement};
 
 pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
     let move_player = |state: &mut AppState, direction: Direction| {
@@ -20,7 +20,7 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
                         direction: Some(direction),
                     },
                 };
-                (game_state.connection)(command);
+                game_state.ws_commands.push(command);
             }
         }
     };
@@ -36,7 +36,7 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
                         direction: None,
                     },
                 };
-                (game_state.connection)(command);
+                game_state.ws_commands.push(command);
             }
         }
     };
@@ -94,6 +94,9 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
                 * game_state.client_config.player_velocity
                 * direction.to_vector();
         }
+
+        add_ping_if_needed(game_state, state.time.now);
+        send_ws_commands(game_state);
     }
 }
 
@@ -114,14 +117,6 @@ fn update_async(state: &mut AppState, message: &PlayerEventEnvelope<Box<PlayerEv
 fn update_partial(partial: &mut PartialGameState, events: PlayerEventEnvelope<Box<PlayerEvent>>) {
     for event in events.events {
         match *event {
-            PlayerEvent::Ping { sequence_number, sent_at } => {
-                if let Some(ws_sender) = &partial.connection {
-                    let command = PlayerCommand::GlobalCommand {
-                        command: GlobalCommand::Pong { sequence_number, ping_sent_at: sent_at },
-                    };
-                    ws_sender(command);
-                }
-            }
             PlayerEvent::Initial { player_id, client_config } => {
                 partial.player_id = Some(player_id);
                 partial.client_config = Some(client_config);
@@ -129,7 +124,9 @@ fn update_partial(partial: &mut PartialGameState, events: PlayerEventEnvelope<Bo
             PlayerEvent::SyncRoom { room } => {
                 partial.room = Some(room);
             }
-            PlayerEvent::PlayerMoved { .. } | PlayerEvent::PlayerDisappeared { .. } => {}
+            PlayerEvent::Pong { .. }
+            | PlayerEvent::PlayerMoved { .. }
+            | PlayerEvent::PlayerDisappeared { .. } => {}
         }
     }
 }
@@ -140,7 +137,7 @@ fn handle_server_events(
     events: PlayerEventEnvelope<Box<PlayerEvent>>,
 ) {
     for event in events.events {
-        if !matches!(*event, PlayerEvent::Ping { .. }) {
+        if !matches!(*event, PlayerEvent::Pong { .. }) {
             web_sys::console::info_1(&format!("{event:?}").into());
         }
         handle_server_event(game_state, now, *event);
@@ -149,11 +146,15 @@ fn handle_server_events(
 
 fn handle_server_event(game_state: &mut GameState, now: f32, event: PlayerEvent) {
     match event {
-        PlayerEvent::Ping { sequence_number, sent_at } => {
-            let command = PlayerCommand::GlobalCommand {
-                command: GlobalCommand::Pong { sequence_number, ping_sent_at: sent_at },
-            };
-            (game_state.connection)(command);
+        PlayerEvent::Pong { sequence_number } => {
+            if let Some(last_ping) = &mut game_state.last_ping {
+                if sequence_number == last_ping.sequence_number {
+                    game_state.ping_rtt = now - last_ping.sent_at;
+                } else {
+                    let msg = format!("Unexpected pong sequence number, received: {sequence_number}, expected: {}", last_ping.sequence_number).into();
+                    web_sys::console::warn_1(&msg);
+                }
+            }
         }
         PlayerEvent::Initial { .. } => {}
         PlayerEvent::SyncRoom { room } => {
@@ -172,5 +173,30 @@ fn handle_server_event(game_state: &mut GameState, now: f32, event: PlayerEvent)
         PlayerEvent::PlayerDisappeared { player_id } => {
             game_state.other_positions.remove(&player_id);
         }
+    }
+}
+
+// TODO: move timestamps to GameState
+fn add_ping_if_needed(gs: &mut GameState, now: f32) {
+    let should_send = if let Some(last_ping) = &gs.last_ping {
+        if now - last_ping.sent_at >= 1.0 {
+            Some(last_ping.sequence_number + 1)
+        } else {
+            None
+        }
+    } else {
+        Some(0)
+    };
+    if let Some(sequence_number) = should_send {
+        gs.ws_commands.push(PlayerCommand::GlobalCommand {
+            command: GlobalCommand::Ping { sequence_number },
+        });
+        gs.last_ping = Some(LastPing { sequence_number, sent_at: now });
+    }
+}
+
+fn send_ws_commands(gs: &mut GameState) {
+    for command in gs.ws_commands.drain(..) {
+        (gs.connection)(command);
     }
 }

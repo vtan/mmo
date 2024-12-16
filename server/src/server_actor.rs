@@ -153,8 +153,11 @@ async fn handle_message(state: &mut State, message: Message) {
 
 async fn handle_global_command(state: &mut State, player_id: u64, message: GlobalCommand) {
     match message {
-        GlobalCommand::Pong { .. } => {
-            tracing::error!("Received pong in server actor")
+        GlobalCommand::Ping { sequence_number } => {
+            let pong = PlayerEvent::Pong { sequence_number };
+            if let Some(player) = state.players.get(&player_id) {
+                player.connection.send(vec![Arc::new(pong)]).await.unwrap(); // TODO: unwrap
+            }
         }
     }
 }
