@@ -1,6 +1,9 @@
 use nalgebra::Vector2;
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize)]
+pub struct ObjectId(pub u64);
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub enum Direction {
     Right,

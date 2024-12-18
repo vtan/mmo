@@ -1,9 +1,12 @@
 use nalgebra::Vector2;
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize)]
+pub struct RoomId(pub u64);
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct RoomSync {
-    pub room_id: u64,
+    pub room_id: RoomId,
     pub size: Vector2<u32>,
     pub tiles: Vec<Tile>,
 }

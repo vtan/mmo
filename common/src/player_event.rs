@@ -1,7 +1,11 @@
 use nalgebra::Vector2;
 use serde::{Deserialize, Serialize};
 
-use crate::{client_config::ClientConfig, movement::Direction, room::RoomSync};
+use crate::{
+    client_config::ClientConfig,
+    object::{Direction, ObjectId},
+    room::RoomSync,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlayerEventEnvelope<T>
@@ -14,7 +18,7 @@ where
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PlayerEvent {
     Initial {
-        player_id: u64,
+        self_id: ObjectId,
         client_config: ClientConfig,
     },
     Pong {
@@ -24,12 +28,12 @@ pub enum PlayerEvent {
         room: RoomSync,
     },
     PlayerMovementChanged {
-        player_id: u64,
+        object_id: ObjectId,
         position: Vector2<f32>,
         direction: Option<Direction>,
     },
     PlayerDisappeared {
-        player_id: u64,
+        object_id: ObjectId,
     },
 }
 

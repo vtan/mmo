@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
+use mmo_common::object::ObjectId;
 use mmo_common::player_command::RoomCommand;
-use mmo_common::room::{RoomSync, Tile, TileIndex};
+use mmo_common::room::{RoomId, RoomSync, Tile, TileIndex};
 use nalgebra::Vector2;
 use tokio::sync::mpsc;
 use tracing::instrument;
@@ -13,29 +14,29 @@ use crate::room_state::{Portal, RoomState, RoomWriter, UpstreamMessage};
 #[derive(Debug)]
 pub enum Message {
     PlayerConnected {
-        player_id: u64,
+        player_id: ObjectId,
         connection: PlayerConnection,
         position: Vector2<f32>,
     },
     PlayerDisconnected {
-        player_id: u64,
+        player_id: ObjectId,
     },
     PlayerCommand {
-        player_id: u64,
+        player_id: ObjectId,
         command: RoomCommand,
     },
 }
 
-#[instrument(skip_all, fields(room_id = room_id))]
+#[instrument(skip_all, fields(room_id = room_id.0))]
 pub async fn run(
-    room_id: u64,
+    room_id: RoomId,
     mut messages: mpsc::Receiver<Message>,
     upstream_sender: mpsc::Sender<UpstreamMessage>,
 ) {
     tracing::debug!("Spawned");
 
     let mut state = {
-        let room_sync = if room_id == 0 {
+        let room_sync = if room_id.0 == 0 {
             RoomSync {
                 room_id,
                 size: Vector2::new(8, 8),
@@ -85,16 +86,16 @@ pub async fn run(
             }
         };
 
-        let portals = if room_id == 0 {
+        let portals = if room_id.0 == 0 {
             vec![Portal {
                 position: Vector2::new(4, 7),
-                target_room_id: 1,
+                target_room_id: RoomId(1),
                 target_position: Vector2::new(4.5, 1.5),
             }]
         } else {
             vec![Portal {
                 position: Vector2::new(4, 0),
-                target_room_id: 0,
+                target_room_id: RoomId(0),
                 target_position: Vector2::new(4.5, 6.5),
             }]
         };
@@ -119,7 +120,7 @@ pub async fn run(
                     room_logic::on_command(player_id, command, &mut state, &mut writer);
                     flush_writer(&mut writer, &state, &upstream_sender).await;
                 } else {
-                    tracing::error!(player_id, "Player not found");
+                    tracing::error!(player_id = player_id.0, "Player not found");
                 }
             }
         }
@@ -142,7 +143,7 @@ async fn flush_writer(
         if let Some(player) = state.players.get(&player_id) {
             player.connection.send(events).await.unwrap(); // TODO: unwrap
         } else {
-            tracing::error!(player_id, "Player not found");
+            tracing::error!(player_id = player_id.0, "Player not found");
         }
     }
     for message in writer.upstream_messages.drain(..) {

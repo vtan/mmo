@@ -1,4 +1,4 @@
-use mmo_common::{player_command::RoomCommand, player_event::PlayerEvent};
+use mmo_common::{object::ObjectId, player_command::RoomCommand, player_event::PlayerEvent};
 use nalgebra::Vector2;
 use tracing::instrument;
 
@@ -7,9 +7,9 @@ use crate::{
     room_state::{Player, RoomState, RoomWriter, UpstreamMessage},
 };
 
-#[instrument(skip_all, fields(player_id = player_id))]
+#[instrument(skip_all, fields(player_id = player_id.0))]
 pub fn on_connect(
-    player_id: u64,
+    player_id: ObjectId,
     connection: PlayerConnection,
     position: Vector2<f32>,
     state: &mut RoomState,
@@ -28,7 +28,7 @@ fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter
     writer.broadcast(
         state.players.keys().copied(),
         PlayerEvent::PlayerMovementChanged {
-            player_id,
+            object_id: player_id,
             position: player_position,
             direction: None,
         },
@@ -42,7 +42,7 @@ fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter
         writer.tell(
             player_id,
             PlayerEvent::PlayerMovementChanged {
-                player_id: player_in_room.id,
+                object_id: player_in_room.id,
                 position: player_in_room.position,
                 direction: None,
             },
@@ -50,16 +50,16 @@ fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter
     }
 }
 
-#[instrument(skip_all, fields(player_id = player_id))]
-pub fn on_disconnect(player_id: u64, state: &mut RoomState, writer: &mut RoomWriter) {
+#[instrument(skip_all, fields(player_id = player_id.0))]
+pub fn on_disconnect(player_id: ObjectId, state: &mut RoomState, writer: &mut RoomWriter) {
     player_left(player_id, state, writer)
 }
 
-fn player_left(player_id: u64, state: &mut RoomState, writer: &mut RoomWriter) {
+fn player_left(player_id: ObjectId, state: &mut RoomState, writer: &mut RoomWriter) {
     if state.players.remove(&player_id).is_some() {
         writer.broadcast(
             state.players.keys().copied(),
-            PlayerEvent::PlayerDisappeared { player_id },
+            PlayerEvent::PlayerDisappeared { object_id: player_id },
         );
     } else {
         tracing::error!("Player not found");
@@ -67,7 +67,7 @@ fn player_left(player_id: u64, state: &mut RoomState, writer: &mut RoomWriter) {
 }
 
 pub fn on_command(
-    player_id: u64,
+    player_id: ObjectId,
     command: RoomCommand,
     state: &mut RoomState,
     writer: &mut RoomWriter,
@@ -93,7 +93,11 @@ pub fn on_command(
                 state.players.entry(player_id).and_modify(|p| p.position = position);
                 writer.broadcast(
                     state.players.keys().copied().filter(|pid| *pid != player_id),
-                    PlayerEvent::PlayerMovementChanged { player_id, position, direction },
+                    PlayerEvent::PlayerMovementChanged {
+                        object_id: player_id,
+                        position,
+                        direction,
+                    },
                 );
             }
         }

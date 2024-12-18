@@ -1,12 +1,15 @@
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use eyre::Result;
 use mmo_common::client_config::ClientConfig;
+use mmo_common::object::ObjectId;
 use mmo_common::player_command::{
     GlobalCommand, PlayerCommand, PlayerCommandEnvelope, RoomCommand,
 };
 use mmo_common::player_event::PlayerEvent;
+use mmo_common::room::RoomId;
 use nalgebra::Vector2;
 use tokio::sync::mpsc;
 use tracing::instrument;
@@ -15,15 +18,21 @@ use crate::player::{self, PlayerConnection};
 use crate::server_context::ServerContext;
 use crate::{room_actor, room_state};
 
+static NEXT_OBJECT_ID: AtomicU64 = AtomicU64::new(0);
+
+pub fn next_object_id() -> ObjectId {
+    ObjectId(NEXT_OBJECT_ID.fetch_add(1, Ordering::SeqCst))
+}
+
 #[derive(Debug)]
 pub enum Message {
-    PlayerConnected { player_id: u64, connection: PlayerConnection },
-    PlayerDisconnected { player_id: u64 },
-    PlayerCommand { player_id: u64, command: PlayerCommandEnvelope },
+    PlayerConnected { player_id: ObjectId, connection: PlayerConnection },
+    PlayerDisconnected { player_id: ObjectId },
+    PlayerCommand { player_id: ObjectId, command: PlayerCommandEnvelope },
 }
 
 impl Message {
-    pub fn player_id(&self) -> u64 {
+    pub fn player_id(&self) -> ObjectId {
         match self {
             Message::PlayerConnected { player_id, .. } => *player_id,
             Message::PlayerDisconnected { player_id } => *player_id,
@@ -34,14 +43,14 @@ impl Message {
 
 struct State {
     client_config: ClientConfig,
-    players: HashMap<u64, Player>,
-    rooms: HashMap<u64, Room>,
+    players: HashMap<ObjectId, Player>,
+    rooms: HashMap<RoomId, Room>,
     room_actor_upstream_sender: mpsc::Sender<room_state::UpstreamMessage>,
 }
 
 struct Player {
-    id: u64,
-    room_id: u64,
+    id: ObjectId,
+    room_id: RoomId,
     connection: mpsc::Sender<Vec<Arc<PlayerEvent>>>,
 }
 
@@ -83,11 +92,11 @@ pub async fn run(server_context: Arc<ServerContext>, mut messages: mpsc::Receive
     }
 }
 
-#[instrument(skip_all, fields(player_id = message.player_id()))]
+#[instrument(skip_all, fields(player_id = message.player_id().0))]
 async fn handle_message(state: &mut State, message: Message) -> Result<()> {
     match message {
         Message::PlayerConnected { player_id, connection } => {
-            let start_room_id = 0;
+            let start_room_id = RoomId(0);
 
             let player = Player {
                 id: player_id,
@@ -98,7 +107,7 @@ async fn handle_message(state: &mut State, message: Message) -> Result<()> {
 
             connection
                 .send(vec![Arc::new(PlayerEvent::Initial {
-                    player_id,
+                    self_id: player_id,
                     client_config: state.client_config.clone(),
                 })])
                 .await?;
@@ -119,7 +128,7 @@ async fn handle_message(state: &mut State, message: Message) -> Result<()> {
                     room.sender.send(room_actor::Message::PlayerDisconnected { player_id }).await?;
                 } else {
                     tracing::warn!(
-                        "Player disconnected but room {room_id} not found",
+                        "Player disconnected but room {room_id:?} not found",
                         room_id = player.room_id
                     );
                     remove_room_if_empty(state, room_id);
@@ -146,8 +155,8 @@ async fn handle_message(state: &mut State, message: Message) -> Result<()> {
 
 async fn handle_room_command(
     state: &mut State,
-    player_id: u64,
-    room_id: u64,
+    player_id: ObjectId,
+    room_id: RoomId,
     command: RoomCommand,
 ) -> Result<()> {
     let player_room_id = state.players.get(&player_id).map(|p| p.room_id);
@@ -159,7 +168,7 @@ async fn handle_room_command(
                 .await?
         }
         Some(_) => {
-            tracing::warn!("Got command with wrong room id {room_id}")
+            tracing::warn!("Got command with wrong room id {room_id:?}")
         }
         None => tracing::error!("Player sent command but not found"),
     }
@@ -168,7 +177,7 @@ async fn handle_room_command(
 
 async fn handle_global_command(
     state: &mut State,
-    player_id: u64,
+    player_id: ObjectId,
     message: GlobalCommand,
 ) -> Result<()> {
     match message {
@@ -215,7 +224,7 @@ async fn handle_upstream_message(
     Ok(())
 }
 
-fn get_or_create_room(state: &mut State, room_id: u64) -> &mut Room {
+fn get_or_create_room(state: &mut State, room_id: RoomId) -> &mut Room {
     let State { rooms, room_actor_upstream_sender, .. } = state;
     rooms.entry(room_id).or_insert_with(|| {
         let upstream_sender = room_actor_upstream_sender.clone();
@@ -227,7 +236,7 @@ fn get_or_create_room(state: &mut State, room_id: u64) -> &mut Room {
     })
 }
 
-fn remove_room_if_empty(state: &mut State, room_id: u64) {
+fn remove_room_if_empty(state: &mut State, room_id: RoomId) {
     if !state.players.values().any(|player| player.room_id == room_id) {
         state.rooms.remove(&room_id);
     }

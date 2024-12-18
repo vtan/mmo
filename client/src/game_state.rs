@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use mmo_common::{
     client_config::ClientConfig,
-    movement::Direction,
+    object::{Direction, ObjectId},
     player_command::PlayerCommand,
     player_event::{PlayerEvent, PlayerEventEnvelope},
     room::RoomSync,
@@ -14,11 +14,11 @@ pub struct GameState {
     pub ws_commands: Vec<PlayerCommand>,
     pub last_ping: Option<LastPing>,
     pub ping_rtt: f32,
-    pub player_id: u64,
+    pub self_id: ObjectId,
     pub client_config: ClientConfig,
     pub room: RoomSync,
     pub self_movement: SelfMovement,
-    pub player_movements: HashMap<u64, Movement>,
+    pub player_movements: HashMap<ObjectId, Movement>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -49,7 +49,7 @@ pub struct LastPing {
 
 pub struct PartialGameState {
     pub time: Timestamps,
-    pub player_id: Option<u64>,
+    pub self_id: Option<ObjectId>,
     pub client_config: Option<ClientConfig>,
     pub room: Option<RoomSync>,
     pub remaining_events: Vec<PlayerEventEnvelope<PlayerEvent>>,
@@ -59,7 +59,7 @@ impl PartialGameState {
     pub fn new() -> Self {
         Self {
             time: Timestamps { now: 0.0, frame_delta: 0.0 },
-            player_id: None,
+            self_id: None,
             client_config: None,
             room: None,
             remaining_events: vec![],
@@ -67,7 +67,7 @@ impl PartialGameState {
     }
 
     pub fn to_full(&self) -> Option<GameState> {
-        let player_id = self.player_id?;
+        let self_id = self.self_id?;
         let client_config = self.client_config.clone()?;
         let room = self.room.clone()?;
         Some(GameState {
@@ -75,7 +75,7 @@ impl PartialGameState {
             ws_commands: Vec::new(),
             last_ping: None,
             ping_rtt: 0.0,
-            player_id,
+            self_id,
             client_config,
             room,
             self_movement: SelfMovement { position: Vector2::new(0.0, 0.0), direction: None },

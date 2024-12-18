@@ -1,4 +1,4 @@
-use mmo_common::movement::Direction;
+use mmo_common::object::Direction;
 use mmo_common::player_command::{GlobalCommand, PlayerCommand, RoomCommand};
 use mmo_common::player_event::{PlayerEvent, PlayerEventEnvelope};
 
@@ -96,7 +96,7 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
 
 fn update_async(state: &mut AppState, message: &PlayerEventEnvelope<PlayerEvent>) {
     for event in message.events.iter() {
-        if let PlayerEvent::Initial { client_config, .. } = event.as_ref() {
+        if let PlayerEvent::Initial { client_config, .. } = event {
             let gl = state.gl.clone();
             let events = state.events.clone();
             let asset_paths = client_config.asset_paths.clone();
@@ -114,8 +114,8 @@ fn update_partial(partial: &mut PartialGameState, events: PlayerEventEnvelope<Pl
 
     for event in events.events {
         match event {
-            PlayerEvent::Initial { player_id, client_config } => {
-                partial.player_id = Some(player_id);
+            PlayerEvent::Initial { self_id, client_config } => {
+                partial.self_id = Some(self_id);
                 partial.client_config = Some(client_config);
             }
             PlayerEvent::RoomEntered { room } => {
@@ -161,8 +161,8 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
             game_state.room = room;
             game_state.player_movements.clear();
         }
-        PlayerEvent::PlayerMovementChanged { player_id, position, direction } => {
-            if player_id == game_state.player_id {
+        PlayerEvent::PlayerMovementChanged { object_id: player_id, position, direction } => {
+            if player_id == game_state.self_id {
                 game_state.self_movement = SelfMovement { position, direction };
             } else {
                 let started_at = game_state.time.now;
@@ -171,7 +171,7 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
                 game_state.player_movements.insert(player_id, remote_movement);
             }
         }
-        PlayerEvent::PlayerDisappeared { player_id } => {
+        PlayerEvent::PlayerDisappeared { object_id: player_id } => {
             game_state.player_movements.remove(&player_id);
         }
     }
