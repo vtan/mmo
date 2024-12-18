@@ -5,7 +5,7 @@ use mmo_common::player_event::{PlayerEvent, PlayerEventEnvelope};
 use crate::app_event::AppEvent;
 use crate::app_state::AppState;
 use crate::assets;
-use crate::game_state::{GameState, LastPing, Movement, PartialGameState, RemoteMovement};
+use crate::game_state::{GameState, LastPing, Movement, PartialGameState, SelfMovement};
 
 pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
     let move_player = |state: &mut AppState, direction: Direction| {
@@ -68,7 +68,10 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
                     }
                     Err(partial) => {
                         update_partial(partial, message);
-                        if let Some(full) = partial.to_full() {
+                        if let Some(mut full) = partial.to_full() {
+                            for remaining in &partial.remaining_events {
+                                handle_server_events(&mut full, received_at, remaining.clone());
+                            }
                             state.game_state = Ok(full);
                         }
                     }
@@ -106,20 +109,26 @@ fn update_async(state: &mut AppState, message: &PlayerEventEnvelope<Box<PlayerEv
 }
 
 fn update_partial(partial: &mut PartialGameState, events: PlayerEventEnvelope<Box<PlayerEvent>>) {
+    let mut remaining = events.clone();
+    remaining.events.clear();
+
     for event in events.events {
         match *event {
             PlayerEvent::Initial { player_id, client_config } => {
                 partial.player_id = Some(player_id);
                 partial.client_config = Some(client_config);
             }
-            PlayerEvent::SyncRoom { room } => {
+            PlayerEvent::RoomEntered { room } => {
                 partial.room = Some(room);
             }
             PlayerEvent::Pong { .. }
-            | PlayerEvent::PlayerMoved { .. }
-            | PlayerEvent::PlayerDisappeared { .. } => {}
+            | PlayerEvent::PlayerMovementChanged { .. }
+            | PlayerEvent::PlayerDisappeared { .. } => {
+                remaining.events.push(event);
+            }
         }
     }
+    partial.remaining_events.push(remaining);
 }
 
 fn handle_server_events(
@@ -148,21 +157,22 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
             }
         }
         PlayerEvent::Initial { .. } => {}
-        PlayerEvent::SyncRoom { room } => {
+        PlayerEvent::RoomEntered { room } => {
             game_state.room = room;
+            game_state.player_movements.clear();
         }
-        PlayerEvent::PlayerMoved { player_id, position, direction } => {
+        PlayerEvent::PlayerMovementChanged { player_id, position, direction } => {
             if player_id == game_state.player_id {
-                game_state.self_movement = Movement { position, direction };
+                game_state.self_movement = SelfMovement { position, direction };
             } else {
                 let started_at = game_state.time.now;
                 let velocity = game_state.client_config.player_velocity;
-                let remote_movement = RemoteMovement { position, direction, started_at, velocity };
-                game_state.other_positions.insert(player_id, remote_movement);
+                let remote_movement = Movement { position, direction, started_at, velocity };
+                game_state.player_movements.insert(player_id, remote_movement);
             }
         }
         PlayerEvent::PlayerDisappeared { player_id } => {
-            game_state.other_positions.remove(&player_id);
+            game_state.player_movements.remove(&player_id);
         }
     }
 }

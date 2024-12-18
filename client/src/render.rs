@@ -37,14 +37,14 @@ pub fn render(state: &mut AppState) {
     );
 
     // TODO: calculate the position in the update function
-    for other_position in game_state.other_positions.values() {
-        let current_position = match other_position.direction {
+    for player_movement in game_state.player_movements.values() {
+        let current_position = match player_movement.direction {
             Some(dir) => {
                 let mov_distance =
-                    other_position.velocity * (game_state.time.now - other_position.started_at);
-                other_position.position + mov_distance * dir.to_vector()
+                    player_movement.velocity * (game_state.time.now - player_movement.started_at);
+                player_movement.position + mov_distance * dir.to_vector()
             }
-            None => other_position.position,
+            None => player_movement.position,
         };
 
         charset_vertices.push_tile_multi(current_position + PLAYER_OFFSET, Vector2::new(1, 2), 0);
@@ -113,7 +113,7 @@ pub fn render(state: &mut AppState) {
     let fps_lines = [
         ("FPS:", &format!("{:.}", state.fps_counter.agg.fps)),
         ("p50:", &format!("{:.1}ms", state.fps_counter.agg.median_ms)),
-        ("max:", &format!("{:.1}ms", state.fps_counter.agg.max_ms)),
+        ("p100:", &format!("{:.1}ms", state.fps_counter.agg.max_ms)),
         ("ping:", &format!("{:.1}ms", game_state.ping_rtt * 1000.0)),
     ];
     for (i, (str1, str2)) in fps_lines.iter().enumerate() {
@@ -124,14 +124,5 @@ pub fn render(state: &mut AppState) {
         fa.push_text(str2, Vector2::new(432.0, y), 6.0, color, &mut text_vertices);
     }
 
-    for i in 0..8 {
-        let i = i as f32;
-        let pos = Vector2::new(140.0, 8.0 * i.powf(1.5));
-        let h = 6.0 + 4.0 * i;
-        let c = Vector4::new(1.0, 1.0, 1.0, 1.0);
-        assets
-            .font_atlas
-            .push_text("Árvíztűrő tükörfúrógép", pos, h, c, &mut text_vertices);
-    }
     state.vertex_buffer_renderer.render_triangles(&text_vertices, gl);
 }

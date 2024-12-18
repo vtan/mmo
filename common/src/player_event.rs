@@ -22,10 +22,10 @@ pub enum PlayerEvent {
     Pong {
         sequence_number: u32,
     },
-    SyncRoom {
+    RoomEntered {
         room: RoomSync,
     },
-    PlayerMoved {
+    PlayerMovementChanged {
         player_id: u64,
         position: Vector2<f32>,
         direction: Option<Direction>,

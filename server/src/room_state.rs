@@ -38,7 +38,13 @@ impl RoomWriter {
     }
 
     pub fn tell(&mut self, player_id: u64, event: PlayerEvent) {
-        self.events.entry(player_id).or_default().push(Arc::new(event));
+        self.tell_many(player_id, &[event]);
+    }
+
+    pub fn tell_many(&mut self, player_id: u64, events: &[PlayerEvent]) {
+        for event in events {
+            self.events.entry(player_id).or_default().push(Arc::new(event.clone()));
+        }
     }
 
     pub fn broadcast(&mut self, player_ids: impl Iterator<Item = u64>, event: PlayerEvent) {
@@ -51,7 +57,6 @@ impl RoomWriter {
 
 #[derive(Debug, Clone)]
 pub enum UpstreamMessage {
-    // TODO: add target position
     PlayerLeftRoom {
         sender_room_id: u64,
         player_id: u64,

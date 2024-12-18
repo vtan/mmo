@@ -27,17 +27,21 @@ fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter
 
     writer.broadcast(
         state.players.keys().copied(),
-        PlayerEvent::PlayerMoved { player_id, position: player_position, direction: None },
+        PlayerEvent::PlayerMovementChanged {
+            player_id,
+            position: player_position,
+            direction: None,
+        },
     );
 
     writer.tell(
         player_id,
-        PlayerEvent::SyncRoom { room: state.room.clone() },
+        PlayerEvent::RoomEntered { room: state.room.clone() },
     );
     for player_in_room in state.players.values() {
         writer.tell(
             player_id,
-            PlayerEvent::PlayerMoved {
+            PlayerEvent::PlayerMovementChanged {
                 player_id: player_in_room.id,
                 position: player_in_room.position,
                 direction: None,
@@ -89,7 +93,7 @@ pub fn on_command(
                 state.players.entry(player_id).and_modify(|p| p.position = position);
                 writer.broadcast(
                     state.players.keys().copied().filter(|pid| *pid != player_id),
-                    PlayerEvent::PlayerMoved { player_id, position, direction },
+                    PlayerEvent::PlayerMovementChanged { player_id, position, direction },
                 );
             }
         }
