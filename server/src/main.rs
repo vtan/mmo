@@ -6,9 +6,9 @@ mod room_logic;
 mod room_state;
 mod server_actor;
 mod server_context;
+mod tick;
 
 use std::sync::Arc;
-use std::time::{Duration, SystemTime};
 
 use axum::extract::{Path, State, WebSocketUpgrade};
 use axum::http::{HeaderValue, Response};
@@ -17,12 +17,10 @@ use axum::routing::get;
 use axum::Router;
 use server_context::ServerContext;
 use tokio::net::TcpSocket;
-use tokio::sync::{broadcast, mpsc};
-use tokio::time::MissedTickBehavior;
+use tokio::sync::mpsc;
 
 struct AppState {
     server_actor_sender: mpsc::Sender<server_actor::Message>,
-    tick_sender: broadcast::Sender<SystemTime>,
     server_context: Arc<ServerContext>,
 }
 
@@ -36,29 +34,15 @@ async fn main() -> eyre::Result<()> {
 
     let server_context = Arc::new(ServerContext { asset_paths });
 
-    let (tick_sender, _) = broadcast::channel(8);
-    let spawn_tick_sender = tick_sender.clone();
-    tokio::spawn(async move {
-        let mut interval = tokio::time::interval(Duration::from_millis(100));
-        interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
-        loop {
-            let _ = interval.tick().await;
-            let now = SystemTime::now();
-            let _ = spawn_tick_sender.send(now);
-        }
-    });
+    let (tick_sender, _) = tick::spawn_producer();
 
     let (server_actor_sender, server_actor_receiver) = mpsc::channel::<server_actor::Message>(4096);
     tokio::spawn({
         let server_context = server_context.clone();
-        async move { server_actor::run(server_context, server_actor_receiver).await }
+        async move { server_actor::run(server_context, server_actor_receiver, tick_sender).await }
     });
 
-    let app_state = Box::leak(Box::new(AppState {
-        server_actor_sender,
-        tick_sender,
-        server_context,
-    }));
+    let app_state = Box::leak(Box::new(AppState { server_actor_sender, server_context }));
 
     let app = Router::new()
         .route("/api/ws", get(ws_handler))
@@ -82,8 +66,7 @@ async fn ws_handler(
     State(app): State<&'static AppState>,
 ) -> impl IntoResponse {
     let message_sender = app.server_actor_sender.clone();
-    let tick_receiver = app.tick_sender.subscribe();
-    ws_upgrade.on_upgrade(move |ws| client_connection::handle(ws, message_sender, tick_receiver))
+    ws_upgrade.on_upgrade(move |ws| client_connection::handle(ws, message_sender))
 }
 
 async fn serve_file_handler(

@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::time::SystemTime;
 
 use axum::extract::ws;
 use axum::extract::ws::WebSocket;
@@ -7,26 +6,21 @@ use futures_util::stream::SplitSink;
 use futures_util::{SinkExt, StreamExt};
 use mmo_common::object::ObjectId;
 use mmo_common::player_event::{PlayerEvent, PlayerEventEnvelope};
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::mpsc;
 use tracing::instrument;
 
 use crate::server_actor;
 
 #[instrument(skip_all)]
-pub async fn handle(
-    ws: WebSocket,
-    server_actor_sender: mpsc::Sender<server_actor::Message>,
-    tick_receiver: broadcast::Receiver<SystemTime>,
-) {
+pub async fn handle(ws: WebSocket, server_actor_sender: mpsc::Sender<server_actor::Message>) {
     let player_id = server_actor::next_object_id();
-    handle_with_id(ws, server_actor_sender, tick_receiver, player_id).await;
+    handle_with_id(ws, server_actor_sender, player_id).await;
 }
 
 #[instrument(skip_all, fields(player_id = player_id.0))]
 pub async fn handle_with_id(
     ws: WebSocket,
     server_actor_sender: mpsc::Sender<server_actor::Message>,
-    mut tick_receiver: broadcast::Receiver<SystemTime>,
     player_id: ObjectId,
 ) {
     tracing::debug!("Client connected");
@@ -34,22 +28,9 @@ pub async fn handle_with_id(
 
     let (event_sender, mut event_receiver) = mpsc::channel::<Vec<Arc<PlayerEvent>>>(64);
     tokio::spawn(async move {
-        loop {
-            tokio::select! {
-                events = event_receiver.recv() => {
-                    if let Some(events) = events {
-                        let envelope = PlayerEventEnvelope { events };
-                        send_player_event(&envelope, &mut ws_sink).await;
-                    } else {
-                        break;
-                    }
-                }
-                tick = tick_receiver.recv() => {
-                    if let Ok(_now) = tick {
-                        //
-                    }
-                }
-            }
+        while let Some(events) = event_receiver.recv().await {
+            let envelope = PlayerEventEnvelope { events };
+            send_player_event(&envelope, &mut ws_sink).await;
         }
         tracing::debug!("Closing sender");
         ws_sink.close().await.unwrap(); // TODO: unwrap

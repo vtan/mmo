@@ -3,16 +3,19 @@ use std::{collections::HashMap, sync::Arc};
 use crate::player::PlayerConnection;
 
 use mmo_common::{
-    object::ObjectId,
+    client_config::ClientConfig,
+    object::{Direction, ObjectId},
     player_event::PlayerEvent,
     room::{RoomId, RoomSync},
 };
 use nalgebra::Vector2;
+use tokio::time::Instant;
 
 #[derive(Debug, Clone)]
 pub struct RoomState {
     pub room: RoomSync,
     pub portals: Vec<Portal>,
+    pub client_config: ClientConfig, // TODO: only the parts relevant to the server?
     pub players: HashMap<ObjectId, Player>,
 }
 
@@ -20,7 +23,21 @@ pub struct RoomState {
 pub struct Player {
     pub id: ObjectId,
     pub connection: PlayerConnection,
+    pub local_movement: LocalMovement,
+    pub remote_movement: RemoteMovement,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct LocalMovement {
     pub position: Vector2<f32>,
+    pub updated_at: Instant,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct RemoteMovement {
+    pub position: Vector2<f32>,
+    pub direction: Option<Direction>,
+    pub received_at: Instant,
 }
 
 #[derive(Debug, Clone)]

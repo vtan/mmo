@@ -4,8 +4,8 @@ use wasm_bindgen_futures::JsFuture;
 use web_sys::{Request, RequestInit, Response, Window};
 
 pub async fn fetch_json<T: DeserializeOwned>(window: &Window, url: &str) -> Result<T, JsValue> {
-    let mut opts = RequestInit::new();
-    opts.method("GET");
+    let opts = RequestInit::new();
+    opts.set_method("GET");
     let request = Request::new_with_str_and_init(url, &opts)?;
 
     let resp_value = JsFuture::from(window.fetch_with_request(&request)).await?;

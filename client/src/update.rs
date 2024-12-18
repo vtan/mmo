@@ -177,6 +177,7 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
         PlayerEvent::RoomEntered { room } => {
             game_state.room = room;
             game_state.remote_movements.clear();
+            game_state.local_movements.clear();
         }
         PlayerEvent::PlayerMovementChanged { object_id: player_id, position, direction } => {
             if player_id == game_state.self_id {
@@ -190,6 +191,7 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
         }
         PlayerEvent::PlayerDisappeared { object_id: player_id } => {
             game_state.remote_movements.remove(&player_id);
+            game_state.local_movements.remove(&player_id);
         }
     }
 }

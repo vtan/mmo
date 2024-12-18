@@ -16,6 +16,7 @@ use tracing::instrument;
 
 use crate::player::{self, PlayerConnection};
 use crate::server_context::ServerContext;
+use crate::tick;
 use crate::{room_actor, room_state};
 
 static NEXT_OBJECT_ID: AtomicU64 = AtomicU64::new(0);
@@ -45,6 +46,7 @@ struct State {
     client_config: ClientConfig,
     players: HashMap<ObjectId, Player>,
     rooms: HashMap<RoomId, Room>,
+    tick_sender: tick::Sender,
     room_actor_upstream_sender: mpsc::Sender<room_state::UpstreamMessage>,
 }
 
@@ -59,7 +61,11 @@ struct Room {
 }
 
 #[instrument(skip_all)]
-pub async fn run(server_context: Arc<ServerContext>, mut messages: mpsc::Receiver<Message>) {
+pub async fn run(
+    server_context: Arc<ServerContext>,
+    mut messages: mpsc::Receiver<Message>,
+    tick_sender: tick::Sender,
+) {
     let (room_actor_upstream_sender, mut room_actor_upstream_receiver) =
         mpsc::channel::<room_state::UpstreamMessage>(4096);
 
@@ -67,6 +73,7 @@ pub async fn run(server_context: Arc<ServerContext>, mut messages: mpsc::Receive
         client_config: player::client_config(&server_context),
         players: HashMap::new(),
         rooms: HashMap::new(),
+        tick_sender,
         room_actor_upstream_sender,
     };
 
@@ -227,10 +234,19 @@ async fn handle_upstream_message(
 fn get_or_create_room(state: &mut State, room_id: RoomId) -> &mut Room {
     let State { rooms, room_actor_upstream_sender, .. } = state;
     rooms.entry(room_id).or_insert_with(|| {
+        let client_config = state.client_config.clone();
         let upstream_sender = room_actor_upstream_sender.clone();
         let (room_actor_sender, room_actor_receiver) = mpsc::channel::<room_actor::Message>(4096);
+        let tick_receiver = state.tick_sender.subscribe();
         tokio::spawn(async move {
-            room_actor::run(room_id, room_actor_receiver, upstream_sender).await
+            room_actor::run(
+                room_id,
+                client_config,
+                room_actor_receiver,
+                tick_receiver,
+                upstream_sender,
+            )
+            .await
         });
         Room { sender: room_actor_sender }
     })

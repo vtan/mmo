@@ -42,11 +42,13 @@ pub fn render(state: &mut AppState) {
 
     let mut line_vertices = LineVertexBuffer::new();
 
-    line_vertices.push_rect(
-        game_state.self_movement.position - Vector2::new(0.2, 0.05),
-        Vector2::new(0.4, 0.1),
-        Vector4::new(1.0, 0.0, 1.0, 1.0),
-    );
+    for remote_movement in game_state.remote_movements.values() {
+        line_vertices.push_rect(
+            remote_movement.position - Vector2::new(0.2, 0.05),
+            Vector2::new(0.4, 0.1),
+            Vector4::new(1.0, 0.0, 1.0, 1.0),
+        );
+    }
 
     let tileset_vertices = tileset_vertices.vertex_buffer;
     let charset_vertices = charset_vertices.vertex_buffer;
