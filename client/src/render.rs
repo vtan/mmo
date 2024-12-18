@@ -1,4 +1,4 @@
-use nalgebra::{Orthographic3, Scale3, Vector2, Vector4};
+use nalgebra::{Orthographic3, Scale2, Scale3, Vector2, Vector4};
 use web_sys::WebGl2RenderingContext as GL;
 
 use crate::{
@@ -36,18 +36,8 @@ pub fn render(state: &mut AppState) {
         0,
     );
 
-    // TODO: calculate the position in the update function
-    for player_movement in game_state.player_movements.values() {
-        let current_position = match player_movement.direction {
-            Some(dir) => {
-                let mov_distance =
-                    player_movement.velocity * (game_state.time.now - player_movement.started_at);
-                player_movement.position + mov_distance * dir.to_vector()
-            }
-            None => player_movement.position,
-        };
-
-        charset_vertices.push_tile_multi(current_position + PLAYER_OFFSET, Vector2::new(1, 2), 0);
+    for movement in game_state.local_movements.values() {
+        charset_vertices.push_tile_multi(movement.position + PLAYER_OFFSET, Vector2::new(1, 2), 0);
     }
 
     let mut line_vertices = LineVertexBuffer::new();
@@ -65,6 +55,7 @@ pub fn render(state: &mut AppState) {
 
     let logical_screen_to_ndc =
         Orthographic3::new(0.0, 480.0, 270.0, 0.0, -1.0, 1.0).to_homogeneous();
+    let tile_to_pixel_2d = Scale2::new(16.0, 16.0);
     let tile_to_pixel = Scale3::new(16.0, 16.0, 1.0).to_homogeneous();
     let tile_to_ndc = logical_screen_to_ndc * tile_to_pixel;
     gl.uniform_matrix4fv_with_f32_array(
@@ -122,6 +113,24 @@ pub fn render(state: &mut AppState) {
         let fa = &assets.font_atlas;
         fa.push_text(str1, Vector2::new(420.0, y), 6.0, color, &mut text_vertices);
         fa.push_text(str2, Vector2::new(432.0, y), 6.0, color, &mut text_vertices);
+    }
+
+    let black = Vector4::new(0.0, 0.0, 0.0, 1.0);
+    let eps = Vector2::new(0.4, 0.4);
+    for (player_id, movement) in game_state.local_movements.iter() {
+        let xy = tile_to_pixel_2d * movement.position;
+        let color = Vector4::new(0.0, 1.0, 0.0, 1.0);
+        let str = player_id.0.to_string();
+        assets.font_atlas.push_text(&str, xy + eps, 6.0, black, &mut text_vertices);
+        assets.font_atlas.push_text(&str, xy, 6.0, color, &mut text_vertices);
+    }
+    {
+        let player_id = game_state.self_id;
+        let xy = tile_to_pixel_2d * game_state.self_movement.position;
+        let color = Vector4::new(0.0, 1.0, 1.0, 1.0);
+        let str = player_id.0.to_string();
+        assets.font_atlas.push_text(&str, xy + eps, 6.0, black, &mut text_vertices);
+        assets.font_atlas.push_text(&str, xy, 6.0, color, &mut text_vertices);
     }
 
     state.vertex_buffer_renderer.render_triangles(&text_vertices, gl);

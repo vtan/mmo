@@ -18,7 +18,8 @@ pub struct GameState {
     pub client_config: ClientConfig,
     pub room: RoomSync,
     pub self_movement: SelfMovement,
-    pub player_movements: HashMap<ObjectId, Movement>,
+    pub remote_movements: HashMap<ObjectId, RemoveMovement>,
+    pub local_movements: HashMap<ObjectId, LocalMovement>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -34,11 +35,16 @@ pub struct SelfMovement {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct Movement {
+pub struct RemoveMovement {
     pub position: Vector2<f32>,
     pub direction: Option<Direction>,
     pub started_at: f32,
     pub velocity: f32,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct LocalMovement {
+    pub position: Vector2<f32>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -79,7 +85,8 @@ impl PartialGameState {
             client_config,
             room,
             self_movement: SelfMovement { position: Vector2::new(0.0, 0.0), direction: None },
-            player_movements: HashMap::new(),
+            remote_movements: HashMap::new(),
+            local_movements: HashMap::new(),
         })
     }
 }
