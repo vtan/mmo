@@ -1,6 +1,8 @@
 use nalgebra::Vector2;
 use serde::{Deserialize, Serialize};
 
+use crate::rle::Rle;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct RoomId(pub u64);
 
@@ -8,14 +10,8 @@ pub struct RoomId(pub u64);
 pub struct RoomSync {
     pub room_id: RoomId,
     pub size: Vector2<u32>,
-    pub tiles: Vec<Tile>,
+    pub tiles: Rle<TileIndex>,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
-pub struct Tile {
-    pub position: Vector2<u32>,
-    pub tile_index: TileIndex,
-}
-
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct TileIndex(pub u8);

@@ -53,7 +53,7 @@ pub fn connect(events: Rc<RefCell<Vec<AppEvent>>>) -> Result<WebSocket, JsValue>
             let received_at = (performance.now() * 1e-3) as f32;
             if let Ok(buf) = ws_event.data().dyn_into::<ArrayBuffer>() {
                 let bytes = Uint8Array::new(&buf).to_vec();
-                let message = postcard::from_bytes(&bytes).unwrap();
+                let message = postcard::from_bytes(&bytes).expect("Failed to deserialize message");
                 let app_event = AppEvent::WebsocketMessage { message, received_at };
                 (*events).borrow_mut().push(app_event);
             } else {

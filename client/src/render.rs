@@ -26,8 +26,12 @@ pub fn render(state: &mut AppState) {
     let mut tileset_vertices = TileVertexBuffer::new(Vector2::new(1.0, 1.0), Vector2::new(16, 16));
     let mut charset_vertices = TileVertexBuffer::new(Vector2::new(1.0, 1.0), Vector2::new(16, 16));
 
-    for tile in game_state.room.tiles.iter().copied() {
-        tileset_vertices.push_tile(tile.position.cast(), tile.tile_index.0 as u32);
+    for (i, tile_index) in game_state.room.tiles.iter().copied().enumerate() {
+        let i = i as u32;
+        let x = i % game_state.room.size.x;
+        let y = i / game_state.room.size.x;
+        let xy = Vector2::new(x as f32, y as f32);
+        tileset_vertices.push_tile(xy, tile_index.0 as u32);
     }
 
     charset_vertices.push_tile_multi(

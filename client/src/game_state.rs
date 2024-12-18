@@ -5,7 +5,7 @@ use mmo_common::{
     object::{Direction, ObjectId},
     player_command::PlayerCommand,
     player_event::{PlayerEvent, PlayerEventEnvelope},
-    room::RoomSync,
+    room::{RoomId, RoomSync, TileIndex},
 };
 use nalgebra::Vector2;
 
@@ -16,7 +16,7 @@ pub struct GameState {
     pub ping_rtt: f32,
     pub self_id: ObjectId,
     pub client_config: ClientConfig,
-    pub room: RoomSync,
+    pub room: Room,
     pub self_movement: SelfMovement,
     pub remote_movements: HashMap<ObjectId, RemoveMovement>,
     pub local_movements: HashMap<ObjectId, LocalMovement>,
@@ -26,6 +26,13 @@ pub struct GameState {
 pub struct Timestamps {
     pub now: f32,
     pub frame_delta: f32,
+}
+
+#[derive(Debug, Clone)]
+pub struct Room {
+    pub room_id: RoomId,
+    pub size: Vector2<u32>,
+    pub tiles: Vec<TileIndex>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -57,7 +64,7 @@ pub struct PartialGameState {
     pub time: Timestamps,
     pub self_id: Option<ObjectId>,
     pub client_config: Option<ClientConfig>,
-    pub room: Option<RoomSync>,
+    pub room: Option<Room>,
     pub remaining_events: Vec<PlayerEventEnvelope<PlayerEvent>>,
 }
 

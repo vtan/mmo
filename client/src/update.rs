@@ -1,12 +1,13 @@
 use mmo_common::object::Direction;
 use mmo_common::player_command::{GlobalCommand, PlayerCommand, RoomCommand};
 use mmo_common::player_event::{PlayerEvent, PlayerEventEnvelope};
+use mmo_common::rle;
 
 use crate::app_event::AppEvent;
 use crate::app_state::AppState;
 use crate::assets;
 use crate::game_state::{
-    GameState, LastPing, LocalMovement, PartialGameState, RemoveMovement, SelfMovement,
+    GameState, LastPing, LocalMovement, PartialGameState, RemoveMovement, Room, SelfMovement,
 };
 
 pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
@@ -136,7 +137,11 @@ fn update_partial(partial: &mut PartialGameState, events: PlayerEventEnvelope<Pl
                 partial.client_config = Some(client_config);
             }
             PlayerEvent::RoomEntered { room } => {
-                partial.room = Some(room);
+                partial.room = Some(Room {
+                    room_id: room.room_id,
+                    size: room.size,
+                    tiles: rle::decode(&room.tiles),
+                });
             }
             PlayerEvent::Pong { .. }
             | PlayerEvent::PlayerMovementChanged { .. }
@@ -175,7 +180,11 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
         }
         PlayerEvent::Initial { .. } => {}
         PlayerEvent::RoomEntered { room } => {
-            game_state.room = room;
+            game_state.room = Room {
+                room_id: room.room_id,
+                size: room.size,
+                tiles: rle::decode(&room.tiles),
+            };
             game_state.remote_movements.clear();
             game_state.local_movements.clear();
         }

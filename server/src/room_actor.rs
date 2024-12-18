@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use mmo_common::client_config::ClientConfig;
 use mmo_common::object::ObjectId;
 use mmo_common::player_command::RoomCommand;
-use mmo_common::room::{RoomId, RoomSync, Tile, TileIndex};
+use mmo_common::rle;
+use mmo_common::room::{RoomId, RoomSync, TileIndex};
 use nalgebra::Vector2;
 use tokio::sync::mpsc;
 use tracing::instrument;
@@ -119,41 +120,37 @@ async fn flush_writer(
 
 fn make_room(room_id: RoomId, client_config: ClientConfig) -> RoomState {
     let room_sync = if room_id.0 == 0 {
-        RoomSync {
-            room_id,
-            size: Vector2::new(8, 8),
-            tiles: (0..8)
-                .flat_map(move |x| {
-                    (0..8).filter_map(move |y| {
-                        if x >= 2 && x < 5 && y >= 2 && y < 5 {
-                            Some(Tile { position: Vector2::new(x, y), tile_index: TileIndex(21) })
-                        } else if y < 7 || x == 4 {
-                            Some(Tile { position: Vector2::new(x, y), tile_index: TileIndex(0) })
-                        } else {
-                            None
-                        }
-                    })
+        let tiles: Vec<TileIndex> = (0..8)
+            .flat_map(move |y| {
+                (0..8).map(move |x| {
+                    if x >= 2 && x < 5 && y >= 2 && y < 5 {
+                        TileIndex(21)
+                    } else if y < 7 || x == 4 {
+                        TileIndex(0)
+                    } else {
+                        TileIndex(21)
+                    }
                 })
-                .collect(),
-        }
+            })
+            .collect();
+        let tiles = rle::encode(&tiles);
+        RoomSync { room_id, size: Vector2::new(8, 8), tiles }
     } else {
-        RoomSync {
-            room_id,
-            size: Vector2::new(8, 8),
-            tiles: (0..8)
-                .flat_map(move |x| {
-                    (0..8).filter_map(move |y| {
-                        if x >= 2 && x <= 5 && y >= 2 && y <= 5 && y != 4 {
-                            Some(Tile { position: Vector2::new(x, y), tile_index: TileIndex(21) })
-                        } else if y > 0 || x == 4 {
-                            Some(Tile { position: Vector2::new(x, y), tile_index: TileIndex(0) })
-                        } else {
-                            None
-                        }
-                    })
+        let tiles: Vec<TileIndex> = (0..8)
+            .flat_map(move |y| {
+                (0..8).map(move |x| {
+                    if x >= 2 && x <= 5 && y >= 2 && y <= 5 && y != 4 {
+                        TileIndex(21)
+                    } else if y > 0 || x == 4 {
+                        TileIndex(0)
+                    } else {
+                        TileIndex(21)
+                    }
                 })
-                .collect(),
-        }
+            })
+            .collect();
+        let tiles = rle::encode(&tiles);
+        RoomSync { room_id, size: Vector2::new(8, 8), tiles }
     };
 
     let portals = if room_id.0 == 0 {
