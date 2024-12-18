@@ -30,6 +30,7 @@ features = [
   'HtmlCanvasElement',
   'HtmlImageElement',
   'KeyboardEvent',
+  'Location',
   'MessageEvent',
   'Performance',
   'Request',

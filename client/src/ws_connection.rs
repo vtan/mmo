@@ -11,10 +11,12 @@ use web_sys::{MessageEvent, WebSocket};
 use crate::app_event::AppEvent;
 
 pub fn connect(events: Rc<RefCell<Vec<AppEvent>>>) -> Result<WebSocket, JsValue> {
-    let performance = web_sys::window().expect("No window").performance().expect("No performance");
+    let window = web_sys::window().expect("No window");
+    let performance = window.performance().expect("No performance");
 
-    // TODO: construct URL from window.location
-    let ws = WebSocket::new("ws://localhost:8081/api/ws")?;
+    let location_origin = window.location().origin()?;
+    let url = format!("{location_origin}/api/ws");
+    let ws = WebSocket::new(&url)?;
     ws.set_binary_type(web_sys::BinaryType::Arraybuffer);
 
     let ws_onopen = {
