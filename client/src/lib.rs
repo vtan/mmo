@@ -151,7 +151,8 @@ pub async fn start() -> Result<(), JsValue> {
         render::render(&mut app_state);
 
         if let Ok(ref mut game_state) = &mut app_state.game_state {
-            ws_connection::send(&ws, &game_state.ws_commands).unwrap();
+            // swap
+            ws_connection::send(&ws, std::mem::take(&mut game_state.ws_commands)).unwrap();
             game_state.ws_commands.clear();
         }
 

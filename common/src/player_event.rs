@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use nalgebra::Vector2;
 use serde::{Deserialize, Serialize};
 
@@ -8,7 +6,7 @@ use crate::{client_config::ClientConfig, movement::Direction, room::RoomSync};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlayerEventEnvelope<T>
 where
-    T: Deref<Target = PlayerEvent>,
+    T: AsRef<PlayerEvent>,
 {
     pub events: Vec<T>,
 }
@@ -33,4 +31,10 @@ pub enum PlayerEvent {
     PlayerDisappeared {
         player_id: u64,
     },
+}
+
+impl AsRef<PlayerEvent> for PlayerEvent {
+    fn as_ref(&self) -> &PlayerEvent {
+        self
+    }
 }

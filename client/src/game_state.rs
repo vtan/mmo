@@ -52,7 +52,7 @@ pub struct PartialGameState {
     pub player_id: Option<u64>,
     pub client_config: Option<ClientConfig>,
     pub room: Option<RoomSync>,
-    pub remaining_events: Vec<PlayerEventEnvelope<Box<PlayerEvent>>>,
+    pub remaining_events: Vec<PlayerEventEnvelope<PlayerEvent>>,
 }
 
 impl PartialGameState {

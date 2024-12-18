@@ -2,7 +2,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use mmo_common::client_config::ClientConfig;
-use mmo_common::player_command::{GlobalCommand, PlayerCommand};
+use mmo_common::player_command::{
+    GlobalCommand, PlayerCommand, PlayerCommandEnvelope, RoomCommand,
+};
 use mmo_common::player_event::PlayerEvent;
 use nalgebra::Vector2;
 use tokio::sync::mpsc;
@@ -16,7 +18,7 @@ use crate::{room_actor, room_state};
 pub enum Message {
     PlayerConnected { player_id: u64, connection: PlayerConnection },
     PlayerDisconnected { player_id: u64 },
-    PlayerCommand { player_id: u64, command: PlayerCommand },
+    PlayerCommand { player_id: u64, command: PlayerCommandEnvelope },
 }
 
 impl Message {
@@ -126,28 +128,38 @@ async fn handle_message(state: &mut State, message: Message) {
                 tracing::warn!("Player disconnected but not found");
             }
         }
-        Message::PlayerCommand { player_id, command: PlayerCommand::GlobalCommand { command } } => {
-            handle_global_command(state, player_id, command).await;
-        }
-        Message::PlayerCommand {
-            player_id,
-            command: PlayerCommand::RoomCommand { room_id, command },
-        } => {
-            let player_room_id = state.players.get(&player_id).map(|p| p.room_id);
-            match player_room_id {
-                Some(player_room_id) if player_room_id == room_id => {
-                    get_or_create_room(state, room_id)
-                        .sender
-                        .send(room_actor::Message::PlayerCommand { player_id, command })
-                        .await
-                        .unwrap()
+        Message::PlayerCommand { player_id, command } => {
+            for command in command.commands {
+                match command {
+                    PlayerCommand::GlobalCommand { command } => {
+                        handle_global_command(state, player_id, command).await
+                    }
+                    PlayerCommand::RoomCommand { room_id, command } => {
+                        handle_room_command(state, player_id, room_id, command).await
+                    }
                 }
-                Some(_) => {
-                    tracing::warn!("Got command with wrong room id {room_id}")
-                }
-                None => tracing::error!("Player sent command but not found"),
             }
         }
+    }
+}
+
+async fn handle_room_command(
+    state: &mut State,
+    player_id: u64,
+    room_id: u64,
+    command: RoomCommand,
+) {
+    let player_room_id = state.players.get(&player_id).map(|p| p.room_id);
+    match player_room_id {
+        Some(player_room_id) if player_room_id == room_id => get_or_create_room(state, room_id)
+            .sender
+            .send(room_actor::Message::PlayerCommand { player_id, command })
+            .await
+            .unwrap(),
+        Some(_) => {
+            tracing::warn!("Got command with wrong room id {room_id}")
+        }
+        None => tracing::error!("Player sent command but not found"),
     }
 }
 

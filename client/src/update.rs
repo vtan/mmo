@@ -94,7 +94,7 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
     }
 }
 
-fn update_async(state: &mut AppState, message: &PlayerEventEnvelope<Box<PlayerEvent>>) {
+fn update_async(state: &mut AppState, message: &PlayerEventEnvelope<PlayerEvent>) {
     for event in message.events.iter() {
         if let PlayerEvent::Initial { client_config, .. } = event.as_ref() {
             let gl = state.gl.clone();
@@ -108,12 +108,12 @@ fn update_async(state: &mut AppState, message: &PlayerEventEnvelope<Box<PlayerEv
     }
 }
 
-fn update_partial(partial: &mut PartialGameState, events: PlayerEventEnvelope<Box<PlayerEvent>>) {
+fn update_partial(partial: &mut PartialGameState, events: PlayerEventEnvelope<PlayerEvent>) {
     let mut remaining = events.clone();
     remaining.events.clear();
 
     for event in events.events {
-        match *event {
+        match event {
             PlayerEvent::Initial { player_id, client_config } => {
                 partial.player_id = Some(player_id);
                 partial.client_config = Some(client_config);
@@ -134,13 +134,13 @@ fn update_partial(partial: &mut PartialGameState, events: PlayerEventEnvelope<Bo
 fn handle_server_events(
     game_state: &mut GameState,
     received_at: f32,
-    events: PlayerEventEnvelope<Box<PlayerEvent>>,
+    events: PlayerEventEnvelope<PlayerEvent>,
 ) {
     for event in events.events {
-        if !matches!(*event, PlayerEvent::Pong { .. }) {
+        if !matches!(event, PlayerEvent::Pong { .. }) {
             web_sys::console::info_1(&format!("{event:?}").into());
         }
-        handle_server_event(game_state, received_at, *event);
+        handle_server_event(game_state, received_at, event);
     }
 }
 

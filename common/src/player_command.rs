@@ -3,6 +3,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::movement::Direction;
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlayerCommandEnvelope {
+    pub commands: Vec<PlayerCommand>,
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum PlayerCommand {
     GlobalCommand { command: GlobalCommand },

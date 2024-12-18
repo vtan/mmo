@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use js_sys::{ArrayBuffer, Uint8Array};
 use mmo_common::player_command::PlayerCommand;
+use mmo_common::player_command::PlayerCommandEnvelope;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::{MessageEvent, WebSocket};
@@ -64,10 +65,9 @@ pub fn connect(events: Rc<RefCell<Vec<AppEvent>>>) -> Result<WebSocket, JsValue>
     Ok(ws)
 }
 
-pub fn send(ws: &WebSocket, commands: &[PlayerCommand]) -> Result<(), JsValue> {
-    for command in commands {
-        let bytes = postcard::to_stdvec(command).map_err(|e| e.to_string())?;
-        ws.send_with_u8_array(&bytes)?;
-    }
+pub fn send(ws: &WebSocket, commands: Vec<PlayerCommand>) -> Result<(), JsValue> {
+    let envelope = PlayerCommandEnvelope { commands };
+    let bytes = postcard::to_stdvec(&envelope).map_err(|e| e.to_string())?;
+    ws.send_with_u8_array(&bytes)?;
     Ok(())
 }
