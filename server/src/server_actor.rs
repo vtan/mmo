@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use eyre::Result;
 use mmo_common::client_config::ClientConfig;
 use mmo_common::player_command::{
     GlobalCommand, PlayerCommand, PlayerCommandEnvelope, RoomCommand,
@@ -64,14 +65,18 @@ pub async fn run(server_context: Arc<ServerContext>, mut messages: mpsc::Receive
         tokio::select! {
             message = messages.recv() => {
                 if let Some(message) = message {
-                    handle_message(&mut state, message).await;
+                    if let Err(err) = handle_message(&mut state, message).await {
+                        tracing::error!("Error handling message: {err}");
+                    }
                 } else {
                     break;
                 }
             }
             upstream_message = room_actor_upstream_receiver.recv() => {
                 if let Some(upstream_message) = upstream_message {
-                    handle_upstream_message(&mut state, upstream_message).await;
+                    if let Err(err) = handle_upstream_message(&mut state, upstream_message).await {
+                        tracing::error!("Error handling upstream message: {err}");
+                    }
                 }
             }
         }
@@ -79,7 +84,7 @@ pub async fn run(server_context: Arc<ServerContext>, mut messages: mpsc::Receive
 }
 
 #[instrument(skip_all, fields(player_id = message.player_id()))]
-async fn handle_message(state: &mut State, message: Message) {
+async fn handle_message(state: &mut State, message: Message) -> Result<()> {
     match message {
         Message::PlayerConnected { player_id, connection } => {
             let start_room_id = 0;
@@ -96,8 +101,7 @@ async fn handle_message(state: &mut State, message: Message) {
                     player_id,
                     client_config: state.client_config.clone(),
                 })])
-                .await
-                .unwrap(); // TODO: unwrap
+                .await?;
 
             let room = get_or_create_room(state, start_room_id);
             room.sender
@@ -106,17 +110,13 @@ async fn handle_message(state: &mut State, message: Message) {
                     connection,
                     position: Vector2::new(0.5, 2.5),
                 })
-                .await
-                .unwrap(); // TODO: unwrap
+                .await?;
         }
         Message::PlayerDisconnected { player_id } => {
             if let Some(player) = state.players.remove(&player_id) {
                 let room_id = player.room_id;
                 if let Some(room) = state.rooms.get_mut(&room_id) {
-                    room.sender
-                        .send(room_actor::Message::PlayerDisconnected { player_id })
-                        .await
-                        .unwrap(); // TODO: unwrap
+                    room.sender.send(room_actor::Message::PlayerDisconnected { player_id }).await?;
                 } else {
                     tracing::warn!(
                         "Player disconnected but room {room_id} not found",
@@ -132,15 +132,16 @@ async fn handle_message(state: &mut State, message: Message) {
             for command in command.commands {
                 match command {
                     PlayerCommand::GlobalCommand { command } => {
-                        handle_global_command(state, player_id, command).await
+                        handle_global_command(state, player_id, command).await?
                     }
                     PlayerCommand::RoomCommand { room_id, command } => {
-                        handle_room_command(state, player_id, room_id, command).await
+                        handle_room_command(state, player_id, room_id, command).await?
                     }
                 }
             }
         }
     }
+    Ok(())
 }
 
 async fn handle_room_command(
@@ -148,33 +149,43 @@ async fn handle_room_command(
     player_id: u64,
     room_id: u64,
     command: RoomCommand,
-) {
+) -> Result<()> {
     let player_room_id = state.players.get(&player_id).map(|p| p.room_id);
     match player_room_id {
-        Some(player_room_id) if player_room_id == room_id => get_or_create_room(state, room_id)
-            .sender
-            .send(room_actor::Message::PlayerCommand { player_id, command })
-            .await
-            .unwrap(),
+        Some(player_room_id) if player_room_id == room_id => {
+            get_or_create_room(state, room_id)
+                .sender
+                .send(room_actor::Message::PlayerCommand { player_id, command })
+                .await?
+        }
         Some(_) => {
             tracing::warn!("Got command with wrong room id {room_id}")
         }
         None => tracing::error!("Player sent command but not found"),
     }
+    Ok(())
 }
 
-async fn handle_global_command(state: &mut State, player_id: u64, message: GlobalCommand) {
+async fn handle_global_command(
+    state: &mut State,
+    player_id: u64,
+    message: GlobalCommand,
+) -> Result<()> {
     match message {
         GlobalCommand::Ping { sequence_number } => {
             let pong = PlayerEvent::Pong { sequence_number };
             if let Some(player) = state.players.get(&player_id) {
-                player.connection.send(vec![Arc::new(pong)]).await.unwrap(); // TODO: unwrap
+                player.connection.send(vec![Arc::new(pong)]).await?
             }
         }
     }
+    Ok(())
 }
 
-async fn handle_upstream_message(state: &mut State, message: room_state::UpstreamMessage) {
+async fn handle_upstream_message(
+    state: &mut State,
+    message: room_state::UpstreamMessage,
+) -> Result<()> {
     match message {
         room_state::UpstreamMessage::PlayerLeftRoom {
             sender_room_id,
@@ -182,7 +193,6 @@ async fn handle_upstream_message(state: &mut State, message: room_state::Upstrea
             target_room_id,
             target_position,
         } => {
-            // TODO: propagate to other players
             if let Some(player) = state.players.get_mut(&player_id) {
                 player.room_id = target_room_id;
 
@@ -195,14 +205,14 @@ async fn handle_upstream_message(state: &mut State, message: room_state::Upstrea
                         connection,
                         position: target_position,
                     })
-                    .await
-                    .unwrap(); // TODO: unwrap
+                    .await?;
             } else {
                 tracing::error!("Player not found");
             }
             remove_room_if_empty(state, sender_room_id);
         }
     }
+    Ok(())
 }
 
 fn get_or_create_room(state: &mut State, room_id: u64) -> &mut Room {
