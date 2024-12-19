@@ -44,7 +44,7 @@ fn convert_map(ldtk_map: &LdtkMap, ldtk_level: &LdtkLevel) -> Result<RoomMap> {
 }
 
 fn convert_layer(ldtk_map: &LdtkMap, ldtk_layer: &LdtkLayerInstance) -> Result<RoomMapLayer> {
-    let mut tiles = vec![TileIndex(0); (ldtk_layer.width * ldtk_layer.height) as usize];
+    let mut tiles = vec![TileIndex::empty(); (ldtk_layer.width * ldtk_layer.height) as usize];
     for tile in &ldtk_layer.grid_tiles {
         if tile.px[0] % ldtk_map.default_grid_size != 0
             || tile.px[1] % ldtk_map.default_grid_size != 0

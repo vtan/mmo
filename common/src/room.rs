@@ -1,3 +1,5 @@
+use std::num::NonZeroU16;
+
 use nalgebra::Vector2;
 use serde::{Deserialize, Serialize};
 
@@ -14,4 +16,10 @@ pub struct RoomSync {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize)]
-pub struct TileIndex(pub u8);
+pub struct TileIndex(pub Option<NonZeroU16>);
+
+impl TileIndex {
+    pub fn empty() -> Self {
+        Self(None)
+    }
+}
