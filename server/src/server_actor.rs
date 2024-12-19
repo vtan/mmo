@@ -114,7 +114,7 @@ async fn handle_message(state: &mut State, message: Message) -> Result<()> {
             connection
                 .send(vec![Arc::new(PlayerEvent::Initial {
                     self_id: player_id,
-                    client_config: player::client_config(&state.server_context),
+                    client_config: Box::new(player::client_config(&state.server_context)),
                 })])
                 .await?;
 

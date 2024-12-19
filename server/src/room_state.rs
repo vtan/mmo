@@ -51,6 +51,7 @@ pub struct LocalMovement {
 pub struct RemoteMovement {
     pub position: Vector2<f32>,
     pub direction: Option<Direction>,
+    pub look_direction: Direction,
     pub received_at: Instant,
 }
 

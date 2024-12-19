@@ -45,7 +45,7 @@ pub fn render(state: &mut AppState) {
         } else {
             &animation.idle
         };
-        let direction = movement.direction.unwrap_or(Direction::Down);
+        let direction = movement.direction.unwrap_or(movement.look_direction);
         if let Some(sprite_index) =
             select_animation_sprite(animation, direction, movement.animation_time)
         {

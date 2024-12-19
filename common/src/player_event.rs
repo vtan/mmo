@@ -19,18 +19,19 @@ where
 pub enum PlayerEvent {
     Initial {
         self_id: ObjectId,
-        client_config: ClientConfig,
+        client_config: Box<ClientConfig>,
     },
     Pong {
         sequence_number: u32,
     },
     RoomEntered {
-        room: RoomSync,
+        room: Box<RoomSync>,
     },
     PlayerMovementChanged {
         object_id: ObjectId,
         position: Vector2<f32>,
         direction: Option<Direction>,
+        look_direction: Direction,
     },
     PlayerDisappeared {
         object_id: ObjectId,

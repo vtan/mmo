@@ -21,5 +21,9 @@ pub enum GlobalCommand {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum RoomCommand {
-    Move { position: Vector2<f32>, direction: Option<Direction> },
+    Move {
+        position: Vector2<f32>,
+        direction: Option<Direction>,
+        look_direction: Direction,
+    },
 }

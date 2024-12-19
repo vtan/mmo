@@ -1,4 +1,9 @@
-use mmo_common::{object::ObjectId, player_command::RoomCommand, player_event::PlayerEvent, room};
+use mmo_common::{
+    object::{Direction, ObjectId},
+    player_command::RoomCommand,
+    player_event::PlayerEvent,
+    room,
+};
 use nalgebra::Vector2;
 use tokio::time::Instant;
 use tracing::instrument;
@@ -20,14 +25,20 @@ pub fn on_connect(
 ) {
     let now = Instant::now();
     let local_movement = LocalMovement { position, updated_at: now };
-    let remote_movement = RemoteMovement { position, direction: None, received_at: now };
+    let remote_movement = RemoteMovement {
+        position,
+        direction: None,
+        look_direction: Direction::Down,
+        received_at: now,
+    };
     let player = Player { id: player_id, connection, local_movement, remote_movement };
     player_entered(player, state, writer);
 }
 
 fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter) {
     let player_id = player.id;
-    let player_position = player.local_movement.position;
+    let player_local_movement = player.local_movement;
+    let player_remote_movement = player.remote_movement;
     let now = Instant::now();
 
     state.players.insert(player_id, player);
@@ -36,14 +47,15 @@ fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter
         state.players.keys().copied(),
         PlayerEvent::PlayerMovementChanged {
             object_id: player_id,
-            position: player_position,
-            direction: None,
+            position: player_local_movement.position,
+            direction: player_remote_movement.direction,
+            look_direction: player_remote_movement.look_direction,
         },
     );
 
     writer.tell(
         player_id,
-        PlayerEvent::RoomEntered { room: state.room.clone() },
+        PlayerEvent::RoomEntered { room: Box::new(state.room.clone()) },
     );
     for player_in_room in state.players.values() {
         let position =
@@ -53,7 +65,8 @@ fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter
             PlayerEvent::PlayerMovementChanged {
                 object_id: player_in_room.id,
                 position: position.position,
-                direction: None,
+                direction: player_in_room.remote_movement.direction,
+                look_direction: player_in_room.remote_movement.look_direction,
             },
         );
     }
@@ -82,7 +95,7 @@ pub fn on_command(
     writer: &mut RoomWriter,
 ) {
     match command {
-        RoomCommand::Move { position, direction } => {
+        RoomCommand::Move { position, direction, look_direction } => {
             // TODO: at least a basic check whether the position is plausible
             let now = Instant::now();
 
@@ -93,7 +106,8 @@ pub fn on_command(
                 return;
             };
 
-            player.remote_movement = RemoteMovement { position, direction, received_at: now };
+            player.remote_movement =
+                RemoteMovement { position, direction, look_direction, received_at: now };
 
             if room::collision_at(state.map.size, &state.map.collisions, position) {
                 prevent_collision(player, &player_ids, now, writer);
@@ -106,6 +120,7 @@ pub fn on_command(
                         object_id: player_id,
                         position: player.local_movement.position,
                         direction: player.remote_movement.direction,
+                        look_direction: player.remote_movement.look_direction,
                     },
                 );
             }
@@ -163,6 +178,7 @@ pub fn on_tick(tick: Tick, state: &mut RoomState, writer: &mut RoomWriter) {
                             object_id: player.id,
                             position: local_movement.position,
                             direction: player.remote_movement.direction,
+                            look_direction: player.remote_movement.look_direction,
                         },
                     );
                 }
@@ -181,15 +197,19 @@ fn prevent_collision(
     now: Instant,
     writer: &mut RoomWriter,
 ) {
-    player.remote_movement.position = player.local_movement.position;
-    player.remote_movement.direction = None;
-    player.remote_movement.received_at = now; // TODO: mark that this was a correction?
+    player.remote_movement = RemoteMovement {
+        position: player.local_movement.position,
+        direction: None,
+        look_direction: player.remote_movement.look_direction,
+        received_at: now, // TODO: mark that this was a correction?
+    };
     writer.broadcast(
         player_ids.iter().copied(),
         PlayerEvent::PlayerMovementChanged {
             object_id: player.id,
-            position: player.local_movement.position,
-            direction: None,
+            position: player.remote_movement.position,
+            direction: player.remote_movement.direction,
+            look_direction: player.remote_movement.look_direction,
         },
     );
 }

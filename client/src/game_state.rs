@@ -42,6 +42,7 @@ pub struct Room {
 pub struct SelfMovement {
     pub position: Vector2<f32>,
     pub direction: Option<Direction>,
+    pub look_direction: Direction,
     pub changed_at: f32,
 }
 
@@ -49,6 +50,7 @@ pub struct SelfMovement {
 pub struct RemoveMovement {
     pub position: Vector2<f32>,
     pub direction: Option<Direction>,
+    pub look_direction: Direction,
     pub started_at: f32,
     pub velocity: f32,
 }
@@ -57,6 +59,7 @@ pub struct RemoveMovement {
 pub struct LocalMovement {
     pub position: Vector2<f32>,
     pub direction: Option<Direction>,
+    pub look_direction: Direction,
     pub animation_time: f32,
 }
 
@@ -100,6 +103,7 @@ impl PartialGameState {
             self_movement: SelfMovement {
                 position: Vector2::new(0.0, 0.0),
                 direction: None,
+                look_direction: Direction::Down,
                 changed_at: 0.0,
             },
             remote_movements: HashMap::new(),

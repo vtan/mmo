@@ -83,10 +83,10 @@ fn update_partial(partial: &mut PartialGameState, events: PlayerEventEnvelope<Pl
         match event {
             PlayerEvent::Initial { self_id, client_config } => {
                 partial.self_id = Some(self_id);
-                partial.client_config = Some(client_config);
+                partial.client_config = Some(*client_config);
             }
             PlayerEvent::RoomEntered { room } => {
-                partial.room = Some(load_room_map(room));
+                partial.room = Some(load_room_map(*room));
             }
             PlayerEvent::Pong { .. }
             | PlayerEvent::PlayerMovementChanged { .. }
@@ -125,18 +125,25 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
         }
         PlayerEvent::Initial { .. } => {}
         PlayerEvent::RoomEntered { room } => {
-            game_state.room = load_room_map(room);
+            game_state.room = load_room_map(*room);
             game_state.remote_movements.clear();
             game_state.local_movements.clear();
         }
-        PlayerEvent::PlayerMovementChanged { object_id: player_id, position, direction } => {
+        PlayerEvent::PlayerMovementChanged {
+            object_id: player_id,
+            position,
+            direction,
+            look_direction,
+        } => {
             if player_id == game_state.self_id {
                 let changed_at = game_state.time.now;
-                game_state.self_movement = SelfMovement { position, direction, changed_at };
+                game_state.self_movement =
+                    SelfMovement { position, direction, look_direction, changed_at };
             } else {
                 let started_at = game_state.time.now;
                 let velocity = game_state.client_config.player_velocity;
-                let remote_movement = RemoveMovement { position, direction, started_at, velocity };
+                let remote_movement =
+                    RemoveMovement { position, direction, look_direction, started_at, velocity };
                 game_state.remote_movements.insert(player_id, remote_movement);
             }
         }
@@ -150,14 +157,19 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
 fn start_moving(state: &mut AppState, direction: Direction) {
     if let Ok(game_state) = &mut state.game_state {
         if game_state.self_movement.direction != Some(direction) {
-            game_state.self_movement.direction = Some(direction);
-            game_state.self_movement.changed_at = game_state.time.now;
+            game_state.self_movement = SelfMovement {
+                position: game_state.self_movement.position,
+                direction: Some(direction),
+                look_direction: direction,
+                changed_at: game_state.time.now,
+            };
 
             let command = PlayerCommand::RoomCommand {
                 room_id: game_state.room.room_id,
                 command: RoomCommand::Move {
                     position: game_state.self_movement.position,
-                    direction: Some(direction),
+                    direction: game_state.self_movement.direction,
+                    look_direction: game_state.self_movement.look_direction,
                 },
             };
             game_state.ws_commands.push(command);
@@ -168,14 +180,19 @@ fn start_moving(state: &mut AppState, direction: Direction) {
 fn stop_moving(state: &mut AppState, direction: Direction) {
     if let Ok(game_state) = &mut state.game_state {
         if game_state.self_movement.direction == Some(direction) {
-            game_state.self_movement.direction = None;
-            game_state.self_movement.changed_at = game_state.time.now;
+            game_state.self_movement = SelfMovement {
+                position: game_state.self_movement.position,
+                direction: None,
+                look_direction: direction,
+                changed_at: game_state.time.now,
+            };
 
             let command = PlayerCommand::RoomCommand {
                 room_id: game_state.room.room_id,
                 command: RoomCommand::Move {
                     position: game_state.self_movement.position,
-                    direction: None,
+                    direction: game_state.self_movement.direction,
+                    look_direction: game_state.self_movement.look_direction,
                 },
             };
             game_state.ws_commands.push(command);
@@ -198,6 +215,7 @@ fn update_self_movement(game_state: &mut GameState) {
                 command: RoomCommand::Move {
                     position: game_state.self_movement.position,
                     direction: None,
+                    look_direction: game_state.self_movement.look_direction,
                 },
             });
         } else {
@@ -208,6 +226,7 @@ fn update_self_movement(game_state: &mut GameState) {
     let local_movement = LocalMovement {
         position: game_state.self_movement.position,
         direction: game_state.self_movement.direction,
+        look_direction: game_state.self_movement.look_direction,
         animation_time: game_state.time.now - game_state.self_movement.changed_at,
     };
     game_state.local_movements.insert(game_state.self_id, local_movement);
@@ -227,6 +246,7 @@ fn update_remote_movement(game_state: &mut GameState) {
         let local_movement = LocalMovement {
             position: current_position,
             direction: remote_movement.direction,
+            look_direction: remote_movement.look_direction,
             animation_time: game_state.time.now - remote_movement.started_at,
         };
         game_state.local_movements.insert(*object_id, local_movement);
