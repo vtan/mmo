@@ -1,3 +1,4 @@
+use mmo_common::room::TileIndex;
 use nalgebra::{Orthographic3, Scale2, Scale3, Vector2, Vector4};
 use web_sys::WebGl2RenderingContext as GL;
 
@@ -26,15 +27,11 @@ pub fn render(state: &mut AppState) {
     let mut tileset_vertices = TileVertexBuffer::new(Vector2::new(1.0, 1.0), Vector2::new(16, 16));
     let mut charset_vertices = TileVertexBuffer::new(Vector2::new(1.0, 1.0), Vector2::new(16, 16));
 
-    for (i, tile_index) in game_state.room.tiles.iter().copied().enumerate() {
-        if let Some(tile_index) = tile_index.0 {
-            let i = i as u32;
-            let x = i % game_state.room.size.x;
-            let y = i / game_state.room.size.x;
-            let xy = Vector2::new(x as f32, y as f32);
-            tileset_vertices.push_tile(xy, tile_index.get() as u32);
-        }
+    for layer in &game_state.room.bg_dense_layers {
+        render_dense_tile_layer(layer, game_state.room.size, &mut tileset_vertices);
     }
+    render_sparse_tile_layer(&game_state.room.bg_sparse_layer, &mut tileset_vertices);
+    render_sparse_tile_layer(&game_state.room.fg_sparse_layer, &mut tileset_vertices);
 
     charset_vertices.push_tile_multi(
         game_state.self_movement.position + PLAYER_OFFSET,
@@ -142,4 +139,32 @@ pub fn render(state: &mut AppState) {
     }
 
     state.vertex_buffer_renderer.render_triangles(&text_vertices, gl);
+}
+
+fn render_dense_tile_layer(
+    layer: &[TileIndex],
+    room_size: Vector2<u32>,
+    tileset_vertices: &mut TileVertexBuffer,
+) {
+    for (i, tile_index) in layer.iter().copied().enumerate() {
+        if let Some(tile_index) = tile_index.0 {
+            let i = i as u32;
+            let x = i % room_size.x;
+            let y = i / room_size.x;
+            let xy = Vector2::new(x as f32, y as f32);
+            tileset_vertices.push_tile(xy, tile_index.get() as u32);
+        }
+    }
+}
+
+fn render_sparse_tile_layer(
+    layer: &[(Vector2<u32>, TileIndex)],
+    tileset_vertices: &mut TileVertexBuffer,
+) {
+    for (position, tile_index) in layer {
+        if let Some(tile_index) = tile_index.0 {
+            let xy = position.map(|x| x as f32);
+            tileset_vertices.push_tile(xy, tile_index.get() as u32);
+        }
+    }
 }

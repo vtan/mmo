@@ -122,6 +122,17 @@ async fn flush_writer(
 }
 
 fn make_room_sync(room_id: RoomId, map: &RoomMap) -> RoomSync {
-    let tiles = rle::encode(&map.layers[1].tiles); // TODO
-    RoomSync { room_id, size: map.size, tiles }
+    let bg_dense_layers = map.bg_dense_layers.iter().map(|layer| rle::encode(layer)).collect();
+    let bg_sparse_layer = map.bg_sparse_layer.clone();
+    let fg_sparse_layer = map.fg_sparse_layer.clone();
+    let collisions = rle::encode(&map.collisions);
+
+    RoomSync {
+        room_id,
+        size: map.size,
+        bg_dense_layers,
+        bg_sparse_layer,
+        fg_sparse_layer,
+        collisions,
+    }
 }

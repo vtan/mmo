@@ -21,7 +21,9 @@ pub struct RoomState {
 #[derive(Debug, Clone)]
 pub struct RoomMap {
     pub size: Vector2<u32>,
-    pub layers: Vec<RoomMapLayer>,
+    pub bg_dense_layers: Vec<Vec<TileIndex>>,
+    pub bg_sparse_layer: Vec<(Vector2<u32>, TileIndex)>,
+    pub fg_sparse_layer: Vec<(Vector2<u32>, TileIndex)>,
     pub collisions: Vec<bool>,
     pub portals: Vec<Portal>,
 }

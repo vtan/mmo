@@ -1,4 +1,7 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use eyre::Result;
 use mmo_common::room::{RoomId, TileIndex};
@@ -26,21 +29,98 @@ pub fn load(path: &str) -> Result<HashMap<RoomId, Arc<RoomMap>>> {
 }
 
 fn convert_map(ldtk_map: &LdtkMap, ldtk_level: &LdtkLevel) -> Result<RoomMap> {
-    let mut layers = vec![];
+    let foreground_tile_ids = collect_enum_tile_ids(ldtk_map, "Foreground")?;
+    let blocked_tile_ids = collect_enum_tile_ids(ldtk_map, "Blocked")?;
+
     let mut size = Vector2::new(0, 0);
+    let mut bg_dense_layers = vec![];
+    let mut bg_sparse_layer = vec![];
+    let mut fg_sparse_layer = vec![];
 
     for ldtk_layer in &ldtk_level.layer_instances {
         if !ldtk_layer.grid_tiles.is_empty() {
             let layer_size = Vector2::new(ldtk_layer.width, ldtk_layer.height);
             size = size.zip_map(&layer_size, |a, b| a.max(b));
 
-            let layer = convert_layer(ldtk_map, ldtk_layer)?;
-            layers.push(layer);
+            let has_non_divisible_pos = ldtk_layer.grid_tiles.iter().any(|tile| {
+                tile.px[0] % ldtk_map.default_grid_size != 0
+                    || tile.px[1] % ldtk_map.default_grid_size != 0
+            });
+            if has_non_divisible_pos {
+                return Err(eyre::eyre!(
+                    "Tile position is not a multiple of the default grid size"
+                ));
+            }
+
+            let has_duplicate_positions = {
+                let unique_positions = ldtk_layer
+                    .grid_tiles
+                    .iter()
+                    .map(|tile| tile.px)
+                    .collect::<std::collections::HashSet<_>>();
+                unique_positions.len() != ldtk_layer.grid_tiles.len()
+            };
+            let has_foreground_tiles =
+                ldtk_layer.grid_tiles.iter().any(|tile| foreground_tile_ids.contains(&tile.t));
+
+            if has_duplicate_positions || has_foreground_tiles {
+                let (bg, fg) = convert_sparse_layer(ldtk_map, ldtk_layer, &foreground_tile_ids);
+                bg_sparse_layer.extend(bg);
+                fg_sparse_layer.extend(fg);
+            } else {
+                let layer = convert_dense_layer(ldtk_map, ldtk_layer);
+                bg_dense_layers.push(layer);
+            }
         }
     }
-    let collisions = collect_collisions(ldtk_map, &layers)?;
+    let collisions = collect_collisions(
+        size,
+        &bg_dense_layers,
+        &[bg_sparse_layer.clone(), fg_sparse_layer.clone()],
+        &blocked_tile_ids,
+    );
 
-    Ok(RoomMap { size, layers, collisions, portals: vec![] })
+    Ok(RoomMap {
+        size,
+        bg_dense_layers,
+        bg_sparse_layer,
+        fg_sparse_layer,
+        collisions,
+        portals: vec![],
+    })
+}
+
+fn convert_sparse_layer(
+    ldtk_map: &LdtkMap,
+    ldtk_layer: &LdtkLayerInstance,
+    foreground_tile_ids: &HashSet<TileIndex>,
+) -> (
+    Vec<(Vector2<u32>, TileIndex)>,
+    Vec<(Vector2<u32>, TileIndex)>,
+) {
+    let grid_size = ldtk_map.default_grid_size;
+    let mut bg = vec![];
+    let mut fg = vec![];
+    for tile in &ldtk_layer.grid_tiles {
+        let position = Vector2::new(tile.px[0] / grid_size, tile.px[1] / grid_size);
+        if foreground_tile_ids.contains(&tile.t) {
+            fg.push((position, tile.t));
+        } else {
+            bg.push((position, tile.t));
+        }
+    }
+    (bg, fg)
+}
+
+fn convert_dense_layer(ldtk_map: &LdtkMap, ldtk_layer: &LdtkLayerInstance) -> Vec<TileIndex> {
+    let grid_size = ldtk_map.default_grid_size;
+    let mut tiles = vec![TileIndex::empty(); (ldtk_layer.width * ldtk_layer.height) as usize];
+    for tile in &ldtk_layer.grid_tiles {
+        let x = tile.px[0] / grid_size;
+        let y = tile.px[1] / grid_size;
+        tiles[(y * ldtk_layer.width + x) as usize] = tile.t;
+    }
+    tiles
 }
 
 fn convert_layer(ldtk_map: &LdtkMap, ldtk_layer: &LdtkLayerInstance) -> Result<RoomMapLayer> {
@@ -61,21 +141,38 @@ fn convert_layer(ldtk_map: &LdtkMap, ldtk_layer: &LdtkLayerInstance) -> Result<R
     Ok(RoomMapLayer { tiles })
 }
 
-fn collect_collisions(ldtk_map: &LdtkMap, layers: &[RoomMapLayer]) -> Result<Vec<bool>> {
-    let tileset = ldtk_map.defs.tilesets.first().ok_or_else(|| eyre::eyre!("No first tileset"))?;
-    let blocked_tile_ids = tileset.enum_tags.iter().find(|tag| tag.enum_value_id == "Blocked");
-
-    let mut collisions =
-        vec![false; (ldtk_map.default_grid_size * ldtk_map.default_grid_size) as usize];
-
-    if let Some(blocked_tile_ids) = blocked_tile_ids {
-        for layer in layers {
-            for (i, tile) in layer.tiles.iter().enumerate() {
-                collisions[i] = blocked_tile_ids.tile_ids.contains(tile);
+fn collect_collisions(
+    size: Vector2<u32>,
+    dense_layers: &[Vec<TileIndex>],
+    sparse_layers: &[Vec<(Vector2<u32>, TileIndex)>],
+    blocked_tile_ids: &HashSet<TileIndex>,
+) -> Vec<bool> {
+    let mut collisions = vec![false; (size.x * size.y) as usize];
+    for layer in dense_layers {
+        for (i, tile) in layer.iter().enumerate() {
+            if blocked_tile_ids.contains(tile) {
+                collisions[i] = true;
             }
         }
     }
-    Ok(collisions)
+    for layer in sparse_layers {
+        for (position, tile) in layer {
+            let i = position.y * size.x + position.x;
+            if blocked_tile_ids.contains(tile) {
+                collisions[i as usize] = true;
+            }
+        }
+    }
+    collisions
+}
+
+fn collect_enum_tile_ids(ldtk_map: &LdtkMap, enum_value: &str) -> Result<HashSet<TileIndex>> {
+    let tileset = ldtk_map.defs.tilesets.first().ok_or_else(|| eyre::eyre!("No first tileset"))?;
+    if let Some(enum_tags) = tileset.enum_tags.iter().find(|tag| tag.enum_value_id == enum_value) {
+        Ok(enum_tags.tile_ids.iter().copied().collect())
+    } else {
+        Ok(HashSet::new())
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

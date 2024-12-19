@@ -32,7 +32,10 @@ pub struct Timestamps {
 pub struct Room {
     pub room_id: RoomId,
     pub size: Vector2<u32>,
-    pub tiles: Vec<TileIndex>,
+    pub bg_dense_layers: Vec<Vec<TileIndex>>,
+    pub bg_sparse_layer: Vec<(Vector2<u32>, TileIndex)>,
+    pub fg_sparse_layer: Vec<(Vector2<u32>, TileIndex)>,
+    pub collisions: Vec<bool>,
 }
 
 #[derive(Debug, Clone, Copy)]

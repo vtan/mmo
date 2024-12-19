@@ -2,6 +2,7 @@ use mmo_common::object::Direction;
 use mmo_common::player_command::{GlobalCommand, PlayerCommand, RoomCommand};
 use mmo_common::player_event::{PlayerEvent, PlayerEventEnvelope};
 use mmo_common::rle;
+use mmo_common::room::RoomSync;
 
 use crate::app_event::AppEvent;
 use crate::app_state::AppState;
@@ -137,11 +138,7 @@ fn update_partial(partial: &mut PartialGameState, events: PlayerEventEnvelope<Pl
                 partial.client_config = Some(client_config);
             }
             PlayerEvent::RoomEntered { room } => {
-                partial.room = Some(Room {
-                    room_id: room.room_id,
-                    size: room.size,
-                    tiles: rle::decode(&room.tiles),
-                });
+                partial.room = Some(load_room_map(room));
             }
             PlayerEvent::Pong { .. }
             | PlayerEvent::PlayerMovementChanged { .. }
@@ -180,11 +177,7 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
         }
         PlayerEvent::Initial { .. } => {}
         PlayerEvent::RoomEntered { room } => {
-            game_state.room = Room {
-                room_id: room.room_id,
-                size: room.size,
-                tiles: rle::decode(&room.tiles),
-            };
+            game_state.room = load_room_map(room);
             game_state.remote_movements.clear();
             game_state.local_movements.clear();
         }
@@ -221,5 +214,18 @@ fn add_ping_if_needed(gs: &mut GameState) {
             command: GlobalCommand::Ping { sequence_number },
         });
         gs.last_ping = Some(LastPing { sequence_number, sent_at: gs.time.now });
+    }
+}
+
+fn load_room_map(room_sync: RoomSync) -> Room {
+    let bg_dense_layers = room_sync.bg_dense_layers.iter().map(rle::decode).collect();
+    let collisions = rle::decode(&room_sync.collisions);
+    Room {
+        room_id: room_sync.room_id,
+        size: room_sync.size,
+        bg_dense_layers,
+        bg_sparse_layer: room_sync.bg_sparse_layer,
+        fg_sparse_layer: room_sync.fg_sparse_layer,
+        collisions,
     }
 }
