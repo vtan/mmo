@@ -1,22 +1,34 @@
 use std::{collections::HashMap, sync::Arc};
 
-use crate::player::PlayerConnection;
+use crate::{player::PlayerConnection, server_context::ServerContext};
 
 use mmo_common::{
-    client_config::ClientConfig,
     object::{Direction, ObjectId},
     player_event::PlayerEvent,
-    room::{RoomId, RoomSync},
+    room::{RoomId, RoomSync, TileIndex},
 };
 use nalgebra::Vector2;
 use tokio::time::Instant;
 
 #[derive(Debug, Clone)]
 pub struct RoomState {
+    pub server_context: Arc<ServerContext>,
+    pub map: Arc<RoomMap>,
     pub room: RoomSync,
-    pub portals: Vec<Portal>,
-    pub client_config: ClientConfig, // TODO: only the parts relevant to the server?
     pub players: HashMap<ObjectId, Player>,
+}
+
+#[derive(Debug, Clone)]
+pub struct RoomMap {
+    pub size: Vector2<u32>,
+    pub layers: Vec<RoomMapLayer>,
+    pub collisions: Vec<bool>,
+    pub portals: Vec<Portal>,
+}
+
+#[derive(Debug, Clone)]
+pub struct RoomMapLayer {
+    pub tiles: Vec<TileIndex>,
 }
 
 #[derive(Debug, Clone)]

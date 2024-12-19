@@ -1,7 +1,4 @@
-use mmo_common::{
-    client_config::ClientConfig, object::ObjectId, player_command::RoomCommand,
-    player_event::PlayerEvent,
-};
+use mmo_common::{object::ObjectId, player_command::RoomCommand, player_event::PlayerEvent};
 use nalgebra::Vector2;
 use tokio::time::Instant;
 use tracing::instrument;
@@ -9,6 +6,7 @@ use tracing::instrument;
 use crate::{
     player::PlayerConnection,
     room_state::{LocalMovement, Player, RemoteMovement, RoomState, RoomWriter, UpstreamMessage},
+    server_context::ServerContext,
     tick::Tick,
 };
 
@@ -49,7 +47,7 @@ fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter
     );
     for player_in_room in state.players.values() {
         let position =
-            interpolate_position(&state.client_config, player_in_room.remote_movement, now);
+            interpolate_position(&state.server_context, player_in_room.remote_movement, now);
         writer.tell(
             player_id,
             PlayerEvent::PlayerMovementChanged {
@@ -116,9 +114,10 @@ pub fn on_tick(tick: Tick, state: &mut RoomState, writer: &mut RoomWriter) {
         let player = state.players.get_mut(&player_id).expect("Player not found");
 
         let local_movement =
-            interpolate_position(&state.client_config, player.remote_movement, now);
+            interpolate_position(&state.server_context, player.remote_movement, now);
 
         let portal = state
+            .map
             .portals
             .iter()
             .find(|portal| portal.position == local_movement.position.map(|a| a as u32));
@@ -159,14 +158,14 @@ pub fn on_tick(tick: Tick, state: &mut RoomState, writer: &mut RoomWriter) {
 }
 
 fn interpolate_position(
-    client_config: &ClientConfig,
+    ctx: &ServerContext,
     remote_movement: RemoteMovement,
     now: Instant,
 ) -> LocalMovement {
     if let Some(direction) = remote_movement.direction {
         let elapsed = now - remote_movement.received_at;
         let direction = direction.to_vector();
-        let delta = direction * client_config.player_velocity * elapsed.as_secs_f32();
+        let delta = direction * ctx.player_velocity * elapsed.as_secs_f32();
         let position = remote_movement.position + delta;
         LocalMovement { position, updated_at: now }
     } else {

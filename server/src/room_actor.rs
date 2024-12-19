@@ -1,16 +1,17 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
-use mmo_common::client_config::ClientConfig;
 use mmo_common::object::ObjectId;
 use mmo_common::player_command::RoomCommand;
 use mmo_common::rle;
-use mmo_common::room::{RoomId, RoomSync, TileIndex};
+use mmo_common::room::{RoomId, RoomSync};
 use nalgebra::Vector2;
 use tokio::sync::mpsc;
 use tracing::instrument;
 
 use crate::player::PlayerConnection;
-use crate::room_state::{Portal, RoomState, RoomWriter, UpstreamMessage};
+use crate::room_state::{RoomMap, RoomState, RoomWriter, UpstreamMessage};
+use crate::server_context::ServerContext;
 use crate::{room_logic, tick};
 
 #[derive(Debug)]
@@ -32,14 +33,16 @@ pub enum Message {
 #[instrument(skip_all, fields(room_id = room_id.0))]
 pub async fn run(
     room_id: RoomId,
-    client_config: ClientConfig,
+    server_context: Arc<ServerContext>,
     mut messages: mpsc::Receiver<Message>,
     mut tick_receiver: tick::Receiver,
     upstream_sender: mpsc::Sender<UpstreamMessage>,
 ) {
     tracing::debug!("Spawned");
 
-    let mut state = make_room(room_id, client_config);
+    let map = server_context.room_maps.get(&room_id).unwrap().clone();
+    let room = make_room_sync(room_id, &map);
+    let mut state = RoomState { server_context, map, room, players: HashMap::new() };
     let mut writer = RoomWriter::new();
 
     loop {
@@ -118,58 +121,7 @@ async fn flush_writer(
     }
 }
 
-fn make_room(room_id: RoomId, client_config: ClientConfig) -> RoomState {
-    let room_sync = if room_id.0 == 0 {
-        let tiles: Vec<TileIndex> = (0..8)
-            .flat_map(move |y| {
-                (0..8).map(move |x| {
-                    if x >= 2 && x < 5 && y >= 2 && y < 5 {
-                        TileIndex(21)
-                    } else if y < 7 || x == 4 {
-                        TileIndex(0)
-                    } else {
-                        TileIndex(21)
-                    }
-                })
-            })
-            .collect();
-        let tiles = rle::encode(&tiles);
-        RoomSync { room_id, size: Vector2::new(8, 8), tiles }
-    } else {
-        let tiles: Vec<TileIndex> = (0..8)
-            .flat_map(move |y| {
-                (0..8).map(move |x| {
-                    if x >= 2 && x <= 5 && y >= 2 && y <= 5 && y != 4 {
-                        TileIndex(21)
-                    } else if y > 0 || x == 4 {
-                        TileIndex(0)
-                    } else {
-                        TileIndex(21)
-                    }
-                })
-            })
-            .collect();
-        let tiles = rle::encode(&tiles);
-        RoomSync { room_id, size: Vector2::new(8, 8), tiles }
-    };
-
-    let portals = if room_id.0 == 0 {
-        vec![Portal {
-            position: Vector2::new(4, 7),
-            target_room_id: RoomId(1),
-            target_position: Vector2::new(4.5, 1.5),
-        }]
-    } else {
-        vec![Portal {
-            position: Vector2::new(4, 0),
-            target_room_id: RoomId(0),
-            target_position: Vector2::new(4.5, 6.5),
-        }]
-    };
-    RoomState {
-        room: room_sync,
-        portals,
-        client_config,
-        players: HashMap::new(),
-    }
+fn make_room_sync(room_id: RoomId, map: &RoomMap) -> RoomSync {
+    let tiles = rle::encode(&map.layers[1].tiles); // TODO
+    RoomSync { room_id, size: map.size, tiles }
 }

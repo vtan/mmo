@@ -592,6 +592,8 @@ dependencies = [
  "mmo-common",
  "nalgebra",
  "postcard",
+ "serde",
+ "serde_json",
  "sha1",
  "tokio",
  "tower",

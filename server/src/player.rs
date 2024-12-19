@@ -9,7 +9,7 @@ pub type PlayerConnection = mpsc::Sender<Vec<Arc<PlayerEvent>>>;
 
 pub fn client_config(server_context: &ServerContext) -> ClientConfig {
     ClientConfig {
-        player_velocity: 3.0,
+        player_velocity: server_context.player_velocity,
         asset_paths: server_context.asset_paths.paths.clone(),
     }
 }

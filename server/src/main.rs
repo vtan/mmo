@@ -1,5 +1,6 @@
 mod assets;
 mod client_connection;
+mod ldtk_map;
 mod player;
 mod room_actor;
 mod room_logic;
@@ -28,11 +29,15 @@ struct AppState {
 async fn main() -> eyre::Result<()> {
     tracing_subscriber::fmt::init();
 
+    tracing::info!("Loading maps...");
+    let room_maps = ldtk_map::load("data/map.ldtk")?;
+    tracing::info!("Loaded maps");
+
     tracing::info!("Loading assets...");
     let asset_paths = assets::load_assets()?;
     tracing::info!("Loaded assets");
 
-    let server_context = Arc::new(ServerContext { asset_paths });
+    let server_context = Arc::new(ServerContext { asset_paths, room_maps, player_velocity: 3.0 });
 
     let (tick_sender, _) = tick::spawn_producer();
 

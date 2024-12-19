@@ -5,7 +5,7 @@ use mmo_common::{
     object::{Direction, ObjectId},
     player_command::PlayerCommand,
     player_event::{PlayerEvent, PlayerEventEnvelope},
-    room::{RoomId, RoomSync, TileIndex},
+    room::{RoomId, TileIndex},
 };
 use nalgebra::Vector2;
 

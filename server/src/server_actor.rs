@@ -3,7 +3,6 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use eyre::Result;
-use mmo_common::client_config::ClientConfig;
 use mmo_common::object::ObjectId;
 use mmo_common::player_command::{
     GlobalCommand, PlayerCommand, PlayerCommandEnvelope, RoomCommand,
@@ -43,7 +42,7 @@ impl Message {
 }
 
 struct State {
-    client_config: ClientConfig,
+    server_context: Arc<ServerContext>,
     players: HashMap<ObjectId, Player>,
     rooms: HashMap<RoomId, Room>,
     tick_sender: tick::Sender,
@@ -70,7 +69,7 @@ pub async fn run(
         mpsc::channel::<room_state::UpstreamMessage>(4096);
 
     let mut state = State {
-        client_config: player::client_config(&server_context),
+        server_context,
         players: HashMap::new(),
         rooms: HashMap::new(),
         tick_sender,
@@ -115,7 +114,7 @@ async fn handle_message(state: &mut State, message: Message) -> Result<()> {
             connection
                 .send(vec![Arc::new(PlayerEvent::Initial {
                     self_id: player_id,
-                    client_config: state.client_config.clone(),
+                    client_config: player::client_config(&state.server_context),
                 })])
                 .await?;
 
@@ -234,14 +233,14 @@ async fn handle_upstream_message(
 fn get_or_create_room(state: &mut State, room_id: RoomId) -> &mut Room {
     let State { rooms, room_actor_upstream_sender, .. } = state;
     rooms.entry(room_id).or_insert_with(|| {
-        let client_config = state.client_config.clone();
+        let server_context = state.server_context.clone();
         let upstream_sender = room_actor_upstream_sender.clone();
         let (room_actor_sender, room_actor_receiver) = mpsc::channel::<room_actor::Message>(4096);
         let tick_receiver = state.tick_sender.subscribe();
         tokio::spawn(async move {
             room_actor::run(
                 room_id,
-                client_config,
+                server_context,
                 room_actor_receiver,
                 tick_receiver,
                 upstream_sender,
