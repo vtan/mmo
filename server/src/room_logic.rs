@@ -1,4 +1,4 @@
-use mmo_common::{object::ObjectId, player_command::RoomCommand, player_event::PlayerEvent};
+use mmo_common::{object::ObjectId, player_command::RoomCommand, player_event::PlayerEvent, room};
 use nalgebra::Vector2;
 use tokio::time::Instant;
 use tracing::instrument;
@@ -85,21 +85,30 @@ pub fn on_command(
         RoomCommand::Move { position, direction } => {
             // TODO: at least a basic check whether the position is plausible
             let now = Instant::now();
-            let remote_movement = RemoteMovement { position, direction, received_at: now };
-            let local_movement = LocalMovement { position, updated_at: now };
-            state.players.entry(player_id).and_modify(|p| {
-                p.remote_movement = remote_movement;
-                p.local_movement = local_movement;
-            });
 
-            writer.broadcast(
-                state.players.keys().copied().filter(|pid| *pid != player_id),
-                PlayerEvent::PlayerMovementChanged {
-                    object_id: player_id,
-                    position: local_movement.position,
-                    direction: remote_movement.direction,
-                },
-            );
+            let player_ids = state.players.keys().copied().collect::<Vec<_>>();
+            let player = if let Some(player) = state.players.get_mut(&player_id) {
+                player
+            } else {
+                return;
+            };
+
+            player.remote_movement = RemoteMovement { position, direction, received_at: now };
+
+            if room::collision_at(state.map.size, &state.map.collisions, position) {
+                prevent_collision(player, &player_ids, now, writer);
+            } else {
+                player.local_movement = LocalMovement { position, updated_at: now };
+
+                writer.broadcast(
+                    player_ids.iter().copied().filter(|pid| *pid != player_id),
+                    PlayerEvent::PlayerMovementChanged {
+                        object_id: player_id,
+                        position: player.local_movement.position,
+                        direction: player.remote_movement.direction,
+                    },
+                );
+            }
         }
     }
 }
@@ -134,20 +143,29 @@ pub fn on_tick(tick: Tick, state: &mut RoomState, writer: &mut RoomWriter) {
             });
         } else {
             let last_position = player.local_movement.position;
-            player.local_movement = local_movement;
 
-            let crossed_tile =
-                last_position.map(|a| a as u32) != local_movement.position.map(|a| a as u32);
+            if room::collision_at(
+                state.map.size,
+                &state.map.collisions,
+                local_movement.position,
+            ) {
+                prevent_collision(player, &player_ids, now, writer);
+            } else {
+                player.local_movement = local_movement;
 
-            if crossed_tile {
-                writer.broadcast(
-                    player_ids.iter().copied().filter(|pid| *pid != player_id),
-                    PlayerEvent::PlayerMovementChanged {
-                        object_id: player.id,
-                        position: local_movement.position,
-                        direction: player.remote_movement.direction,
-                    },
-                );
+                let crossed_tile =
+                    last_position.map(|a| a as u32) != local_movement.position.map(|a| a as u32);
+
+                if crossed_tile {
+                    writer.broadcast(
+                        player_ids.iter().copied().filter(|pid| *pid != player_id),
+                        PlayerEvent::PlayerMovementChanged {
+                            object_id: player.id,
+                            position: local_movement.position,
+                            direction: player.remote_movement.direction,
+                        },
+                    );
+                }
             }
         }
     }
@@ -155,6 +173,25 @@ pub fn on_tick(tick: Tick, state: &mut RoomState, writer: &mut RoomWriter) {
     for player_id in players_left {
         player_left(player_id, state, writer);
     }
+}
+
+fn prevent_collision(
+    player: &mut Player,
+    player_ids: &[ObjectId],
+    now: Instant,
+    writer: &mut RoomWriter,
+) {
+    player.remote_movement.position = player.local_movement.position;
+    player.remote_movement.direction = None;
+    player.remote_movement.received_at = now; // TODO: mark that this was a correction?
+    writer.broadcast(
+        player_ids.iter().copied(),
+        PlayerEvent::PlayerMovementChanged {
+            object_id: player.id,
+            position: player.local_movement.position,
+            direction: None,
+        },
+    );
 }
 
 fn interpolate_position(

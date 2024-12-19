@@ -26,3 +26,14 @@ impl TileIndex {
         Self(None)
     }
 }
+
+pub fn collision_at(size: Vector2<u32>, collisions: &[bool], position: Vector2<f32>) -> bool {
+    let x = position.x as u32;
+    let y = position.y as u32;
+    if position.x < 0.0 || position.y < 0.0 || x >= size.x || y >= size.y {
+        true
+    } else {
+        let index = y * size.x + x;
+        collisions[index as usize]
+    }
+}

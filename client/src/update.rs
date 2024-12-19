@@ -1,8 +1,8 @@
 use mmo_common::object::Direction;
 use mmo_common::player_command::{GlobalCommand, PlayerCommand, RoomCommand};
 use mmo_common::player_event::{PlayerEvent, PlayerEventEnvelope};
-use mmo_common::rle;
 use mmo_common::room::RoomSync;
+use mmo_common::{rle, room};
 
 use crate::app_event::AppEvent;
 use crate::app_state::AppState;
@@ -12,46 +12,13 @@ use crate::game_state::{
 };
 
 pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
-    let move_player = |state: &mut AppState, direction: Direction| {
-        if let Ok(game_state) = &mut state.game_state {
-            if game_state.self_movement.direction != Some(direction) {
-                game_state.self_movement.direction = Some(direction);
-
-                let command = PlayerCommand::RoomCommand {
-                    room_id: game_state.room.room_id,
-                    command: RoomCommand::Move {
-                        position: game_state.self_movement.position,
-                        direction: Some(direction),
-                    },
-                };
-                game_state.ws_commands.push(command);
-            }
-        }
-    };
-    let stop_moving = |state: &mut AppState, direction: Direction| {
-        if let Ok(game_state) = &mut state.game_state {
-            if game_state.self_movement.direction == Some(direction) {
-                game_state.self_movement.direction = None;
-
-                let command = PlayerCommand::RoomCommand {
-                    room_id: game_state.room.room_id,
-                    command: RoomCommand::Move {
-                        position: game_state.self_movement.position,
-                        direction: None,
-                    },
-                };
-                game_state.ws_commands.push(command);
-            }
-        }
-    };
-
     for event in events {
         match event {
             AppEvent::KeyDown { code } => match code.as_str() {
-                "KeyW" => move_player(state, Direction::Up),
-                "KeyA" => move_player(state, Direction::Left),
-                "KeyS" => move_player(state, Direction::Down),
-                "KeyD" => move_player(state, Direction::Right),
+                "KeyW" => start_moving(state, Direction::Up),
+                "KeyA" => start_moving(state, Direction::Left),
+                "KeyS" => start_moving(state, Direction::Down),
+                "KeyD" => start_moving(state, Direction::Right),
                 _ => (),
             },
             AppEvent::KeyUp { code } => match code.as_str() {
@@ -88,27 +55,8 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
     }
 
     if let Ok(game_state) = &mut state.game_state {
-        if let Some(direction) = game_state.self_movement.direction {
-            game_state.self_movement.position += game_state.time.frame_delta
-                * game_state.client_config.player_velocity
-                * direction.to_vector();
-        }
-
-        for (object_id, remote_movement) in game_state.remote_movements.iter() {
-            let current_position = match remote_movement.direction {
-                Some(dir) => {
-                    let mov_distance = remote_movement.velocity
-                        * (game_state.time.now - remote_movement.started_at);
-                    remote_movement.position + mov_distance * dir.to_vector()
-                }
-                None => remote_movement.position,
-            };
-
-            game_state
-                .local_movements
-                .insert(*object_id, LocalMovement { position: current_position });
-        }
-
+        update_self_movement(game_state);
+        update_remote_movement(game_state);
         add_ping_if_needed(game_state);
     }
 }
@@ -195,6 +143,80 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
             game_state.remote_movements.remove(&player_id);
             game_state.local_movements.remove(&player_id);
         }
+    }
+}
+
+fn start_moving(state: &mut AppState, direction: Direction) {
+    if let Ok(game_state) = &mut state.game_state {
+        if game_state.self_movement.direction != Some(direction) {
+            game_state.self_movement.direction = Some(direction);
+
+            let command = PlayerCommand::RoomCommand {
+                room_id: game_state.room.room_id,
+                command: RoomCommand::Move {
+                    position: game_state.self_movement.position,
+                    direction: Some(direction),
+                },
+            };
+            game_state.ws_commands.push(command);
+        }
+    }
+}
+
+fn stop_moving(state: &mut AppState, direction: Direction) {
+    if let Ok(game_state) = &mut state.game_state {
+        if game_state.self_movement.direction == Some(direction) {
+            game_state.self_movement.direction = None;
+
+            let command = PlayerCommand::RoomCommand {
+                room_id: game_state.room.room_id,
+                command: RoomCommand::Move {
+                    position: game_state.self_movement.position,
+                    direction: None,
+                },
+            };
+            game_state.ws_commands.push(command);
+        }
+    }
+}
+
+fn update_self_movement(game_state: &mut GameState) {
+    let room = &game_state.room;
+    if let Some(direction) = game_state.self_movement.direction {
+        let delta = game_state.time.frame_delta
+            * game_state.client_config.player_velocity
+            * direction.to_vector();
+        let target = game_state.self_movement.position + delta;
+
+        if room::collision_at(room.size, &room.collisions, target) {
+            game_state.self_movement.direction = None;
+            game_state.ws_commands.push(PlayerCommand::RoomCommand {
+                room_id: game_state.room.room_id,
+                command: RoomCommand::Move {
+                    position: game_state.self_movement.position,
+                    direction: None,
+                },
+            });
+        } else {
+            game_state.self_movement.position = target;
+        }
+    }
+}
+
+fn update_remote_movement(game_state: &mut GameState) {
+    for (object_id, remote_movement) in game_state.remote_movements.iter() {
+        let current_position = match remote_movement.direction {
+            Some(dir) => {
+                let mov_distance =
+                    remote_movement.velocity * (game_state.time.now - remote_movement.started_at);
+                remote_movement.position + mov_distance * dir.to_vector()
+            }
+            None => remote_movement.position,
+        };
+
+        game_state
+            .local_movements
+            .insert(*object_id, LocalMovement { position: current_position });
     }
 }
 

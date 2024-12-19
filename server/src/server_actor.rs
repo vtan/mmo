@@ -123,7 +123,7 @@ async fn handle_message(state: &mut State, message: Message) -> Result<()> {
                 .send(room_actor::Message::PlayerConnected {
                     player_id,
                     connection,
-                    position: Vector2::new(0.5, 2.5),
+                    position: Vector2::new(3.5, 2.5),
                 })
                 .await?;
         }
