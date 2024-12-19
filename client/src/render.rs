@@ -1,7 +1,7 @@
 use mmo_common::{
     animation::{DirectionalAnimation, SpriteIndex},
     object::Direction,
-    room::TileIndex,
+    room::{ForegroundTile, TileIndex},
 };
 use nalgebra::{Orthographic3, Scale2, Scale3, Vector2, Vector4};
 use web_sys::WebGl2RenderingContext as GL;
@@ -32,25 +32,41 @@ pub fn render(state: &mut AppState) {
         render_dense_tile_layer(layer, game_state.room.size, &mut tile_vertices);
     }
     render_sparse_tile_layer(&game_state.room.bg_sparse_layer, &mut tile_vertices);
-    render_sparse_tile_layer(&game_state.room.fg_sparse_layer, &mut tile_vertices);
 
+    let mut fg_y_lower_bound = f32::NEG_INFINITY;
+
+    // TODO: traversing the foreground layer multiple times could be optimized
     for movement in game_state.local_movements.iter() {
-        let animation = &game_state.client_config.player_animation;
-        let sprite_size = animation.sprite_size;
-        let position = movement.position - (sprite_size.cast() - animation.anchor);
+        render_foreground_tile_layer(
+            &game_state.room.fg_sparse_layer,
+            (fg_y_lower_bound, movement.position.y),
+            &mut tile_vertices,
+        );
+        fg_y_lower_bound = movement.position.y;
 
-        let animation = if movement.direction.is_some() {
-            &animation.walk
-        } else {
-            &animation.idle
-        };
-        let direction = movement.direction.unwrap_or(movement.look_direction);
-        if let Some(sprite_index) =
-            select_animation_sprite(animation, direction, movement.animation_time)
         {
-            tile_vertices.push_tile_multi(position, sprite_size, sprite_index.0 as _, 1);
+            let animation = &game_state.client_config.player_animation;
+            let sprite_size = animation.sprite_size;
+            let position = movement.position - (sprite_size.cast() - animation.anchor);
+
+            let animation = if movement.direction.is_some() {
+                &animation.walk
+            } else {
+                &animation.idle
+            };
+            let direction = movement.direction.unwrap_or(movement.look_direction);
+            if let Some(sprite_index) =
+                select_animation_sprite(animation, direction, movement.animation_time)
+            {
+                tile_vertices.push_tile_multi(position, sprite_size, sprite_index.0 as _, 1);
+            }
         }
     }
+    render_foreground_tile_layer(
+        &game_state.room.fg_sparse_layer,
+        (fg_y_lower_bound, f32::INFINITY),
+        &mut tile_vertices,
+    );
 
     let tileset_vertices = tile_vertices.vertex_buffer;
     gl.use_program(Some(&state.program));
@@ -177,6 +193,23 @@ fn render_sparse_tile_layer(
         if let Some(tile_index) = tile_index.0 {
             let xy = position.map(|x| x as f32);
             tileset_vertices.push_tile(xy, tile_index.get() as u32, 0);
+        }
+    }
+}
+
+fn render_foreground_tile_layer(
+    layer: &[ForegroundTile],
+    y_bounds: (f32, f32),
+    tile_vertices: &mut TileVertexBuffer,
+) {
+    for fg_tile in layer.iter() {
+        let fg_y = fg_tile.position.y as f32;
+        let fg_dy = fg_tile.height as f32 + 1.0; // adding 1 so the bottom of the tile is the reference point
+        if fg_y + fg_dy >= y_bounds.0 && fg_y + fg_dy < y_bounds.1 {
+            if let TileIndex(Some(fg_tile_index)) = fg_tile.tile_index {
+                let xy = fg_tile.position.cast();
+                tile_vertices.push_tile(xy, fg_tile_index.get() as _, 0);
+            }
         }
     }
 }

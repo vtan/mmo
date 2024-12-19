@@ -5,7 +5,7 @@ use mmo_common::{
     object::{Direction, ObjectId},
     player_command::PlayerCommand,
     player_event::{PlayerEvent, PlayerEventEnvelope},
-    room::{RoomId, TileIndex},
+    room::{ForegroundTile, RoomId, TileIndex},
 };
 use nalgebra::Vector2;
 
@@ -34,7 +34,7 @@ pub struct Room {
     pub size: Vector2<u32>,
     pub bg_dense_layers: Vec<Vec<TileIndex>>,
     pub bg_sparse_layer: Vec<(Vector2<u32>, TileIndex)>,
-    pub fg_sparse_layer: Vec<(Vector2<u32>, TileIndex)>,
+    pub fg_sparse_layer: Vec<ForegroundTile>,
     pub collisions: Vec<bool>,
 }
 

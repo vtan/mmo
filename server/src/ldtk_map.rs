@@ -4,11 +4,11 @@ use std::{
 };
 
 use eyre::Result;
-use mmo_common::room::{RoomId, TileIndex};
+use mmo_common::room::{ForegroundTile, RoomId, TileIndex};
 use nalgebra::Vector2;
 use serde::{Deserialize, Serialize};
 
-use crate::room_state::{RoomMap, RoomMapLayer};
+use crate::room_state::RoomMap;
 
 pub fn load(path: &str) -> Result<HashMap<RoomId, Arc<RoomMap>>> {
     let json = std::fs::read_to_string(path)?;
@@ -29,7 +29,14 @@ pub fn load(path: &str) -> Result<HashMap<RoomId, Arc<RoomMap>>> {
 }
 
 fn convert_map(ldtk_map: &LdtkMap, ldtk_level: &LdtkLevel) -> Result<RoomMap> {
-    let foreground_tile_ids = collect_enum_tile_ids(ldtk_map, "Foreground")?;
+    let foreground_tile_ids: HashMap<TileIndex, u32> = {
+        let h1 = collect_enum_tile_ids(ldtk_map, "Foreground_h1")?;
+        let h2 = collect_enum_tile_ids(ldtk_map, "Foreground_h2")?;
+        [(h1, 1), (h2, 2)]
+            .into_iter()
+            .flat_map(|(set, h)| set.into_iter().map(move |id| (id, h)))
+            .collect()
+    };
     let blocked_tile_ids = collect_enum_tile_ids(ldtk_map, "Blocked")?;
 
     let mut size = Vector2::new(0, 0);
@@ -60,8 +67,10 @@ fn convert_map(ldtk_map: &LdtkMap, ldtk_level: &LdtkLevel) -> Result<RoomMap> {
                     .collect::<std::collections::HashSet<_>>();
                 unique_positions.len() != ldtk_layer.grid_tiles.len()
             };
-            let has_foreground_tiles =
-                ldtk_layer.grid_tiles.iter().any(|tile| foreground_tile_ids.contains(&tile.t));
+            let has_foreground_tiles = ldtk_layer
+                .grid_tiles
+                .iter()
+                .any(|tile| foreground_tile_ids.contains_key(&tile.t));
 
             if has_duplicate_positions || has_foreground_tiles {
                 let (bg, fg) = convert_sparse_layer(ldtk_map, ldtk_layer, &foreground_tile_ids);
@@ -76,7 +85,8 @@ fn convert_map(ldtk_map: &LdtkMap, ldtk_level: &LdtkLevel) -> Result<RoomMap> {
     let collisions = collect_collisions(
         size,
         &bg_dense_layers,
-        &[bg_sparse_layer.clone(), fg_sparse_layer.clone()],
+        &bg_sparse_layer,
+        &fg_sparse_layer,
         &blocked_tile_ids,
     );
 
@@ -93,18 +103,15 @@ fn convert_map(ldtk_map: &LdtkMap, ldtk_level: &LdtkLevel) -> Result<RoomMap> {
 fn convert_sparse_layer(
     ldtk_map: &LdtkMap,
     ldtk_layer: &LdtkLayerInstance,
-    foreground_tile_ids: &HashSet<TileIndex>,
-) -> (
-    Vec<(Vector2<u32>, TileIndex)>,
-    Vec<(Vector2<u32>, TileIndex)>,
-) {
+    foreground_tile_ids: &HashMap<TileIndex, u32>,
+) -> (Vec<(Vector2<u32>, TileIndex)>, Vec<ForegroundTile>) {
     let grid_size = ldtk_map.default_grid_size;
     let mut bg = vec![];
     let mut fg = vec![];
     for tile in &ldtk_layer.grid_tiles {
         let position = Vector2::new(tile.px[0] / grid_size, tile.px[1] / grid_size);
-        if foreground_tile_ids.contains(&tile.t) {
-            fg.push((position, tile.t));
+        if let Some(height) = foreground_tile_ids.get(&tile.t) {
+            fg.push(ForegroundTile { position, height: *height, tile_index: tile.t });
         } else {
             bg.push((position, tile.t));
         }
@@ -123,28 +130,11 @@ fn convert_dense_layer(ldtk_map: &LdtkMap, ldtk_layer: &LdtkLayerInstance) -> Ve
     tiles
 }
 
-fn convert_layer(ldtk_map: &LdtkMap, ldtk_layer: &LdtkLayerInstance) -> Result<RoomMapLayer> {
-    let mut tiles = vec![TileIndex::empty(); (ldtk_layer.width * ldtk_layer.height) as usize];
-    for tile in &ldtk_layer.grid_tiles {
-        if tile.px[0] % ldtk_map.default_grid_size != 0
-            || tile.px[1] % ldtk_map.default_grid_size != 0
-        {
-            return Err(eyre::eyre!(
-                "Tile position is not a multiple of the default grid size"
-            ));
-        }
-
-        let x = tile.px[0] / ldtk_map.default_grid_size;
-        let y = tile.px[1] / ldtk_map.default_grid_size;
-        tiles[(y * ldtk_layer.width + x) as usize] = tile.t;
-    }
-    Ok(RoomMapLayer { tiles })
-}
-
 fn collect_collisions(
     size: Vector2<u32>,
     dense_layers: &[Vec<TileIndex>],
-    sparse_layers: &[Vec<(Vector2<u32>, TileIndex)>],
+    bg_sparse_layer: &Vec<(Vector2<u32>, TileIndex)>,
+    fg_sparse_layer: &Vec<ForegroundTile>,
     blocked_tile_ids: &HashSet<TileIndex>,
 ) -> Vec<bool> {
     let mut collisions = vec![false; (size.x * size.y) as usize];
@@ -155,12 +145,16 @@ fn collect_collisions(
             }
         }
     }
-    for layer in sparse_layers {
-        for (position, tile) in layer {
+    for (position, tile) in bg_sparse_layer {
+        if blocked_tile_ids.contains(tile) {
             let i = position.y * size.x + position.x;
-            if blocked_tile_ids.contains(tile) {
-                collisions[i as usize] = true;
-            }
+            collisions[i as usize] = true;
+        }
+    }
+    for fg_tile in fg_sparse_layer {
+        if blocked_tile_ids.contains(&fg_tile.tile_index) {
+            let i = fg_tile.position.y * size.x + fg_tile.position.x;
+            collisions[i as usize] = true;
         }
     }
     collisions

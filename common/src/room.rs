@@ -14,8 +14,15 @@ pub struct RoomSync {
     pub size: Vector2<u32>,
     pub bg_dense_layers: Vec<Rle<TileIndex>>,
     pub bg_sparse_layer: Vec<(Vector2<u32>, TileIndex)>,
-    pub fg_sparse_layer: Vec<(Vector2<u32>, TileIndex)>,
+    pub fg_sparse_layer: Vec<ForegroundTile>,
     pub collisions: Rle<bool>,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+pub struct ForegroundTile {
+    pub position: Vector2<u32>,
+    pub height: u32,
+    pub tile_index: TileIndex,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize)]

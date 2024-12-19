@@ -5,7 +5,7 @@ use crate::{player::PlayerConnection, server_context::ServerContext};
 use mmo_common::{
     object::{Direction, ObjectId},
     player_event::PlayerEvent,
-    room::{RoomId, RoomSync, TileIndex},
+    room::{ForegroundTile, RoomId, RoomSync, TileIndex},
 };
 use nalgebra::Vector2;
 use tokio::time::Instant;
@@ -23,14 +23,9 @@ pub struct RoomMap {
     pub size: Vector2<u32>,
     pub bg_dense_layers: Vec<Vec<TileIndex>>,
     pub bg_sparse_layer: Vec<(Vector2<u32>, TileIndex)>,
-    pub fg_sparse_layer: Vec<(Vector2<u32>, TileIndex)>,
+    pub fg_sparse_layer: Vec<ForegroundTile>,
     pub collisions: Vec<bool>,
     pub portals: Vec<Portal>,
-}
-
-#[derive(Debug, Clone)]
-pub struct RoomMapLayer {
-    pub tiles: Vec<TileIndex>,
 }
 
 #[derive(Debug, Clone)]

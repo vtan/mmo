@@ -59,6 +59,10 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
         update_self_movement(game_state);
         update_remote_movement(game_state);
         add_ping_if_needed(game_state);
+
+        game_state
+            .local_movements
+            .sort_unstable_by(|a, b| a.position.y.partial_cmp(&b.position.y).expect("NaN"));
     }
 }
 
