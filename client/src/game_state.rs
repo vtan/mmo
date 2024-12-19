@@ -19,7 +19,7 @@ pub struct GameState {
     pub room: Room,
     pub self_movement: SelfMovement,
     pub remote_movements: HashMap<ObjectId, RemoveMovement>,
-    pub local_movements: HashMap<ObjectId, LocalMovement>,
+    pub local_movements: Vec<LocalMovement>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -57,6 +57,7 @@ pub struct RemoveMovement {
 
 #[derive(Debug, Clone, Copy)]
 pub struct LocalMovement {
+    pub object_id: ObjectId,
     pub position: Vector2<f32>,
     pub direction: Option<Direction>,
     pub look_direction: Direction,
@@ -107,7 +108,7 @@ impl PartialGameState {
                 changed_at: 0.0,
             },
             remote_movements: HashMap::new(),
-            local_movements: HashMap::new(),
+            local_movements: vec![],
         })
     }
 }

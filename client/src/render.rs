@@ -35,7 +35,7 @@ pub fn render(state: &mut AppState) {
     render_sparse_tile_layer(&game_state.room.bg_sparse_layer, &mut tileset_vertices);
     render_sparse_tile_layer(&game_state.room.fg_sparse_layer, &mut tileset_vertices);
 
-    for movement in game_state.local_movements.values() {
+    for movement in game_state.local_movements.iter() {
         let animation = &game_state.client_config.player_animation;
         let sprite_size = animation.sprite_size;
         let position = movement.position - (sprite_size.cast() - animation.anchor);
@@ -132,10 +132,10 @@ pub fn render(state: &mut AppState) {
 
     let black = Vector4::new(0.0, 0.0, 0.0, 1.0);
     let eps = Vector2::new(0.4, 0.4);
-    for (player_id, movement) in game_state.local_movements.iter() {
+    for movement in game_state.local_movements.iter() {
         let xy = tile_to_pixel_2d * movement.position;
         let color = Vector4::new(0.0, 1.0, 0.0, 1.0);
-        let str = player_id.0.to_string();
+        let str = movement.object_id.0.to_string();
         assets.font_atlas.push_text(&str, xy + eps, 6.0, black, &mut text_vertices);
         assets.font_atlas.push_text(&str, xy, 6.0, color, &mut text_vertices);
     }

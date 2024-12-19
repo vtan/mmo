@@ -55,6 +55,7 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
     }
 
     if let Ok(game_state) = &mut state.game_state {
+        game_state.local_movements.clear();
         update_self_movement(game_state);
         update_remote_movement(game_state);
         add_ping_if_needed(game_state);
@@ -149,7 +150,6 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
         }
         PlayerEvent::PlayerDisappeared { object_id: player_id } => {
             game_state.remote_movements.remove(&player_id);
-            game_state.local_movements.remove(&player_id);
         }
     }
 }
@@ -224,12 +224,13 @@ fn update_self_movement(game_state: &mut GameState) {
     }
 
     let local_movement = LocalMovement {
+        object_id: game_state.self_id,
         position: game_state.self_movement.position,
         direction: game_state.self_movement.direction,
         look_direction: game_state.self_movement.look_direction,
         animation_time: game_state.time.now - game_state.self_movement.changed_at,
     };
-    game_state.local_movements.insert(game_state.self_id, local_movement);
+    game_state.local_movements.push(local_movement);
 }
 
 fn update_remote_movement(game_state: &mut GameState) {
@@ -244,12 +245,13 @@ fn update_remote_movement(game_state: &mut GameState) {
         };
 
         let local_movement = LocalMovement {
+            object_id: *object_id,
             position: current_position,
             direction: remote_movement.direction,
             look_direction: remote_movement.look_direction,
             animation_time: game_state.time.now - remote_movement.started_at,
         };
-        game_state.local_movements.insert(*object_id, local_movement);
+        game_state.local_movements.push(local_movement);
     }
 }
 
