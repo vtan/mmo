@@ -1,4 +1,8 @@
-use mmo_common::room::TileIndex;
+use mmo_common::{
+    animation::{DirectionalAnimation, SpriteIndex},
+    object::Direction,
+    room::TileIndex,
+};
 use nalgebra::{Orthographic3, Scale2, Scale3, Vector2, Vector4};
 use web_sys::WebGl2RenderingContext as GL;
 
@@ -6,8 +10,6 @@ use crate::{
     app_state::AppState,
     vertex_buffer::{LineVertexBuffer, TileVertexBuffer, VertexBuffer},
 };
-
-const PLAYER_OFFSET: Vector2<f32> = Vector2::new(-0.5, -2.0);
 
 pub fn render(state: &mut AppState) {
     let gl = &state.gl;
@@ -33,14 +35,22 @@ pub fn render(state: &mut AppState) {
     render_sparse_tile_layer(&game_state.room.bg_sparse_layer, &mut tileset_vertices);
     render_sparse_tile_layer(&game_state.room.fg_sparse_layer, &mut tileset_vertices);
 
-    charset_vertices.push_tile_multi(
-        game_state.self_movement.position + PLAYER_OFFSET,
-        Vector2::new(1, 2),
-        0,
-    );
-
     for movement in game_state.local_movements.values() {
-        charset_vertices.push_tile_multi(movement.position + PLAYER_OFFSET, Vector2::new(1, 2), 0);
+        let animation = &game_state.client_config.player_animation;
+        let sprite_size = animation.sprite_size;
+        let position = movement.position - (sprite_size.cast() - animation.anchor);
+
+        let animation = if movement.direction.is_some() {
+            &animation.walk
+        } else {
+            &animation.idle
+        };
+        let direction = movement.direction.unwrap_or(Direction::Down);
+        if let Some(sprite_index) =
+            select_animation_sprite(animation, direction, movement.animation_time)
+        {
+            charset_vertices.push_tile_multi(position, sprite_size, sprite_index.0 as _);
+        }
     }
 
     let mut line_vertices = LineVertexBuffer::new();
@@ -167,4 +177,19 @@ fn render_sparse_tile_layer(
             tileset_vertices.push_tile(xy, tile_index.get() as u32);
         }
     }
+}
+
+fn select_animation_sprite(
+    animation: &DirectionalAnimation,
+    direction: Direction,
+    animation_time: f32,
+) -> Option<SpriteIndex> {
+    let animation = &animation.0[direction as usize];
+    let frame = if animation.total_length == 0.0 {
+        animation.frames.first()
+    } else {
+        let rel_time = animation_time % animation.total_length;
+        animation.frames.iter().take_while(|frame| frame.start <= rel_time).last()
+    };
+    frame.map(|f| f.sprite_index)
 }

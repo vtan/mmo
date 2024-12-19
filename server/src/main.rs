@@ -37,7 +37,12 @@ async fn main() -> eyre::Result<()> {
     let asset_paths = assets::load_assets()?;
     tracing::info!("Loaded assets");
 
-    let server_context = Arc::new(ServerContext { asset_paths, room_maps, player_velocity: 3.0 });
+    let server_context = Arc::new(ServerContext {
+        asset_paths,
+        room_maps,
+        player_animation: server_context::make_player_animation(),
+        player_velocity: 3.0,
+    });
 
     let (tick_sender, _) = tick::spawn_producer();
 

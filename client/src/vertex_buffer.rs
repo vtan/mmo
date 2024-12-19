@@ -97,7 +97,7 @@ impl TileVertexBuffer {
     pub fn push_tile_multi(
         &mut self,
         top_left: Vector2<f32>,
-        tile_extent: Vector2<i32>,
+        tile_extent: Vector2<u32>,
         texture_index: u32,
     ) {
         let u = (texture_index % self.texture_columns) as f32;

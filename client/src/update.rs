@@ -131,7 +131,8 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
         }
         PlayerEvent::PlayerMovementChanged { object_id: player_id, position, direction } => {
             if player_id == game_state.self_id {
-                game_state.self_movement = SelfMovement { position, direction };
+                let changed_at = game_state.time.now;
+                game_state.self_movement = SelfMovement { position, direction, changed_at };
             } else {
                 let started_at = game_state.time.now;
                 let velocity = game_state.client_config.player_velocity;
@@ -150,6 +151,7 @@ fn start_moving(state: &mut AppState, direction: Direction) {
     if let Ok(game_state) = &mut state.game_state {
         if game_state.self_movement.direction != Some(direction) {
             game_state.self_movement.direction = Some(direction);
+            game_state.self_movement.changed_at = game_state.time.now;
 
             let command = PlayerCommand::RoomCommand {
                 room_id: game_state.room.room_id,
@@ -167,6 +169,7 @@ fn stop_moving(state: &mut AppState, direction: Direction) {
     if let Ok(game_state) = &mut state.game_state {
         if game_state.self_movement.direction == Some(direction) {
             game_state.self_movement.direction = None;
+            game_state.self_movement.changed_at = game_state.time.now;
 
             let command = PlayerCommand::RoomCommand {
                 room_id: game_state.room.room_id,
@@ -201,6 +204,13 @@ fn update_self_movement(game_state: &mut GameState) {
             game_state.self_movement.position = target;
         }
     }
+
+    let local_movement = LocalMovement {
+        position: game_state.self_movement.position,
+        direction: game_state.self_movement.direction,
+        animation_time: game_state.time.now - game_state.self_movement.changed_at,
+    };
+    game_state.local_movements.insert(game_state.self_id, local_movement);
 }
 
 fn update_remote_movement(game_state: &mut GameState) {
@@ -214,9 +224,12 @@ fn update_remote_movement(game_state: &mut GameState) {
             None => remote_movement.position,
         };
 
-        game_state
-            .local_movements
-            .insert(*object_id, LocalMovement { position: current_position });
+        let local_movement = LocalMovement {
+            position: current_position,
+            direction: remote_movement.direction,
+            animation_time: game_state.time.now - remote_movement.started_at,
+        };
+        game_state.local_movements.insert(*object_id, local_movement);
     }
 }
 
