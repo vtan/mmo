@@ -4,11 +4,12 @@ use wasm_bindgen::JsValue;
 use web_sys::WebGl2RenderingContext as GL;
 use web_sys::{WebGlBuffer, WebGlVertexArrayObject};
 
-use crate::vertex_buffer::VertexBuffer;
+use crate::vertex_buffer::{TexturedVertex, VertexBuffer};
 
 pub const ATTRIB_LOC_POSITION: u32 = 0;
 pub const ATTRIB_LOC_TEXTURE_POSITION: u32 = 1;
 pub const ATTRIB_LOC_COLOR: u32 = 2;
+pub const ATTRIB_LOC_TEXTURE_INDEX: u32 = 3;
 
 pub struct VertexBufferRenderer {
     pub vao: WebGlVertexArrayObject,
@@ -23,7 +24,7 @@ impl VertexBufferRenderer {
         let vbo = gl.create_buffer().ok_or("Could not create buffer")?;
         gl.bind_buffer(GL::ARRAY_BUFFER, Some(&vbo));
 
-        let stride = 8 * size_of::<f32>() as i32;
+        let stride = size_of::<TexturedVertex>() as i32;
         {
             let num_components = 2;
             let typ = GL::FLOAT;
@@ -68,6 +69,21 @@ impl VertexBufferRenderer {
                 offset,
             );
             gl.enable_vertex_attrib_array(ATTRIB_LOC_COLOR);
+        }
+        {
+            let num_components = 1;
+            let typ = GL::UNSIGNED_INT;
+            let normalize = false;
+            let offset = 8 * size_of::<f32>() as i32;
+            gl.vertex_attrib_pointer_with_i32(
+                ATTRIB_LOC_TEXTURE_INDEX,
+                num_components,
+                typ,
+                normalize,
+                stride,
+                offset,
+            );
+            gl.enable_vertex_attrib_array(ATTRIB_LOC_TEXTURE_INDEX);
         }
 
         Ok(Self { vao, vbo })

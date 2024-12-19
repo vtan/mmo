@@ -5,6 +5,7 @@ pub struct TexturedVertex {
     pub position: Vector2<f32>,
     pub texture_position: Vector2<f32>,
     pub color: Vector4<f32>,
+    pub texture_index: u32,
 }
 
 pub struct VertexBuffer {
@@ -30,6 +31,7 @@ impl VertexBuffer {
         texture_top_left: Vector2<f32>,
         texture_extent: Vector2<f32>,
         color: Vector4<f32>,
+        texture_index: u32,
     ) {
         let vs = &mut self.vertices;
         let dx = Vector2::new(extent.x, 0.0);
@@ -42,16 +44,19 @@ impl VertexBuffer {
             position: top_left,
             texture_position: texture_top_left,
             color,
+            texture_index,
         });
         vs.push(TexturedVertex {
             position: top_left + dx,
             texture_position: texture_top_left + du,
             color,
+            texture_index,
         });
         vs.push(TexturedVertex {
             position: top_left + dy,
             texture_position: texture_top_left + dv,
             color,
+            texture_index,
         });
 
         // second triangle
@@ -59,16 +64,19 @@ impl VertexBuffer {
             position: top_left + dx,
             texture_position: texture_top_left + du,
             color,
+            texture_index,
         });
         vs.push(TexturedVertex {
             position: top_left + dx + dy,
             texture_position: texture_top_left + du + dv,
             color,
+            texture_index,
         });
         vs.push(TexturedVertex {
             position: top_left + dy,
             texture_position: texture_top_left + dv,
             color,
+            texture_index,
         });
     }
 }
@@ -90,18 +98,19 @@ impl TileVertexBuffer {
         }
     }
 
-    pub fn push_tile(&mut self, top_left: Vector2<f32>, texture_index: u32) {
-        self.push_tile_multi(top_left, Vector2::new(1, 1), texture_index);
+    pub fn push_tile(&mut self, top_left: Vector2<f32>, tile_index: u32, texture_index: u32) {
+        self.push_tile_multi(top_left, Vector2::new(1, 1), tile_index, texture_index);
     }
 
     pub fn push_tile_multi(
         &mut self,
         top_left: Vector2<f32>,
         tile_extent: Vector2<u32>,
+        tile_index: u32,
         texture_index: u32,
     ) {
-        let u = (texture_index % self.texture_columns) as f32;
-        let v = (texture_index / self.texture_columns) as f32;
+        let u = (tile_index % self.texture_columns) as f32;
+        let v = (tile_index / self.texture_columns) as f32;
         let texture_top_left = Vector2::new(
             u * self.tile_size_on_texture.x,
             v * self.tile_size_on_texture.y,
@@ -114,6 +123,7 @@ impl TileVertexBuffer {
             texture_top_left,
             texture_extent,
             Vector4::new(1.0, 1.0, 1.0, 1.0),
+            texture_index,
         );
     }
 }
@@ -132,11 +142,13 @@ impl LineVertexBuffer {
             position: start,
             texture_position: Vector2::new(0.0, 0.0),
             color,
+            texture_index: 0,
         });
         self.vertex_buffer.vertices.push(TexturedVertex {
             position: end,
             texture_position: Vector2::new(0.0, 0.0),
             color,
+            texture_index: 0,
         });
     }
 

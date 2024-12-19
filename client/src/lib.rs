@@ -64,6 +64,11 @@ pub async fn start() -> Result<(), JsValue> {
         vertex_buffer_renderer::ATTRIB_LOC_TEXTURE_POSITION,
         "texturePosition",
     );
+    gl.bind_attrib_location(
+        &program,
+        vertex_buffer_renderer::ATTRIB_LOC_TEXTURE_INDEX,
+        "textureIndex",
+    );
 
     let text_program = {
         let vert_shader = shader::compile(&gl, GL::VERTEX_SHADER, VERTEX_SHADER)?;
@@ -80,6 +85,11 @@ pub async fn start() -> Result<(), JsValue> {
         &text_program,
         vertex_buffer_renderer::ATTRIB_LOC_TEXTURE_POSITION,
         "texturePosition",
+    );
+    gl.bind_attrib_location(
+        &text_program,
+        vertex_buffer_renderer::ATTRIB_LOC_TEXTURE_INDEX,
+        "textureIndex",
     );
 
     let uniform_locations = UniformLocations {

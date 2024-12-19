@@ -35,9 +35,10 @@ impl FontAtlas {
         vertex_buffer: &mut VertexBuffer,
     ) {
         let mut cursor = top_left;
+        let texture_index = 0;
         for ch in text.chars() {
             if let Some(glyph) = self.glyphs.get(&ch) {
-                self.push_glyph(glyph, cursor, height, color, vertex_buffer);
+                self.push_glyph(glyph, cursor, height, color, texture_index, vertex_buffer);
                 cursor.x += height / self.metrics.line_height * glyph.advance;
             }
         }
@@ -49,6 +50,7 @@ impl FontAtlas {
         top_left: Vector2<f32>,
         height: f32,
         color: Vector4<f32>,
+        texture_index: u32,
         vertex_buffer: &mut VertexBuffer,
     ) {
         let plane_bounds = if let Some(plane_bounds) = glyph.plane_bounds {
@@ -90,6 +92,7 @@ impl FontAtlas {
             texture_top_left,
             texture_extent,
             color,
+            texture_index,
         );
     }
 }

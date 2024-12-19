@@ -26,14 +26,13 @@ pub fn render(state: &mut AppState) {
         Err(_) => return,
     };
 
-    let mut tileset_vertices = TileVertexBuffer::new(Vector2::new(1.0, 1.0), Vector2::new(16, 16));
-    let mut charset_vertices = TileVertexBuffer::new(Vector2::new(1.0, 1.0), Vector2::new(16, 16));
+    let mut tile_vertices = TileVertexBuffer::new(Vector2::new(1.0, 1.0), Vector2::new(16, 16));
 
     for layer in &game_state.room.bg_dense_layers {
-        render_dense_tile_layer(layer, game_state.room.size, &mut tileset_vertices);
+        render_dense_tile_layer(layer, game_state.room.size, &mut tile_vertices);
     }
-    render_sparse_tile_layer(&game_state.room.bg_sparse_layer, &mut tileset_vertices);
-    render_sparse_tile_layer(&game_state.room.fg_sparse_layer, &mut tileset_vertices);
+    render_sparse_tile_layer(&game_state.room.bg_sparse_layer, &mut tile_vertices);
+    render_sparse_tile_layer(&game_state.room.fg_sparse_layer, &mut tile_vertices);
 
     for movement in game_state.local_movements.iter() {
         let animation = &game_state.client_config.player_animation;
@@ -49,23 +48,11 @@ pub fn render(state: &mut AppState) {
         if let Some(sprite_index) =
             select_animation_sprite(animation, direction, movement.animation_time)
         {
-            charset_vertices.push_tile_multi(position, sprite_size, sprite_index.0 as _);
+            tile_vertices.push_tile_multi(position, sprite_size, sprite_index.0 as _, 1);
         }
     }
 
-    let mut line_vertices = LineVertexBuffer::new();
-
-    for remote_movement in game_state.remote_movements.values() {
-        line_vertices.push_rect(
-            remote_movement.position - Vector2::new(0.2, 0.05),
-            Vector2::new(0.4, 0.1),
-            Vector4::new(1.0, 0.0, 1.0, 1.0),
-        );
-    }
-
-    let tileset_vertices = tileset_vertices.vertex_buffer;
-    let charset_vertices = charset_vertices.vertex_buffer;
-    let line_vertices = line_vertices.vertex_buffer;
+    let tileset_vertices = tile_vertices.vertex_buffer;
     gl.use_program(Some(&state.program));
 
     let logical_screen_to_ndc =
@@ -79,16 +66,29 @@ pub fn render(state: &mut AppState) {
         tile_to_ndc.as_slice(),
     );
 
-    gl.uniform1i(Some(&state.uniform_locations.sampler), 0);
+    gl.uniform1iv_with_i32_array(Some(&state.uniform_locations.sampler), &[0, 1]);
     gl.active_texture(GL::TEXTURE0);
     gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tileset.texture));
+    gl.active_texture(GL::TEXTURE1);
+    gl.bind_texture(GL::TEXTURE_2D, Some(&assets.charset.texture));
 
     state.vertex_buffer_renderer.render_triangles(&tileset_vertices, gl);
 
-    gl.bind_texture(GL::TEXTURE_2D, Some(&assets.charset.texture));
+    // lines
 
-    state.vertex_buffer_renderer.render_triangles(&charset_vertices, gl);
+    let mut line_vertices = LineVertexBuffer::new();
 
+    for remote_movement in game_state.remote_movements.values() {
+        line_vertices.push_rect(
+            remote_movement.position - Vector2::new(0.2, 0.05),
+            Vector2::new(0.4, 0.1),
+            Vector4::new(1.0, 0.0, 1.0, 1.0),
+        );
+    }
+
+    let line_vertices = line_vertices.vertex_buffer;
+
+    gl.active_texture(GL::TEXTURE0);
     gl.bind_texture(GL::TEXTURE_2D, Some(&assets.white.texture));
     state.vertex_buffer_renderer.render_lines(&line_vertices, gl);
 
@@ -110,9 +110,11 @@ pub fn render(state: &mut AppState) {
         false,
         logical_screen_to_ndc.as_slice(),
     );
-    gl.uniform1i(Some(&state.uniform_locations.text_sampler), 0);
+    gl.uniform1iv_with_i32_array(Some(&state.uniform_locations.text_sampler), &[0, 1]);
     gl.active_texture(GL::TEXTURE0);
     gl.bind_texture(GL::TEXTURE_2D, Some(&assets.font.texture));
+
+    // text
 
     let mut text_vertices = VertexBuffer::new();
 
@@ -162,7 +164,7 @@ fn render_dense_tile_layer(
             let x = i % room_size.x;
             let y = i / room_size.x;
             let xy = Vector2::new(x as f32, y as f32);
-            tileset_vertices.push_tile(xy, tile_index.get() as u32);
+            tileset_vertices.push_tile(xy, tile_index.get() as u32, 0);
         }
     }
 }
@@ -174,7 +176,7 @@ fn render_sparse_tile_layer(
     for (position, tile_index) in layer {
         if let Some(tile_index) = tile_index.0 {
             let xy = position.map(|x| x as f32);
-            tileset_vertices.push_tile(xy, tile_index.get() as u32);
+            tileset_vertices.push_tile(xy, tile_index.get() as u32, 0);
         }
     }
 }
