@@ -2,6 +2,7 @@ use nalgebra::Vector2;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    animation::AnimationAction,
     client_config::ClientConfig,
     object::{Direction, ObjectId},
     room::RoomSync,
@@ -32,6 +33,10 @@ pub enum PlayerEvent {
         position: Vector2<f32>,
         direction: Option<Direction>,
         look_direction: Direction,
+    },
+    PlayerAnimationAction {
+        object_id: ObjectId,
+        action: AnimationAction,
     },
     PlayerDisappeared {
         object_id: ObjectId,

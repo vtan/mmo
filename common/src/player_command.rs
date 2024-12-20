@@ -26,4 +26,5 @@ pub enum RoomCommand {
         direction: Option<Direction>,
         look_direction: Direction,
     },
+    Attack,
 }

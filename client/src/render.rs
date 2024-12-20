@@ -1,5 +1,5 @@
 use mmo_common::{
-    animation::{DirectionalAnimation, SpriteIndex},
+    animation::{AnimationAction, DirectionalAnimation, SpriteIndex},
     object::Direction,
     room::{ForegroundTile, TileIndex},
 };
@@ -49,10 +49,10 @@ pub fn render(state: &mut AppState) {
             let sprite_size = animation.sprite_size;
             let position = movement.position - (sprite_size.cast() - animation.anchor);
 
-            let animation = if movement.direction.is_some() {
-                &animation.walk
-            } else {
-                &animation.idle
+            let animation = match movement.animation_action {
+                Some(AnimationAction::Attack) => &animation.attack,
+                None if movement.direction.is_some() => &animation.walk,
+                None => &animation.idle,
             };
             let direction = movement.direction.unwrap_or(movement.look_direction);
             if let Some(sprite_index) =

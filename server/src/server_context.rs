@@ -76,5 +76,35 @@ pub fn make_player_animation() -> AnimationSet {
                 ],
             },
         ]),
+        attack: DirectionalAnimation([
+            Animation {
+                total_length: 0.2,
+                frames: vec![
+                    AnimationFrame { start: 0.0, sprite_index: SpriteIndex(7) },
+                    AnimationFrame { start: 0.1, sprite_index: SpriteIndex(8) },
+                ],
+            },
+            Animation {
+                total_length: 0.2,
+                frames: vec![
+                    AnimationFrame { start: 0.0, sprite_index: SpriteIndex(1) },
+                    AnimationFrame { start: 0.1, sprite_index: SpriteIndex(2) },
+                ],
+            },
+            Animation {
+                total_length: 0.2,
+                frames: vec![
+                    AnimationFrame { start: 0.0, sprite_index: SpriteIndex(10) },
+                    AnimationFrame { start: 0.1, sprite_index: SpriteIndex(11) },
+                ],
+            },
+            Animation {
+                total_length: 0.2,
+                frames: vec![
+                    AnimationFrame { start: 0.0, sprite_index: SpriteIndex(4) },
+                    AnimationFrame { start: 0.1, sprite_index: SpriteIndex(5) },
+                ],
+            },
+        ]),
     }
 }

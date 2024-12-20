@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use mmo_common::{
+    animation::AnimationAction,
     client_config::ClientConfig,
     object::{Direction, ObjectId},
     player_command::PlayerCommand,
@@ -18,7 +19,7 @@ pub struct GameState {
     pub client_config: ClientConfig,
     pub room: Room,
     pub self_movement: SelfMovement,
-    pub remote_movements: HashMap<ObjectId, RemoveMovement>,
+    pub remote_movements: HashMap<ObjectId, RemoteMovement>,
     pub local_movements: Vec<LocalMovement>,
 }
 
@@ -38,21 +39,30 @@ pub struct Room {
     pub collisions: Vec<bool>,
 }
 
-#[derive(Debug, Clone, Copy)]
+// TODO: consolidate with RemoteMovement?
+#[derive(Debug, Clone)]
 pub struct SelfMovement {
     pub position: Vector2<f32>,
     pub direction: Option<Direction>,
     pub look_direction: Direction,
+    pub action: Option<MovementAction>,
     pub changed_at: f32,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct RemoveMovement {
+#[derive(Debug, Clone)]
+pub struct RemoteMovement {
     pub position: Vector2<f32>,
     pub direction: Option<Direction>,
     pub look_direction: Direction,
+    pub action: Option<MovementAction>,
     pub started_at: f32,
     pub velocity: f32,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct MovementAction {
+    pub action: AnimationAction,
+    pub started_at: f32,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -61,6 +71,7 @@ pub struct LocalMovement {
     pub position: Vector2<f32>,
     pub direction: Option<Direction>,
     pub look_direction: Direction,
+    pub animation_action: Option<AnimationAction>,
     pub animation_time: f32,
 }
 
@@ -105,6 +116,7 @@ impl PartialGameState {
                 position: Vector2::new(0.0, 0.0),
                 direction: None,
                 look_direction: Direction::Down,
+                action: None,
                 changed_at: 0.0,
             },
             remote_movements: HashMap::new(),

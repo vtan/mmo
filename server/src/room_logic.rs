@@ -1,4 +1,5 @@
 use mmo_common::{
+    animation::AnimationAction,
     object::{Direction, ObjectId},
     player_command::RoomCommand,
     player_event::PlayerEvent,
@@ -124,6 +125,15 @@ pub fn on_command(
                     },
                 );
             }
+        }
+        RoomCommand::Attack => {
+            writer.broadcast(
+                state.players.keys().copied().filter(|pid| *pid != player_id),
+                PlayerEvent::PlayerAnimationAction {
+                    object_id: player_id,
+                    action: AnimationAction::Attack,
+                },
+            );
         }
     }
 }
