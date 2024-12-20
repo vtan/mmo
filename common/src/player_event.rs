@@ -28,18 +28,23 @@ pub enum PlayerEvent {
     RoomEntered {
         room: Box<RoomSync>,
     },
-    PlayerMovementChanged {
+    ObjectAppeared {
+        object_id: ObjectId,
+        animation_id: u32,
+        velocity: f32,
+    },
+    ObjectDisappeared {
+        object_id: ObjectId,
+    },
+    ObjectMovementChanged {
         object_id: ObjectId,
         position: Vector2<f32>,
         direction: Option<Direction>,
         look_direction: Direction,
     },
-    PlayerAnimationAction {
+    ObjectAnimationAction {
         object_id: ObjectId,
         action: AnimationAction,
-    },
-    PlayerDisappeared {
-        object_id: ObjectId,
     },
 }
 

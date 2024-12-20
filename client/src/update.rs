@@ -4,6 +4,7 @@ use mmo_common::player_command::{GlobalCommand, PlayerCommand, RoomCommand};
 use mmo_common::player_event::{PlayerEvent, PlayerEventEnvelope};
 use mmo_common::room::RoomSync;
 use mmo_common::{rle, room};
+use nalgebra::Vector2;
 
 use crate::app_event::AppEvent;
 use crate::app_state::AppState;
@@ -105,9 +106,10 @@ fn update_partial(partial: &mut PartialGameState, events: PlayerEventEnvelope<Pl
                 partial.room = Some(load_room_map(*room));
             }
             PlayerEvent::Pong { .. }
-            | PlayerEvent::PlayerMovementChanged { .. }
-            | PlayerEvent::PlayerAnimationAction { .. }
-            | PlayerEvent::PlayerDisappeared { .. } => {
+            | PlayerEvent::ObjectAppeared { .. }
+            | PlayerEvent::ObjectMovementChanged { .. }
+            | PlayerEvent::ObjectAnimationAction { .. }
+            | PlayerEvent::ObjectDisappeared { .. } => {
                 remaining.events.push(event);
             }
         }
@@ -146,7 +148,30 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
             game_state.remote_movements.clear();
             game_state.local_movements.clear();
         }
-        PlayerEvent::PlayerMovementChanged {
+        PlayerEvent::ObjectAppeared { object_id, animation_id, velocity } => {
+            let remote_movement = RemoteMovement {
+                position: Vector2::new(0.0, 0.0),
+                direction: None,
+                look_direction: Direction::Down,
+                action: None,
+                started_at: game_state.time.now,
+                velocity,
+                animation_id: animation_id as usize,
+            };
+            game_state
+                .remote_movements
+                .entry(object_id)
+                .and_modify(|_| {
+                    web_sys::console::warn_1(
+                        &format!(
+                            "Got ObjectAppeared for {object_id:?} but already had remote movement "
+                        )
+                        .into(),
+                    );
+                })
+                .or_insert(remote_movement);
+        }
+        PlayerEvent::ObjectMovementChanged {
             object_id: player_id,
             position,
             direction,
@@ -162,27 +187,33 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
                     action: game_state.self_movement.action,
                 };
             } else {
-                let started_at = game_state.time.now;
-                let velocity = game_state.client_config.player_velocity;
-                let action = game_state.remote_movements.get(&player_id).and_then(|m| m.action);
-                let remote_movement = RemoteMovement {
-                    position,
-                    direction,
-                    look_direction,
-                    started_at,
-                    velocity,
-                    action,
+                if let Some(m) = game_state.remote_movements.get_mut(&player_id) {
+                    *m = RemoteMovement {
+                        position,
+                        direction,
+                        look_direction,
+                        started_at: game_state.time.now,
+                        velocity: m.velocity,
+                        action: m.action,
+                        animation_id: m.animation_id,
+                    };
+                } else {
+                    web_sys::console::warn_1(
+                        &format!(
+                            "Got PlayerMovementChanged for {player_id:?} but no remote movement "
+                        )
+                        .into(),
+                    );
                 };
-                game_state.remote_movements.insert(player_id, remote_movement);
             }
         }
-        PlayerEvent::PlayerAnimationAction { object_id, action } => {
+        PlayerEvent::ObjectAnimationAction { object_id, action } => {
             // Assuming the event is not about us
             if let Some(m) = game_state.remote_movements.get_mut(&object_id) {
                 m.action = Some(MovementAction { action, started_at: game_state.time.now })
             }
         }
-        PlayerEvent::PlayerDisappeared { object_id: player_id } => {
+        PlayerEvent::ObjectDisappeared { object_id: player_id } => {
             game_state.remote_movements.remove(&player_id);
         }
     }

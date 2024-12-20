@@ -84,6 +84,17 @@ impl RoomWriter {
             self.events.entry(player_id).or_default().push(event.clone());
         }
     }
+
+    pub fn broadcast_many(
+        &mut self,
+        player_ids: impl Iterator<Item = ObjectId>,
+        events: &[PlayerEvent],
+    ) {
+        let events = events.iter().map(|event| Arc::new(event.clone())).collect::<Vec<_>>();
+        for player_id in player_ids {
+            self.events.entry(player_id).or_default().extend(events.iter().cloned());
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

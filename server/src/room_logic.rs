@@ -42,17 +42,24 @@ fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter
     let player_remote_movement = player.remote_movement;
     let now = Instant::now();
 
-    state.players.insert(player_id, player);
-
-    writer.broadcast(
+    writer.broadcast_many(
         state.players.keys().copied(),
-        PlayerEvent::PlayerMovementChanged {
-            object_id: player_id,
-            position: player_local_movement.position,
-            direction: player_remote_movement.direction,
-            look_direction: player_remote_movement.look_direction,
-        },
+        &[
+            PlayerEvent::ObjectAppeared {
+                object_id: player_id,
+                animation_id: state.server_context.player_animation,
+                velocity: state.server_context.player_velocity,
+            },
+            PlayerEvent::ObjectMovementChanged {
+                object_id: player_id,
+                position: player_local_movement.position,
+                direction: player_remote_movement.direction,
+                look_direction: player_remote_movement.look_direction,
+            },
+        ],
     );
+
+    state.players.insert(player_id, player);
 
     writer.tell(
         player_id,
@@ -61,14 +68,21 @@ fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter
     for player_in_room in state.players.values() {
         let position =
             interpolate_position(&state.server_context, player_in_room.remote_movement, now);
-        writer.tell(
+        writer.tell_many(
             player_id,
-            PlayerEvent::PlayerMovementChanged {
-                object_id: player_in_room.id,
-                position: position.position,
-                direction: player_in_room.remote_movement.direction,
-                look_direction: player_in_room.remote_movement.look_direction,
-            },
+            &[
+                PlayerEvent::ObjectAppeared {
+                    object_id: player_in_room.id,
+                    animation_id: state.server_context.player_animation,
+                    velocity: state.server_context.player_velocity,
+                },
+                PlayerEvent::ObjectMovementChanged {
+                    object_id: player_in_room.id,
+                    position: position.position,
+                    direction: player_in_room.remote_movement.direction,
+                    look_direction: player_in_room.remote_movement.look_direction,
+                },
+            ],
         );
     }
 }
@@ -82,7 +96,7 @@ fn player_left(player_id: ObjectId, state: &mut RoomState, writer: &mut RoomWrit
     if state.players.remove(&player_id).is_some() {
         writer.broadcast(
             state.players.keys().copied(),
-            PlayerEvent::PlayerDisappeared { object_id: player_id },
+            PlayerEvent::ObjectDisappeared { object_id: player_id },
         );
     } else {
         tracing::error!("Player not found");
@@ -117,7 +131,7 @@ pub fn on_command(
 
                 writer.broadcast(
                     player_ids.iter().copied().filter(|pid| *pid != player_id),
-                    PlayerEvent::PlayerMovementChanged {
+                    PlayerEvent::ObjectMovementChanged {
                         object_id: player_id,
                         position: player.local_movement.position,
                         direction: player.remote_movement.direction,
@@ -129,7 +143,7 @@ pub fn on_command(
         RoomCommand::Attack => {
             writer.broadcast(
                 state.players.keys().copied().filter(|pid| *pid != player_id),
-                PlayerEvent::PlayerAnimationAction {
+                PlayerEvent::ObjectAnimationAction {
                     object_id: player_id,
                     action: AnimationAction::Attack,
                 },
@@ -184,7 +198,7 @@ pub fn on_tick(tick: Tick, state: &mut RoomState, writer: &mut RoomWriter) {
                 if crossed_tile {
                     writer.broadcast(
                         player_ids.iter().copied().filter(|pid| *pid != player_id),
-                        PlayerEvent::PlayerMovementChanged {
+                        PlayerEvent::ObjectMovementChanged {
                             object_id: player.id,
                             position: local_movement.position,
                             direction: player.remote_movement.direction,
@@ -215,7 +229,7 @@ fn prevent_collision(
     };
     writer.broadcast(
         player_ids.iter().copied(),
-        PlayerEvent::PlayerMovementChanged {
+        PlayerEvent::ObjectMovementChanged {
             object_id: player.id,
             position: player.remote_movement.position,
             direction: player.remote_movement.direction,

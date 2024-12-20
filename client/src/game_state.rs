@@ -57,6 +57,7 @@ pub struct RemoteMovement {
     pub action: Option<MovementAction>,
     pub started_at: f32,
     pub velocity: f32,
+    pub animation_id: usize,
 }
 
 #[derive(Debug, Clone, Copy)]
