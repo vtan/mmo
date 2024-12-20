@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use eyre::Result;
@@ -17,12 +16,6 @@ use crate::player::{self, PlayerConnection};
 use crate::server_context::ServerContext;
 use crate::tick;
 use crate::{room_actor, room_state};
-
-static NEXT_OBJECT_ID: AtomicU64 = AtomicU64::new(0);
-
-pub fn next_object_id() -> ObjectId {
-    ObjectId(NEXT_OBJECT_ID.fetch_add(1, Ordering::SeqCst))
-}
 
 #[derive(Debug)]
 pub enum Message {

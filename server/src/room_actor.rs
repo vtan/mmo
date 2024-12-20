@@ -7,6 +7,7 @@ use mmo_common::rle;
 use mmo_common::room::{RoomId, RoomSync};
 use nalgebra::Vector2;
 use tokio::sync::mpsc;
+use tokio::time::Instant;
 use tracing::instrument;
 
 use crate::player::PlayerConnection;
@@ -40,9 +41,11 @@ pub async fn run(
 ) {
     tracing::debug!("Spawned");
 
+    let now = Instant::now();
     let map = server_context.room_maps.get(&room_id).unwrap().clone();
     let room = make_room_sync(room_id, &map);
-    let mut state = RoomState { server_context, map, room, players: HashMap::new() };
+    let mobs = room_logic::populate_mobs(&map, &server_context, now);
+    let mut state = RoomState { server_context, map, room, players: HashMap::new(), mobs };
     let mut writer = RoomWriter::new();
 
     loop {

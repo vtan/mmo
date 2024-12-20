@@ -1,6 +1,11 @@
 player_velocity = 3.0
 player_animation = "player"
 
+[mob_templates.slime]
+id = "slime"
+animation_id = "slime"
+velocity = 2.0
+
 [animations.player]
 sprite_size = [1, 2]
 anchor = [0.5, 0.0]

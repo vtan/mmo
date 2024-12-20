@@ -44,8 +44,7 @@ pub fn render(state: &mut AppState) {
         fg_y_lower_bound = movement.position.y;
 
         {
-            let animation =
-                &game_state.client_config.animations[game_state.self_movement.animation_id];
+            let animation = &game_state.client_config.animations[movement.animation_id];
             let sprite_size = animation.sprite_size;
             let position = movement.position - (sprite_size.cast() - animation.anchor);
 

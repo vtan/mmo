@@ -9,11 +9,11 @@ use mmo_common::player_event::{PlayerEvent, PlayerEventEnvelope};
 use tokio::sync::mpsc;
 use tracing::instrument;
 
-use crate::server_actor;
+use crate::{object, server_actor};
 
 #[instrument(skip_all)]
 pub async fn handle(ws: WebSocket, server_actor_sender: mpsc::Sender<server_actor::Message>) {
-    let player_id = server_actor::next_object_id();
+    let player_id = object::next_object_id();
     handle_with_id(ws, server_actor_sender, player_id).await;
 }
 

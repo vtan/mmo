@@ -4,14 +4,16 @@ use eyre::{eyre, Result};
 use mmo_common::{animation::AnimationSet, room::RoomId};
 use serde::Deserialize;
 
-use crate::{assets::AssetPaths, room_state::RoomMap};
+use crate::{assets::AssetPaths, mob::MobTemplate, room_state::RoomMap};
 
 #[derive(Debug, Clone)]
 pub struct ServerContext {
     pub asset_paths: AssetPaths,
     pub room_maps: HashMap<RoomId, Arc<RoomMap>>,
+    pub mob_templates: HashMap<String, Arc<MobTemplate>>,
     pub animations: Vec<AnimationSet>,
     pub player_animation: u32,
+    pub mob_animations: HashMap<String, u32>,
     pub player_velocity: f32,
 }
 
@@ -35,11 +37,22 @@ impl ServerContext {
             .ok_or_else(|| eyre!("Player animation not found"))?
             as u32;
 
+        let mut mob_animations = HashMap::new();
+        for name in server_config.mob_templates.keys() {
+            let index = animation_keys
+                .iter()
+                .position(|animation_name| animation_name == name)
+                .ok_or_else(|| eyre!("Mob animation not found"))? as u32;
+            mob_animations.insert(name.clone(), index);
+        }
+
         Ok(Self {
             asset_paths,
             room_maps,
+            mob_templates: server_config.mob_templates,
             animations,
             player_animation,
+            mob_animations,
             player_velocity: server_config.player_velocity,
         })
     }
@@ -48,6 +61,7 @@ impl ServerContext {
 #[derive(Debug, Clone, Deserialize)]
 pub struct ServerConfig {
     pub animations: HashMap<String, AnimationSet>,
+    pub mob_templates: HashMap<String, Arc<MobTemplate>>,
     pub player_animation: String,
     pub player_velocity: f32,
 }

@@ -1,3 +1,5 @@
+use std::{collections::HashMap, sync::Arc};
+
 use mmo_common::{
     animation::AnimationAction,
     object::{Direction, ObjectId},
@@ -10,8 +12,12 @@ use tokio::time::Instant;
 use tracing::instrument;
 
 use crate::{
+    mob::MobTemplate,
+    object,
     player::PlayerConnection,
-    room_state::{LocalMovement, Player, RemoteMovement, RoomState, RoomWriter, UpstreamMessage},
+    room_state::{
+        LocalMovement, Mob, Player, RemoteMovement, RoomMap, RoomState, RoomWriter, UpstreamMessage,
+    },
     server_context::ServerContext,
     tick::Tick,
 };
@@ -83,6 +89,25 @@ fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter
                     look_direction: player_in_room.remote_movement.look_direction,
                 },
             ],
+        );
+    }
+    for mob in state.mobs.values() {
+        writer.tell(
+            player_id,
+            PlayerEvent::ObjectAppeared {
+                object_id: mob.id,
+                animation_id: mob.animation_id,
+                velocity: mob.template.velocity,
+            },
+        );
+        writer.tell(
+            player_id,
+            PlayerEvent::ObjectMovementChanged {
+                object_id: mob.id,
+                position: mob.movement.position,
+                direction: mob.movement.direction,
+                look_direction: mob.movement.look_direction,
+            },
         );
     }
 }
@@ -252,4 +277,33 @@ fn interpolate_position(
     } else {
         LocalMovement { position: remote_movement.position, updated_at: now }
     }
+}
+
+pub fn populate_mobs(map: &RoomMap, ctx: &ServerContext, now: Instant) -> HashMap<ObjectId, Mob> {
+    map.mob_spawns
+        .iter()
+        .filter_map(|mob_spawn| {
+            let resolve = || -> Option<(Arc<MobTemplate>, u32)> {
+                let mob_template = ctx.mob_templates.get(&mob_spawn.mob_template)?;
+                let animation_id = ctx.mob_animations.get(&mob_template.animation_id)?;
+                Some((mob_template.clone(), *animation_id))
+            };
+            if let Some((mob_template, animation_id)) = resolve() {
+                let mob = Mob {
+                    id: object::next_object_id(),
+                    animation_id,
+                    template: mob_template,
+                    movement: RemoteMovement {
+                        position: mob_spawn.position.cast(),
+                        direction: None,
+                        look_direction: Direction::Down,
+                        received_at: now,
+                    },
+                };
+                Some((mob.id, mob))
+            } else {
+                None
+            }
+        })
+        .collect()
 }

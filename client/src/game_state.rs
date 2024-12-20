@@ -62,6 +62,7 @@ pub struct LocalMovement {
     pub position: Vector2<f32>,
     pub direction: Option<Direction>,
     pub look_direction: Direction,
+    pub animation_id: usize,
     pub animation_action: Option<AnimationAction>,
     pub animation_time: f32,
 }

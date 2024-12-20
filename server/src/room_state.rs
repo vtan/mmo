@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use crate::{player::PlayerConnection, server_context::ServerContext};
+use crate::{mob::MobTemplate, player::PlayerConnection, server_context::ServerContext};
 
 use mmo_common::{
     object::{Direction, ObjectId},
@@ -16,6 +16,7 @@ pub struct RoomState {
     pub map: Arc<RoomMap>,
     pub room: RoomSync,
     pub players: HashMap<ObjectId, Player>,
+    pub mobs: HashMap<ObjectId, Mob>,
 }
 
 #[derive(Debug, Clone)]
@@ -26,6 +27,7 @@ pub struct RoomMap {
     pub fg_sparse_layer: Vec<ForegroundTile>,
     pub collisions: Vec<bool>,
     pub portals: Vec<Portal>,
+    pub mob_spawns: Vec<MobSpawn>,
 }
 
 #[derive(Debug, Clone)]
@@ -34,6 +36,14 @@ pub struct Player {
     pub connection: PlayerConnection,
     pub local_movement: LocalMovement,
     pub remote_movement: RemoteMovement,
+}
+
+#[derive(Debug, Clone)]
+pub struct Mob {
+    pub id: ObjectId,
+    pub template: Arc<MobTemplate>,
+    pub animation_id: u32,
+    pub movement: RemoteMovement,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -55,6 +65,12 @@ pub struct Portal {
     pub position: Vector2<u32>,
     pub target_room_id: RoomId,
     pub target_position: Vector2<f32>,
+}
+
+#[derive(Debug, Clone)]
+pub struct MobSpawn {
+    pub position: Vector2<u32>,
+    pub mob_template: String,
 }
 
 #[derive(Debug, Clone)]

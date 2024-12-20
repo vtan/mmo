@@ -8,7 +8,7 @@ use mmo_common::room::{ForegroundTile, RoomId, TileIndex};
 use nalgebra::Vector2;
 use serde::{Deserialize, Serialize};
 
-use crate::room_state::RoomMap;
+use crate::room_state::{MobSpawn, RoomMap};
 
 pub fn load(path: &str) -> Result<HashMap<RoomId, Arc<RoomMap>>> {
     let json = std::fs::read_to_string(path)?;
@@ -43,6 +43,7 @@ fn convert_map(ldtk_map: &LdtkMap, ldtk_level: &LdtkLevel) -> Result<RoomMap> {
     let mut bg_dense_layers = vec![];
     let mut bg_sparse_layer = vec![];
     let mut fg_sparse_layer = vec![];
+    let mut mob_spawns = vec![];
 
     for ldtk_layer in &ldtk_level.layer_instances {
         if !ldtk_layer.grid_tiles.is_empty() {
@@ -81,6 +82,14 @@ fn convert_map(ldtk_map: &LdtkMap, ldtk_level: &LdtkLevel) -> Result<RoomMap> {
                 bg_dense_layers.push(layer);
             }
         }
+
+        if !ldtk_layer.entity_instances.is_empty() {
+            for entity in collect_entities(&ldtk_layer.entity_instances) {
+                match entity {
+                    ParsedEntity::MobSpawn(mob_spawn) => mob_spawns.push(mob_spawn),
+                }
+            }
+        }
     }
     let collisions = collect_collisions(
         size,
@@ -97,6 +106,7 @@ fn convert_map(ldtk_map: &LdtkMap, ldtk_level: &LdtkLevel) -> Result<RoomMap> {
         fg_sparse_layer,
         collisions,
         portals: vec![],
+        mob_spawns,
     })
 }
 
@@ -169,6 +179,34 @@ fn collect_enum_tile_ids(ldtk_map: &LdtkMap, enum_value: &str) -> Result<HashSet
     }
 }
 
+fn collect_entities(entities: &[LdtkEntityInstance]) -> Vec<ParsedEntity> {
+    entities.iter().filter_map(collect_entity).collect()
+}
+
+fn collect_entity(entity: &LdtkEntityInstance) -> Option<ParsedEntity> {
+    match entity.identifier.as_str() {
+        "Mob" => {
+            let mob_type = entity.field_instances.iter().find_map(|field| {
+                if field.identifier == "mob" {
+                    Some(field.value.clone())
+                } else {
+                    None
+                }
+            })?;
+            Some(ParsedEntity::MobSpawn(MobSpawn {
+                position: entity.grid,
+                mob_template: mob_type,
+            }))
+        }
+        _ => None,
+    }
+}
+
+#[derive(Debug, Clone)]
+enum ParsedEntity {
+    MobSpawn(MobSpawn),
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct LdtkMap {
@@ -199,6 +237,7 @@ struct LdtkLayerInstance {
     #[serde(rename = "__cHei")]
     height: u32,
     grid_tiles: Vec<LdtkTileInstance>,
+    entity_instances: Vec<LdtkEntityInstance>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -206,6 +245,25 @@ struct LdtkLayerInstance {
 struct LdtkTileInstance {
     px: [u32; 2],
     t: TileIndex,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LdtkEntityInstance {
+    #[serde(rename = "__identifier")]
+    identifier: String,
+    #[serde(rename = "__grid")]
+    grid: Vector2<u32>,
+    field_instances: Vec<LdtkEntityFieldInstance>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LdtkEntityFieldInstance {
+    #[serde(rename = "__identifier")]
+    identifier: String,
+    #[serde(rename = "__value")]
+    value: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
