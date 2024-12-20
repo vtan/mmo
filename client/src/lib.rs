@@ -22,6 +22,7 @@ mod render;
 mod shader;
 mod texture;
 mod update;
+mod util;
 mod vertex_buffer;
 mod vertex_buffer_renderer;
 mod ws_connection;

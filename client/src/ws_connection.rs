@@ -9,6 +9,8 @@ use wasm_bindgen::JsCast;
 use web_sys::{MessageEvent, WebSocket};
 
 use crate::app_event::AppEvent;
+use crate::console_error;
+use crate::console_warn;
 
 pub fn connect(events: Rc<RefCell<Vec<AppEvent>>>) -> Result<WebSocket, JsValue> {
     let window = web_sys::window().expect("No window");
@@ -30,7 +32,7 @@ pub fn connect(events: Rc<RefCell<Vec<AppEvent>>>) -> Result<WebSocket, JsValue>
     let ws_onclose = {
         let events = events.clone();
         Closure::<dyn FnMut()>::new(move || {
-            web_sys::console::error_1(&"Websocket disconnected".into());
+            console_error!("Websocket disconnected");
             (*events).borrow_mut().push(AppEvent::WebsocketDisconnected);
         })
         .into_js_value()
@@ -40,7 +42,7 @@ pub fn connect(events: Rc<RefCell<Vec<AppEvent>>>) -> Result<WebSocket, JsValue>
     let ws_onerror = {
         let events = events.clone();
         Closure::<dyn FnMut()>::new(move || {
-            web_sys::console::error_1(&"Websocket error".into());
+            console_error!("Websocket error");
             (*events).borrow_mut().push(AppEvent::WebsocketDisconnected);
         })
         .into_js_value()
@@ -57,7 +59,7 @@ pub fn connect(events: Rc<RefCell<Vec<AppEvent>>>) -> Result<WebSocket, JsValue>
                 let app_event = AppEvent::WebsocketMessage { message, received_at };
                 (*events).borrow_mut().push(app_event);
             } else {
-                web_sys::console::warn_1(&"Unexpected websocket message type".into());
+                console_warn!("Unexpected websocket message type");
             }
         })
         .into_js_value()

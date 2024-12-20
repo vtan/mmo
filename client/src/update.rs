@@ -8,11 +8,11 @@ use nalgebra::Vector2;
 
 use crate::app_event::AppEvent;
 use crate::app_state::AppState;
-use crate::assets;
 use crate::game_state::{
     GameState, LastPing, LocalMovement, MovementAction, PartialGameState, RemoteMovement, Room,
     SelfMovement,
 };
+use crate::{assets, console_info, console_warn};
 
 pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
     for event in events {
@@ -124,7 +124,7 @@ fn handle_server_events(
 ) {
     for event in events.events {
         if !matches!(event, PlayerEvent::Pong { .. }) {
-            web_sys::console::info_1(&format!("{event:?}").into());
+            console_info!("{event:?}");
         }
         handle_server_event(game_state, received_at, event);
     }
@@ -137,8 +137,7 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
                 if sequence_number == last_ping.sequence_number {
                     game_state.ping_rtt = received_at - last_ping.sent_at;
                 } else {
-                    let msg = format!("Unexpected pong sequence number, received: {sequence_number}, expected: {}", last_ping.sequence_number).into();
-                    web_sys::console::warn_1(&msg);
+                    console_warn!("Unexpected pong sequence number, received: {sequence_number}, expected: {}", last_ping.sequence_number);
                 }
             }
         }
@@ -162,11 +161,8 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
                 .remote_movements
                 .entry(object_id)
                 .and_modify(|_| {
-                    web_sys::console::warn_1(
-                        &format!(
-                            "Got ObjectAppeared for {object_id:?} but already had remote movement "
-                        )
-                        .into(),
+                    console_warn!(
+                        "Got ObjectAppeared for {object_id:?} but already had remote movement "
                     );
                 })
                 .or_insert(remote_movement);
@@ -198,11 +194,8 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
                         animation_id: m.animation_id,
                     };
                 } else {
-                    web_sys::console::warn_1(
-                        &format!(
-                            "Got PlayerMovementChanged for {player_id:?} but no remote movement "
-                        )
-                        .into(),
+                    console_warn!(
+                        "Got PlayerMovementChanged for {player_id:?} but no remote movement"
                     );
                 };
             }
