@@ -1,10 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
-use mmo_common::{
-    animation::{Animation, AnimationFrame, AnimationSet, DirectionalAnimation, SpriteIndex},
-    room::RoomId,
-};
-use nalgebra::Vector2;
+use mmo_common::{animation::AnimationSet, room::RoomId};
+use serde::Deserialize;
 
 use crate::{assets::AssetPaths, room_state::RoomMap};
 
@@ -16,95 +13,31 @@ pub struct ServerContext {
     pub player_velocity: f32,
 }
 
-pub fn make_player_animation() -> AnimationSet {
-    AnimationSet {
-        sprite_size: Vector2::new(1, 2),
-        anchor: Vector2::new(0.5, 0.0),
-        idle: DirectionalAnimation([
-            Animation {
-                total_length: 0.0,
-                frames: vec![AnimationFrame { start: 0.0, sprite_index: SpriteIndex(6) }],
-            },
-            Animation {
-                total_length: 0.0,
-                frames: vec![AnimationFrame { start: 0.0, sprite_index: SpriteIndex(0) }],
-            },
-            Animation {
-                total_length: 0.0,
-                frames: vec![AnimationFrame { start: 0.0, sprite_index: SpriteIndex(9) }],
-            },
-            Animation {
-                total_length: 0.0,
-                frames: vec![AnimationFrame { start: 0.0, sprite_index: SpriteIndex(3) }],
-            },
-        ]),
-        walk: DirectionalAnimation([
-            Animation {
-                total_length: 0.4,
-                frames: vec![
-                    AnimationFrame { start: 0.0, sprite_index: SpriteIndex(6) },
-                    AnimationFrame { start: 0.1, sprite_index: SpriteIndex(7) },
-                    AnimationFrame { start: 0.2, sprite_index: SpriteIndex(6) },
-                    AnimationFrame { start: 0.3, sprite_index: SpriteIndex(8) },
-                ],
-            },
-            Animation {
-                total_length: 0.4,
-                frames: vec![
-                    AnimationFrame { start: 0.0, sprite_index: SpriteIndex(0) },
-                    AnimationFrame { start: 0.1, sprite_index: SpriteIndex(1) },
-                    AnimationFrame { start: 0.2, sprite_index: SpriteIndex(0) },
-                    AnimationFrame { start: 0.3, sprite_index: SpriteIndex(2) },
-                ],
-            },
-            Animation {
-                total_length: 0.4,
-                frames: vec![
-                    AnimationFrame { start: 0.0, sprite_index: SpriteIndex(9) },
-                    AnimationFrame { start: 0.1, sprite_index: SpriteIndex(10) },
-                    AnimationFrame { start: 0.2, sprite_index: SpriteIndex(9) },
-                    AnimationFrame { start: 0.3, sprite_index: SpriteIndex(11) },
-                ],
-            },
-            Animation {
-                total_length: 0.4,
-                frames: vec![
-                    AnimationFrame { start: 0.0, sprite_index: SpriteIndex(3) },
-                    AnimationFrame { start: 0.1, sprite_index: SpriteIndex(4) },
-                    AnimationFrame { start: 0.2, sprite_index: SpriteIndex(3) },
-                    AnimationFrame { start: 0.3, sprite_index: SpriteIndex(5) },
-                ],
-            },
-        ]),
-        attack: DirectionalAnimation([
-            Animation {
-                total_length: 0.2,
-                frames: vec![
-                    AnimationFrame { start: 0.0, sprite_index: SpriteIndex(7) },
-                    AnimationFrame { start: 0.1, sprite_index: SpriteIndex(8) },
-                ],
-            },
-            Animation {
-                total_length: 0.2,
-                frames: vec![
-                    AnimationFrame { start: 0.0, sprite_index: SpriteIndex(1) },
-                    AnimationFrame { start: 0.1, sprite_index: SpriteIndex(2) },
-                ],
-            },
-            Animation {
-                total_length: 0.2,
-                frames: vec![
-                    AnimationFrame { start: 0.0, sprite_index: SpriteIndex(10) },
-                    AnimationFrame { start: 0.1, sprite_index: SpriteIndex(11) },
-                ],
-            },
-            Animation {
-                total_length: 0.2,
-                frames: vec![
-                    AnimationFrame { start: 0.0, sprite_index: SpriteIndex(4) },
-                    AnimationFrame { start: 0.1, sprite_index: SpriteIndex(5) },
-                ],
-            },
-        ]),
+impl ServerContext {
+    pub fn new(
+        server_config: ServerConfig,
+        asset_paths: AssetPaths,
+        room_maps: HashMap<RoomId, Arc<RoomMap>>,
+    ) -> Self {
+        Self {
+            asset_paths,
+            room_maps,
+            player_animation: server_config.player_animation,
+            player_velocity: server_config.player_velocity,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ServerConfig {
+    pub player_animation: AnimationSet,
+    pub player_velocity: f32,
+}
+
+impl ServerConfig {
+    pub fn load(path: &str) -> eyre::Result<Self> {
+        let content = std::fs::read_to_string(path)?;
+        let config = toml::from_str(&content)?;
+        Ok(config)
     }
 }

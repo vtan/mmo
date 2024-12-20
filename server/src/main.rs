@@ -16,7 +16,7 @@ use axum::http::{HeaderValue, Response};
 use axum::response::{ErrorResponse, IntoResponse};
 use axum::routing::get;
 use axum::Router;
-use server_context::ServerContext;
+use server_context::{ServerConfig, ServerContext};
 use tokio::net::TcpSocket;
 use tokio::sync::mpsc;
 
@@ -37,12 +37,11 @@ async fn main() -> eyre::Result<()> {
     let asset_paths = assets::load_assets()?;
     tracing::info!("Loaded assets");
 
-    let server_context = Arc::new(ServerContext {
-        asset_paths,
-        room_maps,
-        player_animation: server_context::make_player_animation(),
-        player_velocity: 3.0,
-    });
+    tracing::info!("Loading config...");
+    let config = ServerConfig::load("data/config.toml")?;
+    tracing::info!("Loaded config");
+
+    let server_context = Arc::new(ServerContext::new(config, asset_paths, room_maps));
 
     let (tick_sender, _) = tick::spawn_producer();
 
