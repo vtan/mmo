@@ -268,10 +268,11 @@ fn update_self_movement(game_state: &mut GameState) {
     }
 
     let animation_action = if let Some(action) = game_state.self_movement.action {
+        let cc = &game_state.client_config;
         let animation = match action.action {
-            AnimationAction::Attack => &game_state.client_config.player_animation.attack,
+            AnimationAction::Attack => &cc.animations[cc.player_animation].attack,
         };
-        let animation = &animation.0[game_state.self_movement.look_direction as usize];
+        let animation = animation.get(game_state.self_movement.look_direction);
         if game_state.time.now - action.started_at < animation.total_length {
             Some(action.action)
         } else {
@@ -305,10 +306,11 @@ fn update_remote_movement(game_state: &mut GameState) {
 
         // TODO: deduplicate with update_self_movement
         let animation_action = if let Some(action) = remote_movement.action {
+            let cc = &game_state.client_config;
             let animation = match action.action {
-                AnimationAction::Attack => &game_state.client_config.player_animation.attack,
+                AnimationAction::Attack => &cc.animations[cc.player_animation].attack,
             };
-            let animation = &animation.0[remote_movement.look_direction as usize];
+            let animation = animation.get(remote_movement.look_direction);
             if game_state.time.now - action.started_at < animation.total_length {
                 Some(action.action)
             } else {

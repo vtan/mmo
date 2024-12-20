@@ -1,31 +1,32 @@
 player_velocity = 3.0
+player_animation = "player"
 
-[player_animation]
+[animations.player]
 sprite_size = [1, 2]
 anchor = [0.5, 0.0]
 
-[[player_animation.idle]]
+[animations.player.idle.right]
 total_length = 0.0
 frames = [
     { start = 0.0, sprite_index = 6 },
 ]
-[[player_animation.idle]]
+[animations.player.idle.down]
 total_length = 0.0
 frames = [
     { start = 0.0, sprite_index = 0 },
 ]
-[[player_animation.idle]]
+[animations.player.idle.left]
 total_length = 0.0
 frames = [
     { start = 0.0, sprite_index = 9 },
 ]
-[[player_animation.idle]]
+[animations.player.idle.up]
 total_length = 0.0
 frames = [
     { start = 0.0, sprite_index = 3 },
 ]
 
-[[player_animation.walk]]
+[animations.player.walk.right]
 total_length = 0.4
 frames = [
     { start = 0.0, sprite_index = 6 },
@@ -33,7 +34,7 @@ frames = [
     { start = 0.2, sprite_index = 6 },
     { start = 0.3, sprite_index = 8 },
 ]
-[[player_animation.walk]]
+[animations.player.walk.down]
 total_length = 0.4
 frames = [
     { start = 0.0, sprite_index = 0 },
@@ -41,7 +42,7 @@ frames = [
     { start = 0.2, sprite_index = 0 },
     { start = 0.3, sprite_index = 2 },
 ]
-[[player_animation.walk]]
+[animations.player.walk.left]
 total_length = 0.4
 frames = [
     { start = 0.0, sprite_index = 9 },
@@ -49,7 +50,7 @@ frames = [
     { start = 0.2, sprite_index = 9 },
     { start = 0.3, sprite_index = 11 },
 ]
-[[player_animation.walk]]
+[animations.player.walk.up]
 total_length = 0.4
 frames = [
     { start = 0.0, sprite_index = 3 },
@@ -58,25 +59,25 @@ frames = [
     { start = 0.3, sprite_index = 5 },
 ]
 
-[[player_animation.attack]]
+[animations.player.attack.right]
 total_length = 0.2
 frames = [
     { start = 0.0, sprite_index = 7 },
     { start = 0.1, sprite_index = 8 },
 ]
-[[player_animation.attack]]
+[animations.player.attack.down]
 total_length = 0.2
 frames = [
     { start = 0.0, sprite_index = 1 },
     { start = 0.1, sprite_index = 2 },
 ]
-[[player_animation.attack]]
+[animations.player.attack.left]
 total_length = 0.2
 frames = [
     { start = 0.0, sprite_index = 10 },
     { start = 0.1, sprite_index = 11 },
 ]
-[[player_animation.attack]]
+[animations.player.attack.up]
 total_length = 0.2
 frames = [
     { start = 0.0, sprite_index = 4 },

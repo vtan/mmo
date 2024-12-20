@@ -41,7 +41,7 @@ async fn main() -> eyre::Result<()> {
     let config = ServerConfig::load("data/config.toml")?;
     tracing::info!("Loaded config");
 
-    let server_context = Arc::new(ServerContext::new(config, asset_paths, room_maps));
+    let server_context = Arc::new(ServerContext::new(config, asset_paths, room_maps)?);
 
     let (tick_sender, _) = tick::spawn_producer();
 

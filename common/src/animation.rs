@@ -1,6 +1,8 @@
 use nalgebra::Vector2;
 use serde::{Deserialize, Serialize};
 
+use crate::object::Direction;
+
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub struct SpriteIndex(pub u16);
 
@@ -19,7 +21,23 @@ pub struct AnimationSet {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct DirectionalAnimation(pub [Animation; 4]);
+pub struct DirectionalAnimation {
+    pub right: Animation,
+    pub down: Animation,
+    pub left: Animation,
+    pub up: Animation,
+}
+
+impl DirectionalAnimation {
+    pub fn get(&self, direction: Direction) -> &Animation {
+        match direction {
+            Direction::Right => &self.right,
+            Direction::Down => &self.down,
+            Direction::Left => &self.left,
+            Direction::Up => &self.up,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Animation {

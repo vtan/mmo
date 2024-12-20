@@ -45,7 +45,8 @@ pub fn render(state: &mut AppState) {
         fg_y_lower_bound = movement.position.y;
 
         {
-            let animation = &game_state.client_config.player_animation;
+            let cc = &game_state.client_config;
+            let animation = &cc.animations[cc.player_animation];
             let sprite_size = animation.sprite_size;
             let position = movement.position - (sprite_size.cast() - animation.anchor);
 
@@ -219,7 +220,7 @@ fn select_animation_sprite(
     direction: Direction,
     animation_time: f32,
 ) -> Option<SpriteIndex> {
-    let animation = &animation.0[direction as usize];
+    let animation = animation.get(direction);
     let frame = if animation.total_length == 0.0 {
         animation.frames.first()
     } else {
