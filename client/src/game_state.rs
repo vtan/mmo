@@ -18,7 +18,7 @@ pub struct GameState {
     pub self_id: ObjectId,
     pub client_config: ClientConfig,
     pub room: Room,
-    pub self_movement: SelfMovement,
+    pub self_movement: RemoteMovement,
     pub remote_movements: HashMap<ObjectId, RemoteMovement>,
     pub local_movements: Vec<LocalMovement>,
 }
@@ -37,16 +37,6 @@ pub struct Room {
     pub bg_sparse_layer: Vec<(Vector2<u32>, TileIndex)>,
     pub fg_sparse_layer: Vec<ForegroundTile>,
     pub collisions: Vec<bool>,
-}
-
-// TODO: consolidate with RemoteMovement?
-#[derive(Debug, Clone)]
-pub struct SelfMovement {
-    pub position: Vector2<f32>,
-    pub direction: Option<Direction>,
-    pub look_direction: Direction,
-    pub action: Option<MovementAction>,
-    pub changed_at: f32,
 }
 
 #[derive(Debug, Clone)]
@@ -113,12 +103,14 @@ impl PartialGameState {
             self_id,
             client_config,
             room,
-            self_movement: SelfMovement {
+            self_movement: RemoteMovement {
                 position: Vector2::new(0.0, 0.0),
                 direction: None,
                 look_direction: Direction::Down,
                 action: None,
-                changed_at: 0.0,
+                started_at: 0.0,
+                animation_id: 0,
+                velocity: 0.0,
             },
             remote_movements: HashMap::new(),
             local_movements: vec![],

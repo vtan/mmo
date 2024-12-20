@@ -10,7 +10,6 @@ use crate::app_event::AppEvent;
 use crate::app_state::AppState;
 use crate::game_state::{
     GameState, LastPing, LocalMovement, MovementAction, PartialGameState, RemoteMovement, Room,
-    SelfMovement,
 };
 use crate::{assets, console_info, console_warn};
 
@@ -157,15 +156,19 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
                 velocity,
                 animation_id: animation_id as usize,
             };
-            game_state
-                .remote_movements
-                .entry(object_id)
-                .and_modify(|_| {
-                    console_warn!(
-                        "Got ObjectAppeared for {object_id:?} but already had remote movement "
-                    );
-                })
-                .or_insert(remote_movement);
+            if object_id == game_state.self_id {
+                game_state.self_movement = remote_movement;
+            } else {
+                game_state
+                    .remote_movements
+                    .entry(object_id)
+                    .and_modify(|_| {
+                        console_warn!(
+                            "Got ObjectAppeared for {object_id:?} but already had remote movement "
+                        );
+                    })
+                    .or_insert(remote_movement);
+            }
         }
         PlayerEvent::ObjectMovementChanged {
             object_id: player_id,
@@ -174,30 +177,17 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
             look_direction,
         } => {
             if player_id == game_state.self_id {
-                let changed_at = game_state.time.now;
-                game_state.self_movement = SelfMovement {
-                    position,
-                    direction,
-                    look_direction,
-                    changed_at,
-                    action: game_state.self_movement.action,
-                };
+                game_state.self_movement.position = position;
+                game_state.self_movement.direction = direction;
+                game_state.self_movement.look_direction = look_direction;
+                game_state.self_movement.started_at = game_state.time.now;
+            } else if let Some(m) = game_state.remote_movements.get_mut(&player_id) {
+                m.position = position;
+                m.direction = direction;
+                m.look_direction = look_direction;
+                m.started_at = game_state.time.now;
             } else {
-                if let Some(m) = game_state.remote_movements.get_mut(&player_id) {
-                    *m = RemoteMovement {
-                        position,
-                        direction,
-                        look_direction,
-                        started_at: game_state.time.now,
-                        velocity: m.velocity,
-                        action: m.action,
-                        animation_id: m.animation_id,
-                    };
-                } else {
-                    console_warn!(
-                        "Got PlayerMovementChanged for {player_id:?} but no remote movement"
-                    );
-                };
+                console_warn!("Got PlayerMovementChanged for {player_id:?} but no remote movement");
             }
         }
         PlayerEvent::ObjectAnimationAction { object_id, action } => {
@@ -214,13 +204,9 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
 
 fn start_moving(game_state: &mut GameState, direction: Direction) {
     if game_state.self_movement.direction != Some(direction) {
-        game_state.self_movement = SelfMovement {
-            position: game_state.self_movement.position,
-            direction: Some(direction),
-            look_direction: direction,
-            changed_at: game_state.time.now,
-            action: game_state.self_movement.action,
-        };
+        game_state.self_movement.direction = Some(direction);
+        game_state.self_movement.look_direction = direction;
+        game_state.self_movement.started_at = game_state.time.now;
 
         let command = PlayerCommand::RoomCommand {
             room_id: game_state.room.room_id,
@@ -236,13 +222,9 @@ fn start_moving(game_state: &mut GameState, direction: Direction) {
 
 fn stop_moving(game_state: &mut GameState, direction: Direction) {
     if game_state.self_movement.direction == Some(direction) {
-        game_state.self_movement = SelfMovement {
-            position: game_state.self_movement.position,
-            direction: None,
-            look_direction: direction,
-            changed_at: game_state.time.now,
-            action: game_state.self_movement.action,
-        };
+        game_state.self_movement.direction = None;
+        game_state.self_movement.look_direction = direction;
+        game_state.self_movement.started_at = game_state.time.now;
 
         let command = PlayerCommand::RoomCommand {
             room_id: game_state.room.room_id,
@@ -271,9 +253,8 @@ fn start_attack(game_state: &mut GameState) {
 fn update_self_movement(game_state: &mut GameState) {
     let room = &game_state.room;
     if let Some(direction) = game_state.self_movement.direction {
-        let delta = game_state.time.frame_delta
-            * game_state.client_config.player_velocity
-            * direction.to_vector();
+        let delta =
+            game_state.time.frame_delta * game_state.self_movement.velocity * direction.to_vector();
         let target = game_state.self_movement.position + delta;
 
         if room::collision_at(room.size, &room.collisions, target) {
@@ -290,20 +271,7 @@ fn update_self_movement(game_state: &mut GameState) {
             game_state.self_movement.position = target;
         }
     }
-
-    let animation_action = if let Some(action) = game_state.self_movement.action {
-        let cc = &game_state.client_config;
-        let animation = match action.action {
-            AnimationAction::Attack => &cc.animations[cc.player_animation].attack,
-        };
-        if game_state.time.now - action.started_at < animation.total_length {
-            Some(action.action)
-        } else {
-            None
-        }
-    } else {
-        None
-    };
+    let animation_action = local_animation_action(game_state, &game_state.self_movement);
 
     let local_movement = LocalMovement {
         object_id: game_state.self_id,
@@ -311,7 +279,7 @@ fn update_self_movement(game_state: &mut GameState) {
         direction: game_state.self_movement.direction,
         look_direction: game_state.self_movement.look_direction,
         animation_action,
-        animation_time: game_state.time.now - game_state.self_movement.changed_at,
+        animation_time: game_state.time.now - game_state.self_movement.started_at,
     };
     game_state.local_movements.push(local_movement);
 }
@@ -326,21 +294,7 @@ fn update_remote_movement(game_state: &mut GameState) {
             }
             None => remote_movement.position,
         };
-
-        // TODO: deduplicate with update_self_movement
-        let animation_action = if let Some(action) = remote_movement.action {
-            let cc = &game_state.client_config;
-            let animation = match action.action {
-                AnimationAction::Attack => &cc.animations[cc.player_animation].attack,
-            };
-            if game_state.time.now - action.started_at < animation.total_length {
-                Some(action.action)
-            } else {
-                None
-            }
-        } else {
-            None
-        };
+        let animation_action = local_animation_action(game_state, remote_movement);
 
         let local_movement = LocalMovement {
             object_id: *object_id,
@@ -351,6 +305,26 @@ fn update_remote_movement(game_state: &mut GameState) {
             animation_time: game_state.time.now - remote_movement.started_at,
         };
         game_state.local_movements.push(local_movement);
+    }
+}
+
+fn local_animation_action(
+    game_state: &GameState,
+    remote_movement: &RemoteMovement,
+) -> Option<AnimationAction> {
+    if let Some(action) = remote_movement.action {
+        let animation = match action.action {
+            AnimationAction::Attack => {
+                &game_state.client_config.animations[game_state.self_movement.animation_id].attack
+            }
+        };
+        if game_state.time.now - action.started_at < animation.total_length {
+            Some(action.action)
+        } else {
+            None
+        }
+    } else {
+        None
     }
 }
 

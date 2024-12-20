@@ -6,8 +6,6 @@ use crate::animation::AnimationSet;
 pub struct ClientConfig {
     pub asset_paths: AssetPaths,
     pub animations: Vec<AnimationSet>,
-    pub player_animation: usize,
-    pub player_velocity: f32,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
