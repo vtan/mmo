@@ -6,7 +6,7 @@ const WasmPackPlugin = require("@wasm-tool/wasm-pack-plugin");
 module.exports = {
     entry: './client/src/index.js',
     output: {
-        path: path.resolve(__dirname, 'dist'),
+        path: path.resolve(__dirname, 'target/dist/webroot'),
         filename: 'index.js',
     },
     plugins: [
@@ -15,10 +15,11 @@ module.exports = {
         }),
         new WasmPackPlugin({
             crateDirectory: path.resolve(__dirname, "client"),
-            extraArgs: '--no-typescript'
+            extraArgs: '--no-typescript',
+            forceMode: process.env.NODE_ENV === 'production' ? 'release' : undefined
         })
     ],
-    mode: 'development',
+    mode: process.env.NODE_ENV || 'development',
     experiments: {
         asyncWebAssembly: true
     },
