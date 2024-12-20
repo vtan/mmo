@@ -22,19 +22,28 @@ pub struct AnimationSet {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DirectionalAnimation {
-    pub right: Animation,
-    pub down: Animation,
-    pub left: Animation,
-    pub up: Animation,
+    pub total_length: f32,
+    pub start_times: Vec<f32>,
+    pub right: Vec<SpriteIndex>,
+    pub down: Vec<SpriteIndex>,
+    pub left: Vec<SpriteIndex>,
+    pub up: Vec<SpriteIndex>,
 }
 
 impl DirectionalAnimation {
-    pub fn get(&self, direction: Direction) -> &Animation {
-        match direction {
+    pub fn get(&self, direction: Direction, time: f32) -> Option<SpriteIndex> {
+        let frames = match direction {
             Direction::Right => &self.right,
             Direction::Down => &self.down,
             Direction::Left => &self.left,
             Direction::Up => &self.up,
+        };
+        if self.total_length == 0.0 {
+            frames.first().copied()
+        } else {
+            let rel_time = time % self.total_length;
+            let i = self.start_times.iter().take_while(|t| **t <= rel_time).count() - 1;
+            frames.get(i).copied()
         }
     }
 }

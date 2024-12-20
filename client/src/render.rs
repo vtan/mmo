@@ -1,6 +1,5 @@
 use mmo_common::{
-    animation::{AnimationAction, DirectionalAnimation, SpriteIndex},
-    object::Direction,
+    animation::AnimationAction,
     room::{ForegroundTile, TileIndex},
 };
 use nalgebra::{Orthographic3, Scale2, Scale3, Vector2, Vector4};
@@ -56,9 +55,7 @@ pub fn render(state: &mut AppState) {
                 None => &animation.idle,
             };
             let direction = movement.direction.unwrap_or(movement.look_direction);
-            if let Some(sprite_index) =
-                select_animation_sprite(animation, direction, movement.animation_time)
-            {
+            if let Some(sprite_index) = animation.get(direction, movement.animation_time) {
                 tile_vertices.push_tile_multi(position, sprite_size, sprite_index.0 as _, 1);
             }
         }
@@ -213,19 +210,4 @@ fn render_foreground_tile_layer(
             }
         }
     }
-}
-
-fn select_animation_sprite(
-    animation: &DirectionalAnimation,
-    direction: Direction,
-    animation_time: f32,
-) -> Option<SpriteIndex> {
-    let animation = animation.get(direction);
-    let frame = if animation.total_length == 0.0 {
-        animation.frames.first()
-    } else {
-        let rel_time = animation_time % animation.total_length;
-        animation.frames.iter().take_while(|frame| frame.start <= rel_time).last()
-    };
-    frame.map(|f| f.sprite_index)
 }
