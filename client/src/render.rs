@@ -36,30 +36,35 @@ pub fn render(state: &mut AppState) {
     let mut fg_y_lower_bound = f32::NEG_INFINITY;
 
     // TODO: traversing the foreground layer multiple times could be optimized
-    for movement in game_state.local_movements.iter() {
+    for obj in game_state.objects.iter() {
         render_foreground_tile_layer(
             &game_state.room.fg_sparse_layer,
-            (fg_y_lower_bound, movement.position.y),
+            (fg_y_lower_bound, obj.local_position.y),
             &mut tile_vertices,
         );
-        fg_y_lower_bound = movement.position.y;
+        fg_y_lower_bound = obj.local_position.y;
 
-        {
-            let animation = &game_state.client_config.animations[movement.animation_id];
+        if let Some(animation) = &game_state.client_config.animations.get(obj.animation_id) {
             let sprite_size = animation.sprite_size;
-            let position = movement.position - (sprite_size.cast() - animation.anchor);
+            let position = obj.local_position - (sprite_size.cast() - animation.anchor);
 
-            let animation = match movement.animation_action {
-                Some(AnimationAction::Attack) => &animation.attack,
-                None if movement.direction.is_some() => &animation.walk,
-                None => &animation.idle,
+            let (animation, started_at) = match &obj.animation {
+                Some(obj_animation) => match obj_animation.action {
+                    AnimationAction::Attack => (&animation.attack, obj_animation.started_at),
+                },
+                None if obj.direction.is_some() => {
+                    (&animation.walk, obj.remote_position_received_at)
+                }
+                None => (&animation.idle, obj.remote_position_received_at),
             };
-            let direction = movement.direction.unwrap_or(movement.look_direction);
-            if let Some(sprite_index) = animation.get(direction, movement.animation_time) {
+            let direction = obj.direction.unwrap_or(obj.look_direction);
+            let animation_time = game_state.time.now - started_at;
+            if let Some(sprite_index) = animation.get(direction, animation_time) {
                 tile_vertices.push_tile_multi(position, sprite_size, sprite_index.0 as _, 1);
             }
         }
     }
+
     render_foreground_tile_layer(
         &game_state.room.fg_sparse_layer,
         (fg_y_lower_bound, f32::INFINITY),
@@ -92,9 +97,9 @@ pub fn render(state: &mut AppState) {
 
     let mut line_vertices = LineVertexBuffer::new();
 
-    for remote_movement in game_state.remote_movements.values() {
+    for obj in game_state.objects.iter() {
         line_vertices.push_rect(
-            remote_movement.position - Vector2::new(0.2, 0.05),
+            obj.local_position - Vector2::new(0.2, 0.05),
             Vector2::new(0.4, 0.1),
             Vector4::new(1.0, 0.0, 1.0, 1.0),
         );
@@ -148,15 +153,15 @@ pub fn render(state: &mut AppState) {
 
     let black = Vector4::new(0.0, 0.0, 0.0, 1.0);
     let eps = Vector2::new(0.4, 0.4);
-    for movement in game_state.local_movements.iter() {
-        if movement.object_type == ObjectType::Player {
-            let xy = tile_to_pixel_2d * movement.position;
-            let color = if movement.object_id == game_state.self_id {
+    for obj in game_state.objects.iter() {
+        if obj.typ == ObjectType::Player {
+            let xy = tile_to_pixel_2d * obj.local_position;
+            let color = if obj.id == game_state.self_id {
                 Vector4::new(1.0, 1.0, 0.0, 1.0)
             } else {
                 Vector4::new(1.0, 1.0, 1.0, 1.0)
             };
-            let str = movement.object_id.0.to_string();
+            let str = obj.id.0.to_string();
             assets.font_atlas.push_text(&str, xy + eps, 6.0, black, &mut text_vertices);
             assets.font_atlas.push_text(&str, xy, 6.0, color, &mut text_vertices);
         }

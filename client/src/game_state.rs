@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use mmo_common::{
     animation::AnimationAction,
     client_config::ClientConfig,
@@ -18,9 +16,7 @@ pub struct GameState {
     pub self_id: ObjectId,
     pub client_config: ClientConfig,
     pub room: Room,
-    pub self_movement: RemoteMovement,
-    pub remote_movements: HashMap<ObjectId, RemoteMovement>,
-    pub local_movements: Vec<LocalMovement>,
+    pub objects: Vec<Object>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -40,33 +36,23 @@ pub struct Room {
 }
 
 #[derive(Debug, Clone)]
-pub struct RemoteMovement {
-    pub object_type: ObjectType,
-    pub position: Vector2<f32>,
+pub struct Object {
+    pub id: ObjectId,
+    pub typ: ObjectType,
+    pub remote_position: Vector2<f32>,
+    pub remote_position_received_at: f32,
+    pub local_position: Vector2<f32>,
     pub direction: Option<Direction>,
     pub look_direction: Direction,
-    pub action: Option<MovementAction>,
-    pub started_at: f32,
-    pub velocity: f32,
     pub animation_id: usize,
+    pub animation: Option<ObjectAnimation>,
+    pub velocity: f32,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct MovementAction {
+#[derive(Debug, Clone)]
+pub struct ObjectAnimation {
     pub action: AnimationAction,
     pub started_at: f32,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct LocalMovement {
-    pub object_id: ObjectId,
-    pub object_type: ObjectType,
-    pub position: Vector2<f32>,
-    pub direction: Option<Direction>,
-    pub look_direction: Direction,
-    pub animation_id: usize,
-    pub animation_action: Option<AnimationAction>,
-    pub animation_time: f32,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -106,18 +92,7 @@ impl PartialGameState {
             self_id,
             client_config,
             room,
-            self_movement: RemoteMovement {
-                object_type: ObjectType::Player,
-                position: Vector2::new(0.0, 0.0),
-                direction: None,
-                look_direction: Direction::Down,
-                action: None,
-                started_at: 0.0,
-                animation_id: 0,
-                velocity: 0.0,
-            },
-            remote_movements: HashMap::new(),
-            local_movements: vec![],
+            objects: vec![],
         })
     }
 }

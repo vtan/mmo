@@ -1,5 +1,6 @@
 use mmo_common::animation::AnimationAction;
-use mmo_common::object::{Direction, ObjectType};
+use mmo_common::client_config::ClientConfig;
+use mmo_common::object::Direction;
 use mmo_common::player_command::{GlobalCommand, PlayerCommand, RoomCommand};
 use mmo_common::player_event::{PlayerEvent, PlayerEventEnvelope};
 use mmo_common::room::RoomSync;
@@ -8,10 +9,8 @@ use nalgebra::Vector2;
 
 use crate::app_event::AppEvent;
 use crate::app_state::AppState;
-use crate::game_state::{
-    GameState, LastPing, LocalMovement, MovementAction, PartialGameState, RemoteMovement, Room,
-};
-use crate::{assets, console_info, console_warn};
+use crate::game_state::{GameState, LastPing, Object, ObjectAnimation, PartialGameState, Room};
+use crate::{assets, console_error, console_info, console_warn};
 
 pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
     for event in events {
@@ -66,14 +65,13 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
     }
 
     if let Ok(game_state) = &mut state.game_state {
-        game_state.local_movements.clear();
         update_self_movement(game_state);
         update_remote_movement(game_state);
         add_ping_if_needed(game_state);
 
-        game_state
-            .local_movements
-            .sort_unstable_by(|a, b| a.position.y.partial_cmp(&b.position.y).expect("NaN"));
+        game_state.objects.sort_unstable_by(|a, b| {
+            a.local_position.y.partial_cmp(&b.local_position.y).expect("NaN")
+        });
     }
 }
 
@@ -143,193 +141,175 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
         PlayerEvent::Initial { .. } => {}
         PlayerEvent::RoomEntered { room } => {
             game_state.room = load_room_map(*room);
-            game_state.remote_movements.clear();
-            game_state.local_movements.clear();
+            game_state.objects.clear();
         }
         PlayerEvent::ObjectAppeared { object_id, animation_id, velocity, object_type } => {
-            let remote_movement = RemoteMovement {
-                object_type,
-                position: Vector2::new(0.0, 0.0),
+            let object = Object {
+                id: object_id,
+                typ: object_type,
+                remote_position: Vector2::new(0.0, 0.0),
+                remote_position_received_at: f32::NEG_INFINITY,
+                local_position: Vector2::new(0.0, 0.0),
                 direction: None,
                 look_direction: Direction::Down,
-                action: None,
-                started_at: game_state.time.now,
-                velocity,
                 animation_id: animation_id as usize,
+                animation: None,
+                velocity,
             };
-            if object_id == game_state.self_id {
-                game_state.self_movement = remote_movement;
+            if game_state.objects.iter().any(|o| o.id == object_id) {
+                console_warn!(
+                    "Got ObjectAppeared for {object_id:?} {object_type:?} but already had object"
+                );
             } else {
-                game_state
-                    .remote_movements
-                    .entry(object_id)
-                    .and_modify(|_| {
-                        console_warn!(
-                            "Got ObjectAppeared for {object_id:?} but already had remote movement "
-                        );
-                    })
-                    .or_insert(remote_movement);
+                game_state.objects.push(object);
             }
         }
-        PlayerEvent::ObjectMovementChanged {
-            object_id: player_id,
-            position,
-            direction,
-            look_direction,
-        } => {
-            if player_id == game_state.self_id {
-                game_state.self_movement.position = position;
-                game_state.self_movement.direction = direction;
-                game_state.self_movement.look_direction = look_direction;
-                game_state.self_movement.started_at = game_state.time.now;
-            } else if let Some(m) = game_state.remote_movements.get_mut(&player_id) {
-                m.position = position;
-                m.direction = direction;
-                m.look_direction = look_direction;
-                m.started_at = game_state.time.now;
+        PlayerEvent::ObjectMovementChanged { object_id, position, direction, look_direction } => {
+            if let Some(obj) = game_state.objects.iter_mut().find(|o| o.id == object_id) {
+                obj.remote_position = position;
+                obj.remote_position_received_at = received_at;
+                obj.direction = direction;
+                obj.look_direction = look_direction;
+                if obj.id == game_state.self_id {
+                    obj.local_position = position;
+                }
             } else {
-                console_warn!("Got PlayerMovementChanged for {player_id:?} but no remote movement");
+                console_warn!("Got ObjectMovementChanged for {object_id:?} but no object");
             }
         }
         PlayerEvent::ObjectAnimationAction { object_id, action } => {
-            // Assuming the event is not about us
-            if let Some(m) = game_state.remote_movements.get_mut(&object_id) {
-                m.action = Some(MovementAction { action, started_at: game_state.time.now })
+            if let Some(obj) = game_state.objects.iter_mut().find(|o| o.id == object_id) {
+                obj.animation = Some(ObjectAnimation { action, started_at: game_state.time.now });
+            } else {
+                console_warn!("Got ObjectAnimationAction for {object_id:?} but no object");
             }
         }
-        PlayerEvent::ObjectDisappeared { object_id: player_id } => {
-            game_state.remote_movements.remove(&player_id);
+        PlayerEvent::ObjectDisappeared { object_id } => {
+            game_state.objects.retain(|o| o.id != object_id);
         }
     }
 }
 
 fn start_moving(game_state: &mut GameState, direction: Direction) {
-    if game_state.self_movement.direction != Some(direction) {
-        game_state.self_movement.direction = Some(direction);
-        game_state.self_movement.look_direction = direction;
-        game_state.self_movement.started_at = game_state.time.now;
+    if let Some(obj) = game_state.objects.iter_mut().find(|o| o.id == game_state.self_id) {
+        if obj.direction != Some(direction) {
+            obj.direction = Some(direction);
+            obj.look_direction = direction;
+            obj.remote_position_received_at = game_state.time.now;
 
-        let command = PlayerCommand::RoomCommand {
-            room_id: game_state.room.room_id,
-            command: RoomCommand::Move {
-                position: game_state.self_movement.position,
-                direction: game_state.self_movement.direction,
-                look_direction: game_state.self_movement.look_direction,
-            },
-        };
-        game_state.ws_commands.push(command);
+            let command = PlayerCommand::RoomCommand {
+                room_id: game_state.room.room_id,
+                command: RoomCommand::Move {
+                    position: obj.remote_position,
+                    direction: obj.direction,
+                    look_direction: obj.look_direction,
+                },
+            };
+            game_state.ws_commands.push(command);
+        }
+    } else {
+        console_error!("No self object found");
     }
 }
 
 fn stop_moving(game_state: &mut GameState, direction: Direction) {
-    if game_state.self_movement.direction == Some(direction) {
-        game_state.self_movement.direction = None;
-        game_state.self_movement.look_direction = direction;
-        game_state.self_movement.started_at = game_state.time.now;
+    if let Some(obj) = game_state.objects.iter_mut().find(|o| o.id == game_state.self_id) {
+        if obj.direction == Some(direction) {
+            obj.direction = None;
+            obj.look_direction = direction;
+            obj.remote_position_received_at = game_state.time.now;
 
-        let command = PlayerCommand::RoomCommand {
-            room_id: game_state.room.room_id,
-            command: RoomCommand::Move {
-                position: game_state.self_movement.position,
-                direction: game_state.self_movement.direction,
-                look_direction: game_state.self_movement.look_direction,
-            },
-        };
-        game_state.ws_commands.push(command);
+            let command = PlayerCommand::RoomCommand {
+                room_id: game_state.room.room_id,
+                command: RoomCommand::Move {
+                    position: obj.remote_position,
+                    direction: obj.direction,
+                    look_direction: obj.look_direction,
+                },
+            };
+            game_state.ws_commands.push(command);
+        }
+    } else {
+        console_error!("No self object found");
     }
 }
 
 fn start_attack(game_state: &mut GameState) {
-    game_state.self_movement.action = Some(MovementAction {
-        action: AnimationAction::Attack,
-        started_at: game_state.time.now,
-    });
-    let command = PlayerCommand::RoomCommand {
-        room_id: game_state.room.room_id,
-        command: RoomCommand::Attack,
-    };
-    game_state.ws_commands.push(command);
+    if let Some(obj) = game_state.objects.iter_mut().find(|o| o.id == game_state.self_id) {
+        obj.animation = Some(ObjectAnimation {
+            action: AnimationAction::Attack,
+            started_at: game_state.time.now,
+        });
+
+        let command = PlayerCommand::RoomCommand {
+            room_id: game_state.room.room_id,
+            command: RoomCommand::Attack,
+        };
+        game_state.ws_commands.push(command);
+    } else {
+        console_error!("No self object found");
+    }
 }
 
 fn update_self_movement(game_state: &mut GameState) {
     let room = &game_state.room;
-    if let Some(direction) = game_state.self_movement.direction {
-        let delta =
-            game_state.time.frame_delta * game_state.self_movement.velocity * direction.to_vector();
-        let target = game_state.self_movement.position + delta;
 
-        if room::collision_at(room.size, &room.collisions, target) {
-            game_state.self_movement.direction = None;
-            game_state.ws_commands.push(PlayerCommand::RoomCommand {
-                room_id: game_state.room.room_id,
-                command: RoomCommand::Move {
-                    position: game_state.self_movement.position,
-                    direction: None,
-                    look_direction: game_state.self_movement.look_direction,
-                },
-            });
-        } else {
-            game_state.self_movement.position = target;
+    // TODO: for self probably remote_position = local_position, make that more intentional
+    if let Some(obj) = game_state.objects.iter_mut().find(|o| o.id == game_state.self_id) {
+        if let Some(direction) = obj.direction {
+            let delta = game_state.time.frame_delta * obj.velocity * direction.to_vector();
+            let target = obj.remote_position + delta;
+
+            if room::collision_at(room.size, &room.collisions, target) {
+                obj.direction = None;
+                game_state.ws_commands.push(PlayerCommand::RoomCommand {
+                    room_id: game_state.room.room_id,
+                    command: RoomCommand::Move {
+                        position: obj.remote_position,
+                        direction: None,
+                        look_direction: obj.look_direction,
+                    },
+                });
+            } else {
+                obj.remote_position = target;
+                obj.local_position = target;
+            }
         }
+        if !is_animation_running(obj, &game_state.client_config, game_state.time.now) {
+            obj.animation = None;
+        }
+    } else {
+        console_error!("No self object found");
     }
-    let animation_action = local_animation_action(game_state, &game_state.self_movement);
-
-    let local_movement = LocalMovement {
-        object_type: ObjectType::Player,
-        object_id: game_state.self_id,
-        position: game_state.self_movement.position,
-        direction: game_state.self_movement.direction,
-        look_direction: game_state.self_movement.look_direction,
-        animation_id: game_state.self_movement.animation_id,
-        animation_action,
-        animation_time: game_state.time.now - game_state.self_movement.started_at,
-    };
-    game_state.local_movements.push(local_movement);
 }
 
 fn update_remote_movement(game_state: &mut GameState) {
-    for (object_id, remote_movement) in game_state.remote_movements.iter() {
-        let current_position = match remote_movement.direction {
-            Some(dir) => {
-                let mov_distance =
-                    remote_movement.velocity * (game_state.time.now - remote_movement.started_at);
-                remote_movement.position + mov_distance * dir.to_vector()
-            }
-            None => remote_movement.position,
-        };
-        let animation_action = local_animation_action(game_state, remote_movement);
-
-        let local_movement = LocalMovement {
-            object_type: remote_movement.object_type,
-            object_id: *object_id,
-            position: current_position,
-            direction: remote_movement.direction,
-            look_direction: remote_movement.look_direction,
-            animation_id: remote_movement.animation_id,
-            animation_action,
-            animation_time: game_state.time.now - remote_movement.started_at,
-        };
-        game_state.local_movements.push(local_movement);
+    for obj in game_state.objects.iter_mut() {
+        if obj.id != game_state.self_id {
+            obj.local_position = match obj.direction {
+                Some(dir) => {
+                    let mov_distance =
+                        obj.velocity * (game_state.time.now - obj.remote_position_received_at);
+                    obj.remote_position + mov_distance * dir.to_vector()
+                }
+                None => obj.remote_position,
+            };
+        }
+        if !is_animation_running(obj, &game_state.client_config, game_state.time.now) {
+            obj.animation = None;
+        }
     }
 }
 
-fn local_animation_action(
-    game_state: &GameState,
-    remote_movement: &RemoteMovement,
-) -> Option<AnimationAction> {
-    if let Some(action) = remote_movement.action {
-        let animation = match action.action {
-            AnimationAction::Attack => {
-                &game_state.client_config.animations[game_state.self_movement.animation_id].attack
-            }
+fn is_animation_running(object: &Object, client_config: &ClientConfig, now: f32) -> bool {
+    if let Some(animation) = &object.animation {
+        let runtime = now - animation.started_at;
+        let animation = match animation.action {
+            AnimationAction::Attack => &client_config.animations[object.animation_id].attack,
         };
-        if game_state.time.now - action.started_at < animation.total_length {
-            Some(action.action)
-        } else {
-            None
-        }
+        runtime < animation.total_length
     } else {
-        None
+        false
     }
 }
 
