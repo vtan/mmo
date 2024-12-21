@@ -197,6 +197,16 @@ pub fn render(state: &mut AppState) {
         }
     }
 
+    for label in &game_state.damage_labels {
+        let dt = game_state.time.now - label.received_at;
+        let dy = 5.0 + 10.0 * dt * dt;
+        let xy = tile_to_pixel_2d * label.position - Vector2::new(0.0, dy);
+        let color = Vector4::new(1.0, 0.0, 0.0, 1.0);
+        let str = label.damage.to_string();
+        assets.font_atlas.push_text(&str, xy + eps, 8.0, black, &mut text_vertices);
+        assets.font_atlas.push_text(&str, xy, 8.0, color, &mut text_vertices);
+    }
+
     state.vertex_buffer_renderer.render_triangles(&text_vertices, gl);
 }
 

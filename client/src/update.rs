@@ -72,6 +72,9 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
         game_state.objects.sort_unstable_by(|a, b| {
             a.local_position.y.partial_cmp(&b.local_position.y).expect("NaN")
         });
+        game_state
+            .damage_labels
+            .retain(|label| game_state.time.now - label.received_at < 1.0);
     }
 }
 
@@ -194,9 +197,21 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
                 console_warn!("Got ObjectAnimationAction for {object_id:?} but no object");
             }
         }
-        PlayerEvent::ObjectDamaged { object_id, damage: _damage, health } => {
+        PlayerEvent::ObjectDamaged { object_id, damage, health } => {
             if let Some(obj) = game_state.objects.iter_mut().find(|o| o.id == object_id) {
                 obj.health = health;
+
+                let obj_height = game_state
+                    .client_config
+                    .animations
+                    .get(obj.animation_id)
+                    .map(|a| a.sprite_size.y as f32)
+                    .unwrap_or(0.0);
+                game_state.damage_labels.push(crate::game_state::DamageLabel {
+                    damage,
+                    position: obj.local_position - Vector2::new(0.0, obj_height),
+                    received_at: game_state.time.now,
+                });
             } else {
                 console_warn!("Got ObjectDamaged for {object_id:?} but no object");
             }

@@ -17,6 +17,7 @@ pub struct GameState {
     pub client_config: ClientConfig,
     pub room: Room,
     pub objects: Vec<Object>,
+    pub damage_labels: Vec<DamageLabel>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -57,6 +58,13 @@ pub struct ObjectAnimation {
     pub started_at: f32,
 }
 
+#[derive(Debug, Clone)]
+pub struct DamageLabel {
+    pub damage: i32,
+    pub position: Vector2<f32>,
+    pub received_at: f32,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct LastPing {
     pub sequence_number: u32,
@@ -95,6 +103,7 @@ impl PartialGameState {
             client_config,
             room,
             objects: vec![],
+            damage_labels: vec![],
         })
     }
 }
