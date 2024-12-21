@@ -1,5 +1,6 @@
 use mmo_common::{
     animation::AnimationAction,
+    object::ObjectType,
     room::{ForegroundTile, TileIndex},
 };
 use nalgebra::{Orthographic3, Scale2, Scale3, Vector2, Vector4};
@@ -148,19 +149,17 @@ pub fn render(state: &mut AppState) {
     let black = Vector4::new(0.0, 0.0, 0.0, 1.0);
     let eps = Vector2::new(0.4, 0.4);
     for movement in game_state.local_movements.iter() {
-        let xy = tile_to_pixel_2d * movement.position;
-        let color = Vector4::new(0.0, 1.0, 0.0, 1.0);
-        let str = movement.object_id.0.to_string();
-        assets.font_atlas.push_text(&str, xy + eps, 6.0, black, &mut text_vertices);
-        assets.font_atlas.push_text(&str, xy, 6.0, color, &mut text_vertices);
-    }
-    {
-        let player_id = game_state.self_id;
-        let xy = tile_to_pixel_2d * game_state.self_movement.position;
-        let color = Vector4::new(0.0, 1.0, 1.0, 1.0);
-        let str = player_id.0.to_string();
-        assets.font_atlas.push_text(&str, xy + eps, 6.0, black, &mut text_vertices);
-        assets.font_atlas.push_text(&str, xy, 6.0, color, &mut text_vertices);
+        if movement.object_type == ObjectType::Player {
+            let xy = tile_to_pixel_2d * movement.position;
+            let color = if movement.object_id == game_state.self_id {
+                Vector4::new(1.0, 1.0, 0.0, 1.0)
+            } else {
+                Vector4::new(1.0, 1.0, 1.0, 1.0)
+            };
+            let str = movement.object_id.0.to_string();
+            assets.font_atlas.push_text(&str, xy + eps, 6.0, black, &mut text_vertices);
+            assets.font_atlas.push_text(&str, xy, 6.0, color, &mut text_vertices);
+        }
     }
 
     state.vertex_buffer_renderer.render_triangles(&text_vertices, gl);

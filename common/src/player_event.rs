@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     animation::AnimationAction,
     client_config::ClientConfig,
-    object::{Direction, ObjectId},
+    object::{Direction, ObjectId, ObjectType},
     room::RoomSync,
 };
 
@@ -30,6 +30,7 @@ pub enum PlayerEvent {
     },
     ObjectAppeared {
         object_id: ObjectId,
+        object_type: ObjectType,
         animation_id: u32,
         velocity: f32,
     },

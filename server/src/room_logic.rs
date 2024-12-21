@@ -1,6 +1,6 @@
 use mmo_common::{
     animation::AnimationAction,
-    object::{Direction, ObjectId},
+    object::{Direction, ObjectId, ObjectType},
     player_command::RoomCommand,
     player_event::PlayerEvent,
     room,
@@ -48,6 +48,7 @@ fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter
         &[
             PlayerEvent::ObjectAppeared {
                 object_id: player_id,
+                object_type: ObjectType::Player,
                 animation_id: state.server_context.player_animation,
                 velocity: state.server_context.player_velocity,
             },
@@ -74,6 +75,7 @@ fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter
             &[
                 PlayerEvent::ObjectAppeared {
                     object_id: player_in_room.id,
+                    object_type: ObjectType::Player,
                     animation_id: state.server_context.player_animation,
                     velocity: state.server_context.player_velocity,
                 },
@@ -91,6 +93,7 @@ fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter
             player_id,
             PlayerEvent::ObjectAppeared {
                 object_id: mob.id,
+                object_type: ObjectType::Mob,
                 animation_id: mob.animation_id,
                 velocity: mob.template.velocity,
             },

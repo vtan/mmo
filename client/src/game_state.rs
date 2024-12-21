@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use mmo_common::{
     animation::AnimationAction,
     client_config::ClientConfig,
-    object::{Direction, ObjectId},
+    object::{Direction, ObjectId, ObjectType},
     player_command::PlayerCommand,
     player_event::{PlayerEvent, PlayerEventEnvelope},
     room::{ForegroundTile, RoomId, TileIndex},
@@ -41,6 +41,7 @@ pub struct Room {
 
 #[derive(Debug, Clone)]
 pub struct RemoteMovement {
+    pub object_type: ObjectType,
     pub position: Vector2<f32>,
     pub direction: Option<Direction>,
     pub look_direction: Direction,
@@ -59,6 +60,7 @@ pub struct MovementAction {
 #[derive(Debug, Clone, Copy)]
 pub struct LocalMovement {
     pub object_id: ObjectId,
+    pub object_type: ObjectType,
     pub position: Vector2<f32>,
     pub direction: Option<Direction>,
     pub look_direction: Direction,
@@ -105,6 +107,7 @@ impl PartialGameState {
             client_config,
             room,
             self_movement: RemoteMovement {
+                object_type: ObjectType::Player,
                 position: Vector2::new(0.0, 0.0),
                 direction: None,
                 look_direction: Direction::Down,

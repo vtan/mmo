@@ -1,5 +1,5 @@
 use mmo_common::animation::AnimationAction;
-use mmo_common::object::Direction;
+use mmo_common::object::{Direction, ObjectType};
 use mmo_common::player_command::{GlobalCommand, PlayerCommand, RoomCommand};
 use mmo_common::player_event::{PlayerEvent, PlayerEventEnvelope};
 use mmo_common::room::RoomSync;
@@ -146,8 +146,9 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
             game_state.remote_movements.clear();
             game_state.local_movements.clear();
         }
-        PlayerEvent::ObjectAppeared { object_id, animation_id, velocity } => {
+        PlayerEvent::ObjectAppeared { object_id, animation_id, velocity, object_type } => {
             let remote_movement = RemoteMovement {
+                object_type,
                 position: Vector2::new(0.0, 0.0),
                 direction: None,
                 look_direction: Direction::Down,
@@ -274,6 +275,7 @@ fn update_self_movement(game_state: &mut GameState) {
     let animation_action = local_animation_action(game_state, &game_state.self_movement);
 
     let local_movement = LocalMovement {
+        object_type: ObjectType::Player,
         object_id: game_state.self_id,
         position: game_state.self_movement.position,
         direction: game_state.self_movement.direction,
@@ -298,6 +300,7 @@ fn update_remote_movement(game_state: &mut GameState) {
         let animation_action = local_animation_action(game_state, remote_movement);
 
         let local_movement = LocalMovement {
+            object_type: remote_movement.object_type,
             object_id: *object_id,
             position: current_position,
             direction: remote_movement.direction,
