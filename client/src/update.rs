@@ -106,6 +106,7 @@ fn update_partial(partial: &mut PartialGameState, events: PlayerEventEnvelope<Pl
             | PlayerEvent::ObjectAppeared { .. }
             | PlayerEvent::ObjectMovementChanged { .. }
             | PlayerEvent::ObjectAnimationAction { .. }
+            | PlayerEvent::ObjectDamaged { .. }
             | PlayerEvent::ObjectDisappeared { .. } => {
                 remaining.events.push(event);
             }
@@ -143,7 +144,14 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
             game_state.room = load_room_map(*room);
             game_state.objects.clear();
         }
-        PlayerEvent::ObjectAppeared { object_id, animation_id, velocity, object_type } => {
+        PlayerEvent::ObjectAppeared {
+            object_id,
+            animation_id,
+            velocity,
+            object_type,
+            health,
+            max_health,
+        } => {
             let object = Object {
                 id: object_id,
                 typ: object_type,
@@ -155,6 +163,8 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
                 animation_id: animation_id as usize,
                 animation: None,
                 velocity,
+                health,
+                max_health,
             };
             if game_state.objects.iter().any(|o| o.id == object_id) {
                 console_warn!(
@@ -182,6 +192,13 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
                 obj.animation = Some(ObjectAnimation { action, started_at: game_state.time.now });
             } else {
                 console_warn!("Got ObjectAnimationAction for {object_id:?} but no object");
+            }
+        }
+        PlayerEvent::ObjectDamaged { object_id, damage: _damage, health } => {
+            if let Some(obj) = game_state.objects.iter_mut().find(|o| o.id == object_id) {
+                obj.health = health;
+            } else {
+                console_warn!("Got ObjectDamaged for {object_id:?} but no object");
             }
         }
         PlayerEvent::ObjectDisappeared { object_id } => {

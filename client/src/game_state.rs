@@ -47,6 +47,8 @@ pub struct Object {
     pub animation_id: usize,
     pub animation: Option<ObjectAnimation>,
     pub velocity: f32,
+    pub health: i32,
+    pub max_health: i32,
 }
 
 #[derive(Debug, Clone)]

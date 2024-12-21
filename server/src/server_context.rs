@@ -15,6 +15,9 @@ pub struct ServerContext {
     pub player_animation: u32,
     pub mob_animations: HashMap<String, u32>,
     pub player_velocity: f32,
+    pub player_max_health: i32,
+    pub player_damage: i32,
+    pub player_attack_range: f32,
 }
 
 impl ServerContext {
@@ -54,6 +57,9 @@ impl ServerContext {
             player_animation,
             mob_animations,
             player_velocity: server_config.player_velocity,
+            player_max_health: server_config.player_max_health,
+            player_damage: server_config.player_damage,
+            player_attack_range: server_config.player_attack_range,
         })
     }
 }
@@ -64,6 +70,9 @@ pub struct ServerConfig {
     pub mob_templates: HashMap<String, Arc<MobTemplate>>,
     pub player_animation: String,
     pub player_velocity: f32,
+    pub player_max_health: i32,
+    pub player_damage: i32,
+    pub player_attack_range: f32,
 }
 
 impl ServerConfig {

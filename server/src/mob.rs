@@ -7,4 +7,6 @@ pub struct MobTemplate {
     pub velocity: f32,
     pub movement_range: f32,
     pub attack_range: f32,
+    pub max_health: i32,
+    pub damage: i32,
 }

@@ -33,6 +33,8 @@ pub enum PlayerEvent {
         object_type: ObjectType,
         animation_id: u32,
         velocity: f32,
+        health: i32,
+        max_health: i32,
     },
     ObjectDisappeared {
         object_id: ObjectId,
@@ -46,6 +48,11 @@ pub enum PlayerEvent {
     ObjectAnimationAction {
         object_id: ObjectId,
         action: AnimationAction,
+    },
+    ObjectDamaged {
+        object_id: ObjectId,
+        damage: i32,
+        health: i32,
     },
 }
 

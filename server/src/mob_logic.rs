@@ -25,6 +25,7 @@ pub fn populate_mobs(map: &RoomMap, ctx: &ServerContext, now: Instant) -> Vec<Mo
             };
             if let Some((mob_template, animation_id)) = resolve() {
                 let position = mob_spawn.position.cast().add_scalar(0.5);
+                let health = mob_template.max_health;
                 let mob = Mob {
                     id: object::next_object_id(),
                     animation_id,
@@ -37,6 +38,7 @@ pub fn populate_mobs(map: &RoomMap, ctx: &ServerContext, now: Instant) -> Vec<Mo
                         received_at: now,
                     },
                     attack_target: None,
+                    health,
                 };
                 Some(mob)
             } else {

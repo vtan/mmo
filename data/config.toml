@@ -1,4 +1,7 @@
 player_velocity = 3.0
+player_attack_range = 1.5
+player_max_health = 100
+player_damage = 10
 player_animation = "player"
 
 [mob_templates.slime]
@@ -7,6 +10,8 @@ animation_id = "slime"
 velocity = 1.0
 movement_range = 4.0
 attack_range = 0.8
+max_health = 50
+damage = 5
 
 [animations.player]
 sprite_size = [1, 2]

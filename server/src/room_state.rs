@@ -36,6 +36,8 @@ pub struct Player {
     pub connection: PlayerConnection,
     pub local_movement: LocalMovement,
     pub remote_movement: RemoteMovement,
+    pub health: i32,
+    pub max_health: i32,
 }
 
 #[derive(Debug, Clone)]
@@ -46,6 +48,7 @@ pub struct Mob {
     pub animation_id: u32,
     pub movement: RemoteMovement,
     pub attack_target: Option<ObjectId>,
+    pub health: i32,
 }
 
 impl Mob {

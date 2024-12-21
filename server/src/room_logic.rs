@@ -10,7 +10,7 @@ use tokio::time::Instant;
 use tracing::instrument;
 
 use crate::{
-    mob_logic,
+    combat_logic, mob_logic,
     player::PlayerConnection,
     room_state::{LocalMovement, Player, RemoteMovement, RoomState, RoomWriter, UpstreamMessage},
     server_context::ServerContext,
@@ -33,7 +33,16 @@ pub fn on_connect(
         look_direction: Direction::Down,
         received_at: now,
     };
-    let player = Player { id: player_id, connection, local_movement, remote_movement };
+    let max_health = state.server_context.player_max_health;
+    let health = max_health;
+    let player = Player {
+        id: player_id,
+        connection,
+        local_movement,
+        remote_movement,
+        health,
+        max_health,
+    };
     player_entered(player, state, writer);
 }
 
@@ -51,6 +60,8 @@ fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter
                 object_type: ObjectType::Player,
                 animation_id: state.server_context.player_animation,
                 velocity: state.server_context.player_velocity,
+                health: player.health,
+                max_health: player.max_health,
             },
             PlayerEvent::ObjectMovementChanged {
                 object_id: player_id,
@@ -78,6 +89,8 @@ fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter
                     object_type: ObjectType::Player,
                     animation_id: state.server_context.player_animation,
                     velocity: state.server_context.player_velocity,
+                    health: player_in_room.health,
+                    max_health: player_in_room.max_health,
                 },
                 PlayerEvent::ObjectMovementChanged {
                     object_id: player_in_room.id,
@@ -96,6 +109,8 @@ fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter
                 object_type: ObjectType::Mob,
                 animation_id: mob.animation_id,
                 velocity: mob.template.velocity,
+                health: mob.health,
+                max_health: mob.template.max_health,
             },
         );
         writer.tell(
@@ -164,6 +179,7 @@ pub fn on_command(
             }
         }
         RoomCommand::Attack => {
+            combat_logic::player_attack(player_id, state, writer);
             writer.broadcast(
                 state.players.keys().copied().filter(|pid| *pid != player_id),
                 PlayerEvent::ObjectAnimationAction {

@@ -93,6 +93,36 @@ pub fn render(state: &mut AppState) {
 
     state.vertex_buffer_renderer.render_triangles(&tileset_vertices, gl);
 
+    // health bars
+
+    let mut bar_vertices = VertexBuffer::new();
+
+    for obj in game_state.objects.iter() {
+        if let Some(animation) = game_state.client_config.animations.get(obj.animation_id) {
+            if obj.health < obj.max_health {
+                let zero = Vector2::new(0.0, 0.0);
+                let xy = obj.local_position - Vector2::new(0.5, animation.sprite_size.y as _);
+                let wh = Vector2::new(1.0, 2.0 / 16.0);
+                let color = Vector4::new(0.0, 0.0, 0.0, 1.0);
+                bar_vertices.push_quad(xy, wh, zero, zero, color, 0);
+                let wh = Vector2::new(obj.health as f32 / obj.max_health as f32, 2.0 / 16.0);
+                let color = Vector4::new(1.0, 0.0, 0.0, 1.0);
+                bar_vertices.push_quad(xy, wh, zero, zero, color, 0);
+            }
+        }
+    }
+
+    gl.uniform_matrix4fv_with_f32_array(
+        Some(&state.uniform_locations.view_projection),
+        false,
+        tile_to_ndc.as_slice(),
+    );
+    gl.uniform1iv_with_i32_array(Some(&state.uniform_locations.sampler), &[0, 1]);
+    gl.active_texture(GL::TEXTURE0);
+    gl.bind_texture(GL::TEXTURE_2D, Some(&assets.white.texture));
+
+    state.vertex_buffer_renderer.render_triangles(&bar_vertices, gl);
+
     // lines
 
     let mut line_vertices = LineVertexBuffer::new();
