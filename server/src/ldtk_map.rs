@@ -8,27 +8,34 @@ use mmo_common::room::{ForegroundTile, RoomId, TileIndex};
 use nalgebra::Vector2;
 use serde::{Deserialize, Serialize};
 
-use crate::room_state::{MobSpawn, RoomMap};
+use crate::room_state::{MobSpawn, Portal, RoomMap};
 
 pub fn load(path: &str) -> Result<HashMap<RoomId, Arc<RoomMap>>> {
     let json = std::fs::read_to_string(path)?;
     let ldtk_map: LdtkMap = serde_json::from_str(&json)?;
 
-    let maps = ldtk_map
+    let maps: Result<Vec<ParsedMap>> = ldtk_map
         .levels
         .iter()
-        .enumerate()
-        .map(|(i, ldtk_level)| {
-            let map = convert_map(&ldtk_map, ldtk_level)?;
-            let map = Arc::new(map);
-            Ok((RoomId(i as u64), map))
-        })
+        .map(|ldtk_level| convert_map(&ldtk_map, ldtk_level))
         .collect();
 
-    maps
+    let mut maps = maps?;
+    resolve_portals(&mut maps)?;
+
+    Ok(maps
+        .into_iter()
+        .enumerate()
+        .map(|(i, map)| (RoomId(i as u64), Arc::new(map.map)))
+        .collect())
 }
 
-fn convert_map(ldtk_map: &LdtkMap, ldtk_level: &LdtkLevel) -> Result<RoomMap> {
+struct ParsedMap {
+    map: RoomMap,
+    portals: Vec<ParsedPortal>,
+}
+
+fn convert_map(ldtk_map: &LdtkMap, ldtk_level: &LdtkLevel) -> Result<ParsedMap> {
     let foreground_tile_ids: HashMap<TileIndex, u32> = {
         let h1 = collect_enum_tile_ids(ldtk_map, "Foreground_h1")?;
         let h2 = collect_enum_tile_ids(ldtk_map, "Foreground_h2")?;
@@ -44,6 +51,7 @@ fn convert_map(ldtk_map: &LdtkMap, ldtk_level: &LdtkLevel) -> Result<RoomMap> {
     let mut bg_sparse_layer = vec![];
     let mut fg_sparse_layer = vec![];
     let mut mob_spawns = vec![];
+    let mut portals = vec![];
 
     for ldtk_layer in &ldtk_level.layer_instances {
         if !ldtk_layer.grid_tiles.is_empty() {
@@ -87,6 +95,7 @@ fn convert_map(ldtk_map: &LdtkMap, ldtk_level: &LdtkLevel) -> Result<RoomMap> {
             for entity in collect_entities(&ldtk_layer.entity_instances) {
                 match entity {
                     ParsedEntity::MobSpawn(mob_spawn) => mob_spawns.push(Arc::new(mob_spawn)),
+                    ParsedEntity::Portal(portal) => portals.push(portal),
                 }
             }
         }
@@ -99,15 +108,54 @@ fn convert_map(ldtk_map: &LdtkMap, ldtk_level: &LdtkLevel) -> Result<RoomMap> {
         &blocked_tile_ids,
     );
 
-    Ok(RoomMap {
-        size,
-        bg_dense_layers,
-        bg_sparse_layer,
-        fg_sparse_layer,
-        collisions,
-        portals: vec![],
-        mob_spawns,
+    Ok(ParsedMap {
+        map: RoomMap {
+            size,
+            bg_dense_layers,
+            bg_sparse_layer,
+            fg_sparse_layer,
+            collisions,
+            portals: vec![],
+            mob_spawns,
+        },
+        portals,
     })
+}
+
+fn resolve_portals(maps: &mut Vec<ParsedMap>) -> Result<()> {
+    let portals: HashMap<String, (usize, Vector2<u32>)> = maps
+        .iter()
+        .enumerate()
+        .flat_map(|(i, map)| {
+            map.portals
+                .iter()
+                .map(move |portal| (portal.entity_iid.clone(), (i, portal.position)))
+        })
+        .collect();
+
+    for map in maps {
+        let map_portals: Result<Vec<Portal>> = map
+            .portals
+            .iter()
+            .map(|portal| {
+                if let Some((target_map, target_position)) = portals.get(&portal.target_entity_iid)
+                {
+                    Ok(Portal {
+                        position: portal.position,
+                        target_room_id: RoomId(*target_map as u64),
+                        target_position: target_position.cast(),
+                    })
+                } else {
+                    Err(eyre::eyre!(format!(
+                        "Portal target not found: {}",
+                        portal.entity_iid
+                    )))
+                }
+            })
+            .collect();
+        map.map.portals = map_portals?;
+    }
+    Ok(())
 }
 
 fn convert_sparse_layer(
@@ -185,19 +233,25 @@ fn collect_entities(entities: &[LdtkEntityInstance]) -> Vec<ParsedEntity> {
 
 fn collect_entity(entity: &LdtkEntityInstance) -> Option<ParsedEntity> {
     match entity.identifier.as_str() {
-        "Mob" => {
-            let mob_type = entity.field_instances.iter().find_map(|field| {
-                if field.identifier == "mob" {
-                    Some(field.value.clone())
-                } else {
-                    None
-                }
-            })?;
-            Some(ParsedEntity::MobSpawn(MobSpawn {
-                position: entity.grid,
-                mob_template: mob_type,
-            }))
-        }
+        "Mob" => match entity.field("mob")? {
+            LdtkEntityFieldInstance::String { value, .. } => {
+                Some(ParsedEntity::MobSpawn(MobSpawn {
+                    position: entity.grid,
+                    mob_template: value.clone(),
+                }))
+            }
+            _ => None,
+        },
+        "Portal" => match entity.field("target")? {
+            LdtkEntityFieldInstance::EntityRef { value, .. } => {
+                Some(ParsedEntity::Portal(ParsedPortal {
+                    position: entity.grid,
+                    entity_iid: entity.iid.clone(),
+                    target_entity_iid: value.entity_iid.clone(),
+                }))
+            }
+            _ => None,
+        },
         _ => None,
     }
 }
@@ -205,6 +259,14 @@ fn collect_entity(entity: &LdtkEntityInstance) -> Option<ParsedEntity> {
 #[derive(Debug, Clone)]
 enum ParsedEntity {
     MobSpawn(MobSpawn),
+    Portal(ParsedPortal),
+}
+
+#[derive(Debug, Clone)]
+struct ParsedPortal {
+    position: Vector2<u32>,
+    entity_iid: String,
+    target_entity_iid: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -254,16 +316,40 @@ struct LdtkEntityInstance {
     identifier: String,
     #[serde(rename = "__grid")]
     grid: Vector2<u32>,
+    iid: String,
     field_instances: Vec<LdtkEntityFieldInstance>,
+}
+
+impl LdtkEntityInstance {
+    pub fn field(&self, identifier: &str) -> Option<&LdtkEntityFieldInstance> {
+        self.field_instances.iter().find(|field| match field {
+            LdtkEntityFieldInstance::String { identifier: id, .. } => id == identifier,
+            LdtkEntityFieldInstance::EntityRef { identifier: id, .. } => id == identifier,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(tag = "__type")]
+enum LdtkEntityFieldInstance {
+    String {
+        #[serde(rename = "__identifier")]
+        identifier: String,
+        #[serde(rename = "__value")]
+        value: String,
+    },
+    EntityRef {
+        #[serde(rename = "__identifier")]
+        identifier: String,
+        #[serde(rename = "__value")]
+        value: LdtkEntityRef,
+    },
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct LdtkEntityFieldInstance {
-    #[serde(rename = "__identifier")]
-    identifier: String,
-    #[serde(rename = "__value")]
-    value: String,
+struct LdtkEntityRef {
+    entity_iid: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

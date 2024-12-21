@@ -184,8 +184,11 @@ pub fn on_tick(tick: Tick, state: &mut RoomState, writer: &mut RoomWriter) {
     for player_id in player_ids.iter().copied() {
         let player = state.players.get_mut(&player_id).expect("Player not found");
 
+        let last_position = player.local_movement.position;
         let local_movement =
             interpolate_position(&state.server_context, player.remote_movement, now);
+        let crossed_tile =
+            last_position.map(|a| a as u32) != local_movement.position.map(|a| a as u32);
 
         let portal = state
             .map
@@ -193,42 +196,37 @@ pub fn on_tick(tick: Tick, state: &mut RoomState, writer: &mut RoomWriter) {
             .iter()
             .find(|portal| portal.position == local_movement.position.map(|a| a as u32));
 
-        if let Some(portal) = portal {
-            let target_room_id = portal.target_room_id;
-            let target_position = portal.target_position;
-            players_left.push(player_id);
-            writer.upstream_messages.push(UpstreamMessage::PlayerLeftRoom {
-                sender_room_id: state.room.room_id,
-                player_id,
-                target_room_id,
-                target_position,
-            });
+        if room::collision_at(
+            state.map.size,
+            &state.map.collisions,
+            local_movement.position,
+        ) {
+            prevent_collision(player, &player_ids, now, writer);
+        } else if let Some(portal) = portal {
+            if crossed_tile {
+                let target_room_id = portal.target_room_id;
+                let target_position = portal.target_position.add_scalar(0.5);
+                players_left.push(player_id);
+                writer.upstream_messages.push(UpstreamMessage::PlayerLeftRoom {
+                    sender_room_id: state.room.room_id,
+                    player_id,
+                    target_room_id,
+                    target_position,
+                });
+            }
         } else {
-            let last_position = player.local_movement.position;
+            player.local_movement = local_movement;
 
-            if room::collision_at(
-                state.map.size,
-                &state.map.collisions,
-                local_movement.position,
-            ) {
-                prevent_collision(player, &player_ids, now, writer);
-            } else {
-                player.local_movement = local_movement;
-
-                let crossed_tile =
-                    last_position.map(|a| a as u32) != local_movement.position.map(|a| a as u32);
-
-                if crossed_tile {
-                    writer.broadcast(
-                        player_ids.iter().copied().filter(|pid| *pid != player_id),
-                        PlayerEvent::ObjectMovementChanged {
-                            object_id: player.id,
-                            position: local_movement.position,
-                            direction: player.remote_movement.direction,
-                            look_direction: player.remote_movement.look_direction,
-                        },
-                    );
-                }
+            if crossed_tile {
+                writer.broadcast(
+                    player_ids.iter().copied().filter(|pid| *pid != player_id),
+                    PlayerEvent::ObjectMovementChanged {
+                        object_id: player.id,
+                        position: local_movement.position,
+                        direction: player.remote_movement.direction,
+                        look_direction: player.remote_movement.look_direction,
+                    },
+                );
             }
         }
     }
