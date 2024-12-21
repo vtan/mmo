@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use crate::{mob::MobTemplate, player::PlayerConnection, server_context::ServerContext};
+use crate::{mob::MobTemplate, player::PlayerConnection, server_context::ServerContext, util};
 
 use mmo_common::{
     object::{Direction, ObjectId},
@@ -27,7 +27,7 @@ pub struct RoomMap {
     pub fg_sparse_layer: Vec<ForegroundTile>,
     pub collisions: Vec<bool>,
     pub portals: Vec<Portal>,
-    pub mob_spawns: Vec<MobSpawn>,
+    pub mob_spawns: Vec<Arc<MobSpawn>>,
 }
 
 #[derive(Debug, Clone)]
@@ -42,8 +42,24 @@ pub struct Player {
 pub struct Mob {
     pub id: ObjectId,
     pub template: Arc<MobTemplate>,
+    pub spawn: Arc<MobSpawn>,
     pub animation_id: u32,
     pub movement: RemoteMovement,
+    pub attack_target: Option<ObjectId>,
+}
+
+impl Mob {
+    pub fn in_movement_range(&self, v: Vector2<f32>) -> bool {
+        util::in_distance(
+            v,
+            self.spawn.position.cast().add_scalar(0.5),
+            self.template.movement_range,
+        )
+    }
+
+    pub fn in_attack_range(&self, v: Vector2<f32>) -> bool {
+        util::in_distance(v, self.movement.position, self.template.attack_range)
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

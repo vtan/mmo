@@ -34,4 +34,18 @@ impl Direction {
             Direction::Up => Vector2::new(0., -1.),
         }
     }
+
+    pub fn from_vector(v: Vector2<f32>) -> Self {
+        if v.x.abs() > v.y.abs() {
+            if v.x > 0.0 {
+                Direction::Right
+            } else {
+                Direction::Left
+            }
+        } else if v.y > 0.0 {
+            Direction::Down
+        } else {
+            Direction::Up
+        }
+    }
 }

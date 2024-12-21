@@ -86,7 +86,7 @@ fn convert_map(ldtk_map: &LdtkMap, ldtk_level: &LdtkLevel) -> Result<RoomMap> {
         if !ldtk_layer.entity_instances.is_empty() {
             for entity in collect_entities(&ldtk_layer.entity_instances) {
                 match entity {
-                    ParsedEntity::MobSpawn(mob_spawn) => mob_spawns.push(mob_spawn),
+                    ParsedEntity::MobSpawn(mob_spawn) => mob_spawns.push(Arc::new(mob_spawn)),
                 }
             }
         }

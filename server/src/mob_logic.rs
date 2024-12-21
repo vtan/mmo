@@ -1,7 +1,7 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use mmo_common::{
-    object::{Direction, ALL_DIRECTIONS},
+    object::{Direction, ObjectId, ALL_DIRECTIONS},
     player_event::PlayerEvent,
 };
 use tokio::time::Instant;
@@ -9,7 +9,7 @@ use tokio::time::Instant;
 use crate::{
     mob::MobTemplate,
     object,
-    room_state::{Mob, RemoteMovement, RoomMap, RoomState, RoomWriter},
+    room_state::{Mob, Player, RemoteMovement, RoomMap, RoomState, RoomWriter},
     server_context::ServerContext,
     tick::{self, Tick},
 };
@@ -24,16 +24,19 @@ pub fn populate_mobs(map: &RoomMap, ctx: &ServerContext, now: Instant) -> Vec<Mo
                 Some((mob_template.clone(), *animation_id))
             };
             if let Some((mob_template, animation_id)) = resolve() {
+                let position = mob_spawn.position.cast().add_scalar(0.5);
                 let mob = Mob {
                     id: object::next_object_id(),
                     animation_id,
                     template: mob_template,
+                    spawn: mob_spawn.clone(),
                     movement: RemoteMovement {
-                        position: mob_spawn.position.cast(),
+                        position,
                         direction: None,
                         look_direction: Direction::Down,
                         received_at: now,
                     },
+                    attack_target: None,
                 };
                 Some(mob)
             } else {
@@ -47,6 +50,7 @@ pub fn on_tick(tick: Tick, state: &mut RoomState, writer: &mut RoomWriter) {
     let player_ids = state.players.keys().copied().collect::<Vec<_>>();
 
     for mob in &mut state.mobs {
+        // update position
         let mut crossed_tile = false;
         if let Some(direction) = mob.movement.direction {
             let prev_position = mob.movement.position;
@@ -56,11 +60,45 @@ pub fn on_tick(tick: Tick, state: &mut RoomState, writer: &mut RoomWriter) {
                 prev_position.map(|x| x as u32) != mob.movement.position.map(|x| x as u32);
         }
 
+        // change direction if needed
         let mut changed_direction = false;
-        if crossed_tile || mob.movement.direction.is_none() {
-            mob.movement.direction = choose_direction(mob, &state.map);
-            mob.movement.look_direction = mob.movement.direction.unwrap_or(Direction::Down);
-            changed_direction = true;
+        let attack_target = choose_attack_target(&state.players, mob);
+
+        #[allow(clippy::collapsible_else_if)]
+        if let Some(attack_target) = attack_target {
+            if mob.in_attack_range(attack_target.local_movement.position) {
+                if mob.movement.direction.is_some() {
+                    mob.movement.direction = None;
+                    changed_direction = true;
+                }
+            } else {
+                let direction = attack_target.local_movement.position - mob.movement.position;
+                let direction = Direction::from_vector(direction);
+                let next_tile = mob.movement.position + direction.to_vector();
+                let can_move = !mmo_common::room::collision_at(
+                    state.map.size,
+                    &state.map.collisions,
+                    next_tile,
+                );
+                if can_move {
+                    if mob.movement.direction != Some(direction) {
+                        mob.movement.direction = Some(direction);
+                        mob.movement.look_direction = direction;
+                        changed_direction = true;
+                    }
+                } else {
+                    if mob.movement.direction.is_some() {
+                        mob.movement.direction = None;
+                        changed_direction = true;
+                    }
+                }
+            }
+        } else {
+            if crossed_tile || mob.movement.direction.is_none() {
+                mob.movement.direction = choose_direction(mob, &state.map);
+                mob.movement.look_direction = mob.movement.direction.unwrap_or(Direction::Down);
+                changed_direction = true;
+            }
         }
 
         if crossed_tile || changed_direction {
@@ -77,6 +115,35 @@ pub fn on_tick(tick: Tick, state: &mut RoomState, writer: &mut RoomWriter) {
     }
 }
 
+fn choose_attack_target<'a>(
+    players: &'a HashMap<ObjectId, Player>,
+    mob: &mut Mob,
+) -> Option<&'a Player> {
+    // clear invalid attack target
+    if let Some(attack_target_id) = mob.attack_target {
+        if let Some(attack_target) = players.get(&attack_target_id) {
+            if mob.in_movement_range(attack_target.local_movement.position) {
+                return Some(attack_target);
+            } else {
+                mob.attack_target = None;
+            }
+        } else {
+            mob.attack_target = None;
+        }
+    }
+
+    // find someone to attack
+    if mob.attack_target.is_none() {
+        for player in players.values() {
+            if mob.in_movement_range(player.local_movement.position) {
+                mob.attack_target = Some(player.id);
+                return Some(player);
+            }
+        }
+    }
+    None
+}
+
 fn choose_direction(mob: &Mob, map: &RoomMap) -> Option<Direction> {
     let mut rng = fastrand::Rng::new();
     let current_tile = mob.movement.position;
@@ -85,7 +152,9 @@ fn choose_direction(mob: &Mob, map: &RoomMap) -> Option<Direction> {
         .copied()
         .filter(|dir| {
             let next_tile = current_tile + dir.to_vector();
-            !mmo_common::room::collision_at(map.size, &map.collisions, next_tile)
+            let in_movement_range = mob.in_movement_range(next_tile);
+            let collides = mmo_common::room::collision_at(map.size, &map.collisions, next_tile);
+            in_movement_range && !collides
         })
         .collect::<Vec<_>>();
     rng.choice(&candidates).copied()

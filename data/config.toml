@@ -5,6 +5,8 @@ player_animation = "player"
 id = "slime"
 animation_id = "slime"
 velocity = 1.0
+movement_range = 4.0
+attack_range = 0.8
 
 [animations.player]
 sprite_size = [1, 2]
