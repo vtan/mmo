@@ -4,7 +4,7 @@ player_animation = "player"
 [mob_templates.slime]
 id = "slime"
 animation_id = "slime"
-velocity = 2.0
+velocity = 1.0
 
 [animations.player]
 sprite_size = [1, 2]

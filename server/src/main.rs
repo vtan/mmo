@@ -2,6 +2,7 @@ mod assets;
 mod client_connection;
 mod ldtk_map;
 mod mob;
+mod mob_logic;
 mod object;
 mod player;
 mod room_actor;

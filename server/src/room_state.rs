@@ -16,7 +16,7 @@ pub struct RoomState {
     pub map: Arc<RoomMap>,
     pub room: RoomSync,
     pub players: HashMap<ObjectId, Player>,
-    pub mobs: HashMap<ObjectId, Mob>,
+    pub mobs: Vec<Mob>,
 }
 
 #[derive(Debug, Clone)]

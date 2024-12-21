@@ -13,7 +13,7 @@ use tracing::instrument;
 use crate::player::PlayerConnection;
 use crate::room_state::{RoomMap, RoomState, RoomWriter, UpstreamMessage};
 use crate::server_context::ServerContext;
-use crate::{room_logic, tick};
+use crate::{mob_logic, room_logic, tick};
 
 #[derive(Debug)]
 pub enum Message {
@@ -44,7 +44,7 @@ pub async fn run(
     let now = Instant::now();
     let map = server_context.room_maps.get(&room_id).unwrap().clone();
     let room = make_room_sync(room_id, &map);
-    let mobs = room_logic::populate_mobs(&map, &server_context, now);
+    let mobs = mob_logic::populate_mobs(&map, &server_context, now);
     let mut state = RoomState { server_context, map, room, players: HashMap::new(), mobs };
     let mut writer = RoomWriter::new();
 

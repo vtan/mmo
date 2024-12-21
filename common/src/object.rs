@@ -12,6 +12,13 @@ pub enum Direction {
     Up,
 }
 
+pub static ALL_DIRECTIONS: [Direction; 4] = [
+    Direction::Right,
+    Direction::Down,
+    Direction::Left,
+    Direction::Up,
+];
+
 impl Direction {
     pub fn to_vector(&self) -> Vector2<f32> {
         match *self {

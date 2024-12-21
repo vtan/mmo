@@ -15,7 +15,7 @@ pub struct Tick {
 pub type Sender = broadcast::Sender<Tick>;
 pub type Receiver = broadcast::Receiver<Tick>;
 
-static TICK_INTERVAL: Duration = Duration::from_millis(100);
+pub static TICK_INTERVAL: Duration = Duration::from_millis(100);
 
 pub fn spawn_producer() -> (broadcast::Sender<Tick>, JoinHandle<()>) {
     let (tick_sender, _) = broadcast::channel(8);
