@@ -125,12 +125,12 @@ async fn handle_message(state: &mut State, message: Message) -> Result<()> {
                 let room_id = player.room_id;
                 if let Some(room) = state.rooms.get_mut(&room_id) {
                     room.sender.send(room_actor::Message::PlayerDisconnected { player_id }).await?;
+                    remove_room_if_empty(state, room_id);
                 } else {
                     tracing::warn!(
                         "Player disconnected but room {room_id:?} not found",
                         room_id = player.room_id
                     );
-                    remove_room_if_empty(state, room_id);
                 }
             } else {
                 tracing::warn!("Player disconnected but not found");
