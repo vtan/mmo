@@ -32,7 +32,12 @@ struct AppState {
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt()
+        .with_target(false)
+        .with_file(true)
+        .with_line_number(true)
+        .with_thread_ids(true)
+        .init();
 
     tracing::info!("Loading maps...");
     let room_maps = ldtk_map::load("data/map.ldtk")?;

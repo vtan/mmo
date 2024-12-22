@@ -116,9 +116,10 @@ fn remove_player(
     players: &mut HashMap<ObjectId, Player>,
     writer: &mut RoomWriter,
 ) -> Option<Player> {
+    // FIXME: this removes the player before flushing the writer
     if let Some(player) = players.remove(&player_id) {
         writer.broadcast(
-            players.keys().copied(),
+            players.keys().copied().filter(|id| *id != player_id),
             PlayerEvent::ObjectDisappeared { object_id: player_id },
         );
         Some(player)

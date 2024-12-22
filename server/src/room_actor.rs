@@ -105,7 +105,10 @@ async fn flush_writer(
         if let Some(player) = state.players.get(&player_id) {
             player.connection.send(events).await.unwrap(); // TODO: unwrap
         } else {
-            tracing::error!(player_id = player_id.0, "Player not found");
+            tracing::error!(
+                player_id = player_id.0,
+                "Player not found when sending events"
+            );
         }
     }
     for message in writer.upstream_messages.drain(..) {
