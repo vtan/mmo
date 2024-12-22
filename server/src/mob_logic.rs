@@ -7,6 +7,7 @@ use mmo_common::{
 use tokio::time::Instant;
 
 use crate::{
+    combat_logic,
     mob::MobTemplate,
     object,
     room_state::{Mob, Player, RemoteMovement, RoomMap, RoomState, RoomWriter},
@@ -39,6 +40,7 @@ pub fn populate_mobs(map: &RoomMap, ctx: &ServerContext, now: Instant) -> Vec<Mo
                     },
                     attack_target: None,
                     health,
+                    last_attacked_at: 0,
                 };
                 Some(mob)
             } else {
@@ -64,7 +66,7 @@ pub fn on_tick(tick: Tick, state: &mut RoomState, writer: &mut RoomWriter) {
 
         // change direction if needed
         let mut changed_direction = false;
-        let attack_target = choose_attack_target(&state.players, mob);
+        let attack_target = choose_attack_target(&mut state.players, mob);
 
         #[allow(clippy::collapsible_else_if)]
         if let Some(attack_target) = attack_target {
@@ -72,6 +74,11 @@ pub fn on_tick(tick: Tick, state: &mut RoomState, writer: &mut RoomWriter) {
                 if mob.movement.direction.is_some() {
                     mob.movement.direction = None;
                     changed_direction = true;
+                }
+
+                if tick.tick - mob.last_attacked_at >= mob.template.attack_cooldown_ticks {
+                    combat_logic::mob_attack(attack_target, mob, &player_ids, writer);
+                    mob.last_attacked_at = tick.tick;
                 }
             } else {
                 let direction = attack_target.local_movement.position - mob.movement.position;
@@ -118,12 +125,12 @@ pub fn on_tick(tick: Tick, state: &mut RoomState, writer: &mut RoomWriter) {
 }
 
 fn choose_attack_target<'a>(
-    players: &'a HashMap<ObjectId, Player>,
+    players: &'a mut HashMap<ObjectId, Player>,
     mob: &mut Mob,
-) -> Option<&'a Player> {
+) -> Option<&'a mut Player> {
     // clear invalid attack target
     if let Some(attack_target_id) = mob.attack_target {
-        if let Some(attack_target) = players.get(&attack_target_id) {
+        if let Some(attack_target) = players.get_mut(&attack_target_id) {
             if mob.in_movement_range(attack_target.local_movement.position) {
                 return Some(attack_target);
             } else {
@@ -133,10 +140,9 @@ fn choose_attack_target<'a>(
             mob.attack_target = None;
         }
     }
-
     // find someone to attack
-    if mob.attack_target.is_none() {
-        for player in players.values() {
+    else {
+        for player in players.values_mut() {
             if mob.in_movement_range(player.local_movement.position) {
                 mob.attack_target = Some(player.id);
                 return Some(player);

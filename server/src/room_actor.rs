@@ -5,30 +5,19 @@ use mmo_common::object::ObjectId;
 use mmo_common::player_command::RoomCommand;
 use mmo_common::rle;
 use mmo_common::room::{RoomId, RoomSync};
-use nalgebra::Vector2;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 use tracing::instrument;
 
-use crate::player::PlayerConnection;
-use crate::room_state::{RoomMap, RoomState, RoomWriter, UpstreamMessage};
+use crate::room_state::{Player, RoomMap, RoomState, RoomWriter, UpstreamMessage};
 use crate::server_context::ServerContext;
 use crate::{mob_logic, room_logic, tick};
 
 #[derive(Debug)]
 pub enum Message {
-    PlayerConnected {
-        player_id: ObjectId,
-        connection: PlayerConnection,
-        position: Vector2<f32>,
-    },
-    PlayerDisconnected {
-        player_id: ObjectId,
-    },
-    PlayerCommand {
-        player_id: ObjectId,
-        command: RoomCommand,
-    },
+    PlayerConnected { player: Player },
+    PlayerDisconnected { player_id: ObjectId },
+    PlayerCommand { player_id: ObjectId, command: RoomCommand },
 }
 
 #[instrument(skip_all, fields(room_id = room_id.0))]
@@ -85,8 +74,8 @@ async fn handle_message(
     message: Message,
 ) {
     match message {
-        Message::PlayerConnected { player_id, connection, position } => {
-            room_logic::on_connect(player_id, connection, position, state, writer);
+        Message::PlayerConnected { player } => {
+            room_logic::on_connect(player, state, writer);
             flush_writer(writer, state, upstream_sender).await;
         }
 

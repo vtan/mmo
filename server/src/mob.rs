@@ -9,4 +9,5 @@ pub struct MobTemplate {
     pub attack_range: f32,
     pub max_health: i32,
     pub damage: i32,
+    pub attack_cooldown_ticks: u32,
 }

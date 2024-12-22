@@ -8,7 +8,7 @@ use tokio::{
 
 #[derive(Debug, Clone, Copy)]
 pub struct Tick {
-    pub tick: u64,
+    pub tick: u32,
     pub monotonic_time: Instant,
 }
 

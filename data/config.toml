@@ -12,6 +12,7 @@ movement_range = 4.0
 attack_range = 0.8
 max_health = 50
 damage = 5
+attack_cooldown_ticks = 10
 
 [animations.player]
 sprite_size = [1, 2]

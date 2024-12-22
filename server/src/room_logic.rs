@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use mmo_common::{
     animation::AnimationAction,
     object::{Direction, ObjectId, ObjectType},
@@ -5,44 +7,23 @@ use mmo_common::{
     player_event::PlayerEvent,
     room,
 };
-use nalgebra::Vector2;
 use tokio::time::Instant;
 use tracing::instrument;
 
 use crate::{
     combat_logic, mob_logic,
-    player::PlayerConnection,
     room_state::{LocalMovement, Player, RemoteMovement, RoomState, RoomWriter, UpstreamMessage},
     server_context::ServerContext,
     tick::Tick,
 };
 
-#[instrument(skip_all, fields(player_id = player_id.0))]
-pub fn on_connect(
-    player_id: ObjectId,
-    connection: PlayerConnection,
-    position: Vector2<f32>,
-    state: &mut RoomState,
-    writer: &mut RoomWriter,
-) {
+#[instrument(skip_all, fields(player_id = player.id.0))]
+pub fn on_connect(mut player: Player, state: &mut RoomState, writer: &mut RoomWriter) {
     let now = Instant::now();
-    let local_movement = LocalMovement { position, updated_at: now };
-    let remote_movement = RemoteMovement {
-        position,
-        direction: None,
-        look_direction: Direction::Down,
-        received_at: now,
-    };
-    let max_health = state.server_context.player_max_health;
-    let health = max_health;
-    let player = Player {
-        id: player_id,
-        connection,
-        local_movement,
-        remote_movement,
-        health,
-        max_health,
-    };
+    player.local_movement.updated_at = now;
+    player.remote_movement.received_at = now;
+    player.remote_movement.direction = None;
+    player.remote_movement.look_direction = Direction::Down;
     player_entered(player, state, writer);
 }
 
@@ -127,17 +108,23 @@ fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter
 
 #[instrument(skip_all, fields(player_id = player_id.0))]
 pub fn on_disconnect(player_id: ObjectId, state: &mut RoomState, writer: &mut RoomWriter) {
-    player_left(player_id, state, writer)
+    remove_player(player_id, &mut state.players, writer);
 }
 
-fn player_left(player_id: ObjectId, state: &mut RoomState, writer: &mut RoomWriter) {
-    if state.players.remove(&player_id).is_some() {
+fn remove_player(
+    player_id: ObjectId,
+    players: &mut HashMap<ObjectId, Player>,
+    writer: &mut RoomWriter,
+) -> Option<Player> {
+    if let Some(player) = players.remove(&player_id) {
         writer.broadcast(
-            state.players.keys().copied(),
+            players.keys().copied(),
             PlayerEvent::ObjectDisappeared { object_id: player_id },
         );
+        Some(player)
     } else {
         tracing::error!("Player not found");
+        None
     }
 }
 
@@ -220,15 +207,7 @@ pub fn on_tick(tick: Tick, state: &mut RoomState, writer: &mut RoomWriter) {
             prevent_collision(player, &player_ids, now, writer);
         } else if let Some(portal) = portal {
             if crossed_tile {
-                let target_room_id = portal.target_room_id;
-                let target_position = portal.target_position.add_scalar(0.5);
-                players_left.push(player_id);
-                writer.upstream_messages.push(UpstreamMessage::PlayerLeftRoom {
-                    sender_room_id: state.room.room_id,
-                    player_id,
-                    target_room_id,
-                    target_position,
-                });
+                players_left.push((player_id, portal));
             }
         } else {
             player.local_movement = local_movement;
@@ -247,8 +226,17 @@ pub fn on_tick(tick: Tick, state: &mut RoomState, writer: &mut RoomWriter) {
         }
     }
 
-    for player_id in players_left {
-        player_left(player_id, state, writer);
+    for (player_id, portal) in players_left {
+        if let Some(player) = remove_player(player_id, &mut state.players, writer) {
+            let target_room_id = portal.target_room_id;
+            let target_position = portal.target_position.add_scalar(0.5);
+            writer.upstream_messages.push(UpstreamMessage::PlayerLeftRoom {
+                sender_room_id: state.room.room_id,
+                player,
+                target_room_id,
+                target_position,
+            });
+        }
     }
 
     mob_logic::on_tick(tick, state, writer);

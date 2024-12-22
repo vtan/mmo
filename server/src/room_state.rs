@@ -49,6 +49,7 @@ pub struct Mob {
     pub movement: RemoteMovement,
     pub attack_target: Option<ObjectId>,
     pub health: i32,
+    pub last_attacked_at: u32,
 }
 
 impl Mob {
@@ -136,7 +137,7 @@ impl RoomWriter {
 pub enum UpstreamMessage {
     PlayerLeftRoom {
         sender_room_id: RoomId,
-        player_id: ObjectId,
+        player: Player,
         target_room_id: RoomId,
         target_position: Vector2<f32>,
     },

@@ -13,6 +13,7 @@ use tokio::sync::mpsc;
 use tracing::instrument;
 
 use crate::player::{self, PlayerConnection};
+use crate::room_state::{LocalMovement, Player, RemoteMovement};
 use crate::server_context::ServerContext;
 use crate::tick;
 use crate::{room_actor, room_state};
@@ -36,13 +37,13 @@ impl Message {
 
 struct State {
     server_context: Arc<ServerContext>,
-    players: HashMap<ObjectId, Player>,
+    players: HashMap<ObjectId, PlayerMeta>,
     rooms: HashMap<RoomId, Room>,
     tick_sender: tick::Sender,
     room_actor_upstream_sender: mpsc::Sender<room_state::UpstreamMessage>,
 }
 
-struct Player {
+struct PlayerMeta {
     id: ObjectId,
     room_id: RoomId,
     connection: mpsc::Sender<Vec<Arc<PlayerEvent>>>,
@@ -91,18 +92,36 @@ pub async fn run(
     }
 }
 
+fn create_new_player(id: ObjectId, connection: PlayerConnection, ctx: &ServerContext) -> Player {
+    let now = tokio::time::Instant::now();
+    let max_health = ctx.player_max_health;
+    Player {
+        id,
+        connection,
+        remote_movement: RemoteMovement {
+            position: Vector2::new(3.5, 2.5),
+            direction: None,
+            look_direction: mmo_common::object::Direction::Down,
+            received_at: now,
+        },
+        local_movement: LocalMovement { position: Vector2::new(3.5, 2.5), updated_at: now },
+        health: max_health,
+        max_health,
+    }
+}
+
 #[instrument(skip_all, fields(player_id = message.player_id().0))]
 async fn handle_message(state: &mut State, message: Message) -> Result<()> {
     match message {
         Message::PlayerConnected { player_id, connection } => {
             let start_room_id = RoomId(0);
 
-            let player = Player {
+            let player_meta = PlayerMeta {
                 id: player_id,
                 room_id: start_room_id,
                 connection: connection.clone(),
             };
-            state.players.insert(player_id, player);
+            state.players.insert(player_id, player_meta);
 
             connection
                 .send(vec![Arc::new(PlayerEvent::Initial {
@@ -111,14 +130,10 @@ async fn handle_message(state: &mut State, message: Message) -> Result<()> {
                 })])
                 .await?;
 
+            let player = create_new_player(player_id, connection, &state.server_context);
+
             let room = get_or_create_room(state, start_room_id);
-            room.sender
-                .send(room_actor::Message::PlayerConnected {
-                    player_id,
-                    connection,
-                    position: Vector2::new(3.5, 2.5),
-                })
-                .await?;
+            room.sender.send(room_actor::Message::PlayerConnected { player }).await?;
         }
         Message::PlayerDisconnected { player_id } => {
             if let Some(player) = state.players.remove(&player_id) {
@@ -197,23 +212,17 @@ async fn handle_upstream_message(
     match message {
         room_state::UpstreamMessage::PlayerLeftRoom {
             sender_room_id,
-            player_id,
+            mut player,
             target_room_id,
             target_position,
         } => {
-            if let Some(player) = state.players.get_mut(&player_id) {
-                player.room_id = target_room_id;
+            if let Some(player_meta) = state.players.get_mut(&player.id) {
+                player_meta.room_id = target_room_id;
+                player.remote_movement.position = target_position;
+                player.local_movement.position = target_position;
 
-                let connection = player.connection.clone();
                 let target_room = get_or_create_room(state, target_room_id);
-                target_room
-                    .sender
-                    .send(room_actor::Message::PlayerConnected {
-                        player_id,
-                        connection,
-                        position: target_position,
-                    })
-                    .await?;
+                target_room.sender.send(room_actor::Message::PlayerConnected { player }).await?;
             } else {
                 tracing::error!("Player not found");
             }
