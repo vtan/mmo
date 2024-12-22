@@ -30,9 +30,22 @@ impl FpsCounter {
     }
 
     pub fn record_start(&mut self) -> f64 {
-        self.sample_started = self.performance.now();
+        let now = self.performance.now();
+
+        if now >= self.window_started + MILLISECS_PER_WINDOW {
+            self.report();
+            self.samples.clear();
+        }
+
+        self.sample_started = now;
         if self.samples.is_empty() {
-            self.window_started = self.sample_started;
+            if now - self.window_started < 2.0 * MILLISECS_PER_WINDOW {
+                // Start the current window at the end of the last window, not now
+                self.window_started += MILLISECS_PER_WINDOW;
+            } else {
+                // But reset if we are too far behind
+                self.window_started = now;
+            }
         }
         self.sample_started
     }
@@ -40,11 +53,6 @@ impl FpsCounter {
     pub fn record_end(&mut self) {
         let sample_ended = self.performance.now();
         self.samples.push(sample_ended - self.sample_started);
-
-        if sample_ended >= self.window_started + MILLISECS_PER_WINDOW {
-            self.report();
-            self.samples.clear();
-        }
     }
 
     fn report(&mut self) {

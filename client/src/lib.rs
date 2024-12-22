@@ -149,34 +149,43 @@ pub async fn start() -> Result<(), JsValue> {
     };
     document.add_event_listener_with_callback("keyup", keyup_listener.unchecked_ref())?;
 
-    let f = Rc::new(RefCell::new(None::<Closure<dyn FnMut()>>));
-    let g = f.clone();
+    start_self_referential_closure(
+        move |f| {
+            window.request_animation_frame(f).unwrap();
+        },
+        move || {
+            update_time(&mut app_state);
+            update_canvas_size(&canvas, &mut app_state.gl);
 
-    let w = window.clone();
-    *g.borrow_mut() = Some(Closure::new(move || {
-        update_time(&mut app_state);
-        update_canvas_size(&canvas, &mut app_state.gl);
+            let events = (*app_state.events).take();
+            update::update(&mut app_state, events);
 
-        let events = (*app_state.events).take();
-        update::update(&mut app_state, events);
+            if let Ok(ref mut game_state) = &mut app_state.game_state {
+                let ws_commands = std::mem::take(&mut game_state.ws_commands);
+                ws_connection::send(&ws, ws_commands).unwrap();
+            }
 
-        if let Ok(ref mut game_state) = &mut app_state.game_state {
-            let ws_commands = std::mem::take(&mut game_state.ws_commands);
-            ws_connection::send(&ws, ws_commands).unwrap();
-        }
-
-        render::render(&mut app_state);
-
-        w.request_animation_frame(f.borrow().as_ref().unwrap().as_ref().unchecked_ref())
-            .unwrap();
-
-        app_state.fps_counter.record_end();
-    }));
-    window
-        .request_animation_frame(g.borrow().as_ref().unwrap().as_ref().unchecked_ref())
-        .unwrap();
+            render::render(&mut app_state);
+            app_state.fps_counter.record_end();
+        },
+    );
 
     Ok(())
+}
+
+fn start_self_referential_closure(
+    mut consume: impl FnMut(&js_sys::Function) + 'static + Clone,
+    mut f: impl FnMut() + 'static,
+) {
+    let x = Rc::new(RefCell::new(None::<Closure<dyn FnMut()>>));
+    let y = x.clone();
+
+    let mut consume_inner = consume.clone();
+    *y.borrow_mut() = Some(Closure::new(move || {
+        f();
+        consume_inner(x.borrow().as_ref().unwrap().as_ref().unchecked_ref());
+    }));
+    consume(y.borrow().as_ref().unwrap().as_ref().unchecked_ref());
 }
 
 fn update_time(app_state: &mut AppState) {
