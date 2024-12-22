@@ -159,13 +159,13 @@ pub async fn start() -> Result<(), JsValue> {
 
         let events = (*app_state.events).take();
         update::update(&mut app_state, events);
-        render::render(&mut app_state);
 
         if let Ok(ref mut game_state) = &mut app_state.game_state {
-            // swap
-            ws_connection::send(&ws, std::mem::take(&mut game_state.ws_commands)).unwrap();
-            game_state.ws_commands.clear();
+            let ws_commands = std::mem::take(&mut game_state.ws_commands);
+            ws_connection::send(&ws, ws_commands).unwrap();
         }
+
+        render::render(&mut app_state);
 
         w.request_animation_frame(f.borrow().as_ref().unwrap().as_ref().unchecked_ref())
             .unwrap();

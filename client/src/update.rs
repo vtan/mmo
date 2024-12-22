@@ -10,7 +10,7 @@ use nalgebra::Vector2;
 use crate::app_event::AppEvent;
 use crate::app_state::AppState;
 use crate::game_state::{GameState, LastPing, Object, ObjectAnimation, PartialGameState, Room};
-use crate::{assets, console_error, console_info, console_warn};
+use crate::{assets, console_error, console_warn};
 
 pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
     for event in events {
@@ -124,9 +124,11 @@ fn handle_server_events(
     events: PlayerEventEnvelope<PlayerEvent>,
 ) {
     for event in events.events {
+        /*
         if !matches!(event, PlayerEvent::Pong { .. }) {
             console_info!("{event:?}");
         }
+        */
         handle_server_event(game_state, received_at, event);
     }
 }
