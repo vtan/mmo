@@ -8,6 +8,7 @@ use web_sys::WebGl2RenderingContext as GL;
 
 use crate::{
     app_state::AppState,
+    font_atlas::Align,
     vertex_buffer::{LineVertexBuffer, TileVertexBuffer, VertexBuffer},
 };
 
@@ -179,8 +180,22 @@ pub fn render(state: &mut AppState) {
         let y = i as f32 * 5.5;
         let color = Vector4::new(1.0, 1.0, 1.0, 0.6);
         let fa = &assets.font_atlas;
-        fa.push_text(str1, Vector2::new(420.0, y), 6.0, color, &mut text_vertices);
-        fa.push_text(str2, Vector2::new(432.0, y), 6.0, color, &mut text_vertices);
+        fa.push_text(
+            str1,
+            Vector2::new(420.0, y),
+            6.0,
+            color,
+            Align::Left,
+            &mut text_vertices,
+        );
+        fa.push_text(
+            str2,
+            Vector2::new(432.0, y),
+            6.0,
+            color,
+            Align::Left,
+            &mut text_vertices,
+        );
     }
 
     let black = Vector4::new(0.0, 0.0, 0.0, 1.0);
@@ -194,8 +209,17 @@ pub fn render(state: &mut AppState) {
                 Vector4::new(1.0, 1.0, 1.0, 1.0)
             };
             let str = obj.id.0.to_string();
-            assets.font_atlas.push_text(&str, xy + eps, 6.0, black, &mut text_vertices);
-            assets.font_atlas.push_text(&str, xy, 6.0, color, &mut text_vertices);
+            assets.font_atlas.push_text(
+                &str,
+                xy + eps,
+                6.0,
+                black,
+                Align::Center,
+                &mut text_vertices,
+            );
+            assets
+                .font_atlas
+                .push_text(&str, xy, 6.0, color, Align::Center, &mut text_vertices);
         }
     }
 
@@ -205,8 +229,17 @@ pub fn render(state: &mut AppState) {
         let xy = tile_to_pixel_2d * label.position - Vector2::new(0.0, dy);
         let color = Vector4::new(1.0, 0.0, 0.0, 1.0);
         let str = label.damage.to_string();
-        assets.font_atlas.push_text(&str, xy + eps, 8.0, black, &mut text_vertices);
-        assets.font_atlas.push_text(&str, xy, 8.0, color, &mut text_vertices);
+        assets.font_atlas.push_text(
+            &str,
+            xy + eps,
+            8.0,
+            black,
+            Align::Center,
+            &mut text_vertices,
+        );
+        assets
+            .font_atlas
+            .push_text(&str, xy, 8.0, color, Align::Center, &mut text_vertices);
     }
 
     state.vertex_buffer_renderer.render_triangles(&text_vertices, gl);

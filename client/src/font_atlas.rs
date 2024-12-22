@@ -12,6 +12,12 @@ pub struct FontAtlas {
     glyphs: HashMap<char, Glyph>,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum Align {
+    Left,
+    Center,
+}
+
 impl FontAtlas {
     pub fn from_meta(meta: FontMeta) -> Self {
         let atlas_size = Vector2::new(meta.atlas.width, meta.atlas.height);
@@ -29,18 +35,27 @@ impl FontAtlas {
     pub fn push_text(
         &self,
         text: &str,
-        top_left: Vector2<f32>,
+        anchor: Vector2<f32>,
         height: f32,
         color: Vector4<f32>,
+        align: Align,
         vertex_buffer: &mut VertexBuffer,
     ) {
-        let mut cursor = top_left;
-        let texture_index = 0;
-        for ch in text.chars() {
-            if let Some(glyph) = self.glyphs.get(&ch) {
-                self.push_glyph(glyph, cursor, height, color, texture_index, vertex_buffer);
-                cursor.x += height / self.metrics.line_height * glyph.advance;
+        let glyphs: Vec<_> = text.chars().filter_map(|ch| self.glyphs.get(&ch)).collect();
+
+        let mut cursor = match align {
+            Align::Left => anchor,
+            Align::Center => {
+                let width: f32 = glyphs.iter().map(|g| g.advance).sum();
+                let width = height / self.metrics.line_height * width;
+                anchor - Vector2::new(width / 2.0, 0.0)
             }
+        };
+
+        let texture_index = 0;
+        for glyph in glyphs {
+            self.push_glyph(glyph, cursor, height, color, texture_index, vertex_buffer);
+            cursor.x += height / self.metrics.line_height * glyph.advance;
         }
     }
 
