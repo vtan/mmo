@@ -4,6 +4,8 @@ use std::rc::Rc;
 use js_sys::{ArrayBuffer, Uint8Array};
 use mmo_common::player_command::PlayerCommand;
 use mmo_common::player_command::PlayerCommandEnvelope;
+use mmo_common::player_command::PlayerHandshake;
+use serde::Serialize;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::{MessageEvent, WebSocket};
@@ -23,7 +25,9 @@ pub fn connect(events: Rc<RefCell<Vec<AppEvent>>>) -> Result<WebSocket, JsValue>
 
     let ws_onopen = {
         let events = events.clone();
+        let ws = ws.clone();
         Closure::once_into_js(move || {
+            send_serde(&ws, PlayerHandshake::new()).unwrap();
             (*events).borrow_mut().push(AppEvent::WebsocketConnected);
         })
     };
@@ -71,7 +75,11 @@ pub fn connect(events: Rc<RefCell<Vec<AppEvent>>>) -> Result<WebSocket, JsValue>
 
 pub fn send(ws: &WebSocket, commands: Vec<PlayerCommand>) -> Result<(), JsValue> {
     let envelope = PlayerCommandEnvelope { commands };
-    let bytes = postcard::to_stdvec(&envelope).map_err(|e| e.to_string())?;
+    send_serde(ws, envelope)
+}
+
+fn send_serde<T: Serialize>(ws: &WebSocket, message: T) -> Result<(), JsValue> {
+    let bytes = postcard::to_stdvec(&message).map_err(|e| e.to_string())?;
     ws.send_with_u8_array(&bytes)?;
     Ok(())
 }
