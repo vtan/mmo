@@ -128,11 +128,13 @@ pub fn render(state: &mut AppState) {
     let mut line_vertices = LineVertexBuffer::new();
 
     for obj in game_state.objects.iter() {
-        line_vertices.push_rect(
-            obj.local_position - Vector2::new(0.2, 0.05),
-            Vector2::new(0.4, 0.1),
-            Vector4::new(1.0, 0.0, 1.0, 1.0),
-        );
+        if obj.id != game_state.self_id {
+            line_vertices.push_rect(
+                obj.remote_position - Vector2::new(0.2, 0.05),
+                Vector2::new(0.4, 0.1),
+                Vector4::new(1.0, 0.0, 1.0, 1.0),
+            );
+        }
     }
 
     let line_vertices = line_vertices.vertex_buffer;
