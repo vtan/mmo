@@ -240,6 +240,7 @@ pub fn on_tick(tick: Tick, state: &mut RoomState, writer: &mut RoomWriter) {
     }
 
     mob_logic::on_tick(tick, state, writer);
+    handle_dead_players(state, writer);
 }
 
 fn prevent_collision(
@@ -278,5 +279,33 @@ fn interpolate_position(
         LocalMovement { position, updated_at: now }
     } else {
         LocalMovement { position: remote_movement.position, updated_at: now }
+    }
+}
+
+pub fn handle_dead_players(state: &mut RoomState, writer: &mut RoomWriter) {
+    let dead_player_ids = state
+        .players
+        .values()
+        .filter_map(
+            |player| {
+                if player.health == 0 {
+                    Some(player.id)
+                } else {
+                    None
+                }
+            },
+        )
+        .collect::<Vec<_>>();
+
+    for dead_player_id in dead_player_ids {
+        if let Some(mut player) = remove_player(dead_player_id, &mut state.players, writer) {
+            player.health = player.max_health;
+            writer.upstream_messages.push(UpstreamMessage::PlayerLeftRoom {
+                sender_room_id: state.room.room_id,
+                player,
+                target_room_id: state.server_context.start_room,
+                target_position: state.server_context.start_position,
+            })
+        }
     }
 }

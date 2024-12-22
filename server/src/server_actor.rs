@@ -99,12 +99,12 @@ fn create_new_player(id: ObjectId, connection: PlayerConnection, ctx: &ServerCon
         id,
         connection,
         remote_movement: RemoteMovement {
-            position: Vector2::new(3.5, 2.5),
+            position: ctx.start_position,
             direction: None,
             look_direction: mmo_common::object::Direction::Down,
             received_at: now,
         },
-        local_movement: LocalMovement { position: Vector2::new(3.5, 2.5), updated_at: now },
+        local_movement: LocalMovement { position: ctx.start_position, updated_at: now },
         health: max_health,
         max_health,
     }
@@ -114,13 +114,9 @@ fn create_new_player(id: ObjectId, connection: PlayerConnection, ctx: &ServerCon
 async fn handle_message(state: &mut State, message: Message) -> Result<()> {
     match message {
         Message::PlayerConnected { player_id, connection } => {
-            let start_room_id = RoomId(0);
+            let room_id = state.server_context.start_room;
 
-            let player_meta = PlayerMeta {
-                id: player_id,
-                room_id: start_room_id,
-                connection: connection.clone(),
-            };
+            let player_meta = PlayerMeta { id: player_id, room_id, connection: connection.clone() };
             state.players.insert(player_id, player_meta);
 
             connection
@@ -132,7 +128,7 @@ async fn handle_message(state: &mut State, message: Message) -> Result<()> {
 
             let player = create_new_player(player_id, connection, &state.server_context);
 
-            let room = get_or_create_room(state, start_room_id);
+            let room = get_or_create_room(state, room_id);
             room.sender.send(room_actor::Message::PlayerConnected { player }).await?;
         }
         Message::PlayerDisconnected { player_id } => {
