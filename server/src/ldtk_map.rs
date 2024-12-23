@@ -64,11 +64,12 @@ fn convert_map(ldtk_map: &LdtkMap, ldtk_level: &LdtkLevel) -> Result<ParsedMap> 
     let mut player_starts = vec![];
 
     for ldtk_layer in &ldtk_level.layer_instances {
-        if !ldtk_layer.grid_tiles.is_empty() {
+        let tiles = ldtk_layer.tiles();
+        if !tiles.is_empty() {
             let layer_size = Vector2::new(ldtk_layer.width, ldtk_layer.height);
             size = size.zip_map(&layer_size, |a, b| a.max(b));
 
-            let has_non_divisible_pos = ldtk_layer.grid_tiles.iter().any(|tile| {
+            let has_non_divisible_pos = tiles.iter().any(|tile| {
                 tile.px[0] % ldtk_map.default_grid_size != 0
                     || tile.px[1] % ldtk_map.default_grid_size != 0
             });
@@ -79,17 +80,12 @@ fn convert_map(ldtk_map: &LdtkMap, ldtk_level: &LdtkLevel) -> Result<ParsedMap> 
             }
 
             let has_duplicate_positions = {
-                let unique_positions = ldtk_layer
-                    .grid_tiles
-                    .iter()
-                    .map(|tile| tile.px)
-                    .collect::<std::collections::HashSet<_>>();
-                unique_positions.len() != ldtk_layer.grid_tiles.len()
+                let unique_positions =
+                    tiles.iter().map(|tile| tile.px).collect::<std::collections::HashSet<_>>();
+                unique_positions.len() != tiles.len()
             };
-            let has_foreground_tiles = ldtk_layer
-                .grid_tiles
-                .iter()
-                .any(|tile| foreground_tile_ids.contains_key(&tile.t));
+            let has_foreground_tiles =
+                tiles.iter().any(|tile| foreground_tile_ids.contains_key(&tile.t));
 
             if has_duplicate_positions || has_foreground_tiles {
                 let (bg, fg) = convert_sparse_layer(ldtk_map, ldtk_layer, &foreground_tile_ids);
@@ -178,7 +174,7 @@ fn convert_sparse_layer(
     let grid_size = ldtk_map.default_grid_size;
     let mut bg = vec![];
     let mut fg = vec![];
-    for tile in &ldtk_layer.grid_tiles {
+    for tile in ldtk_layer.tiles() {
         let position = Vector2::new(tile.px[0] / grid_size, tile.px[1] / grid_size);
         if let Some(height) = foreground_tile_ids.get(&tile.t) {
             fg.push(ForegroundTile { position, height: *height, tile_index: tile.t });
@@ -192,7 +188,7 @@ fn convert_sparse_layer(
 fn convert_dense_layer(ldtk_map: &LdtkMap, ldtk_layer: &LdtkLayerInstance) -> Vec<TileIndex> {
     let grid_size = ldtk_map.default_grid_size;
     let mut tiles = vec![TileIndex::empty(); (ldtk_layer.width * ldtk_layer.height) as usize];
-    for tile in &ldtk_layer.grid_tiles {
+    for tile in ldtk_layer.tiles() {
         let x = tile.px[0] / grid_size;
         let y = tile.px[1] / grid_size;
         tiles[(y * ldtk_layer.width + x) as usize] = tile.t;
@@ -328,7 +324,18 @@ struct LdtkLayerInstance {
     #[serde(rename = "__cHei")]
     height: u32,
     grid_tiles: Vec<LdtkTileInstance>,
+    auto_layer_tiles: Vec<LdtkTileInstance>,
     entity_instances: Vec<LdtkEntityInstance>,
+}
+
+impl LdtkLayerInstance {
+    pub fn tiles(&self) -> &[LdtkTileInstance] {
+        if self.grid_tiles.is_empty() {
+            &self.auto_layer_tiles
+        } else {
+            &self.grid_tiles
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
