@@ -31,7 +31,7 @@ pub async fn run(
     tracing::debug!("Spawned");
 
     let now = Instant::now();
-    let map = server_context.room_maps.get(&room_id).unwrap().clone();
+    let map = server_context.world.maps.get(&room_id).unwrap().clone();
     let room = make_room_sync(room_id, &map);
     let mobs = mob_logic::populate_mobs(&map, &server_context, now);
     let mut state = RoomState { server_context, map, room, players: HashMap::new(), mobs };

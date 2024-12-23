@@ -8,9 +8,12 @@ use mmo_common::room::{ForegroundTile, RoomId, TileIndex};
 use nalgebra::Vector2;
 use serde::{Deserialize, Serialize};
 
-use crate::room_state::{MobSpawn, Portal, RoomMap};
+use crate::{
+    room_state::{MobSpawn, Portal, RoomMap},
+    server_context::World,
+};
 
-pub fn load(path: &str) -> Result<HashMap<RoomId, Arc<RoomMap>>> {
+pub fn load(path: &str) -> Result<World> {
     let json = std::fs::read_to_string(path)?;
     let ldtk_map: LdtkMap = serde_json::from_str(&json)?;
 
@@ -23,16 +26,22 @@ pub fn load(path: &str) -> Result<HashMap<RoomId, Arc<RoomMap>>> {
     let mut maps = maps?;
     resolve_portals(&mut maps)?;
 
-    Ok(maps
+    let (start_room_id, start_position) = find_start_position(&maps)?;
+    let start_position = start_position.cast().add_scalar(0.5);
+
+    let maps = maps
         .into_iter()
         .enumerate()
         .map(|(i, map)| (RoomId(i as u64), Arc::new(map.map)))
-        .collect())
+        .collect();
+
+    Ok(World { maps, start_room_id, start_position })
 }
 
 struct ParsedMap {
     map: RoomMap,
     portals: Vec<ParsedPortal>,
+    player_starts: Vec<Vector2<u32>>,
 }
 
 fn convert_map(ldtk_map: &LdtkMap, ldtk_level: &LdtkLevel) -> Result<ParsedMap> {
@@ -52,6 +61,7 @@ fn convert_map(ldtk_map: &LdtkMap, ldtk_level: &LdtkLevel) -> Result<ParsedMap> 
     let mut fg_sparse_layer = vec![];
     let mut mob_spawns = vec![];
     let mut portals = vec![];
+    let mut player_starts = vec![];
 
     for ldtk_layer in &ldtk_level.layer_instances {
         if !ldtk_layer.grid_tiles.is_empty() {
@@ -96,6 +106,7 @@ fn convert_map(ldtk_map: &LdtkMap, ldtk_level: &LdtkLevel) -> Result<ParsedMap> 
                 match entity {
                     ParsedEntity::MobSpawn(mob_spawn) => mob_spawns.push(Arc::new(mob_spawn)),
                     ParsedEntity::Portal(portal) => portals.push(portal),
+                    ParsedEntity::PlayerStart(position) => player_starts.push(position),
                 }
             }
         }
@@ -119,6 +130,7 @@ fn convert_map(ldtk_map: &LdtkMap, ldtk_level: &LdtkLevel) -> Result<ParsedMap> 
             mob_spawns,
         },
         portals,
+        player_starts,
     })
 }
 
@@ -252,7 +264,23 @@ fn collect_entity(entity: &LdtkEntityInstance) -> Option<ParsedEntity> {
             }
             _ => None,
         },
+        "Player_Start" => Some(ParsedEntity::PlayerStart(entity.grid)),
         _ => None,
+    }
+}
+
+fn find_start_position(maps: &[ParsedMap]) -> Result<(RoomId, Vector2<u32>)> {
+    let player_start_entities = maps
+        .iter()
+        .enumerate()
+        .flat_map(|(i, map)| {
+            map.player_starts.iter().map(move |position| (RoomId(i as u64), *position))
+        })
+        .collect::<Vec<_>>();
+    match player_start_entities.as_slice() {
+        &[(room_id, position)] => Ok((room_id, position)),
+        &[] => Err(eyre::eyre!("No player start found")),
+        _ => Err(eyre::eyre!("Multiple player starts found")),
     }
 }
 
@@ -260,6 +288,7 @@ fn collect_entity(entity: &LdtkEntityInstance) -> Option<ParsedEntity> {
 enum ParsedEntity {
     MobSpawn(MobSpawn),
     Portal(ParsedPortal),
+    PlayerStart(Vector2<u32>),
 }
 
 #[derive(Debug, Clone)]

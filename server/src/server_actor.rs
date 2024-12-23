@@ -98,12 +98,12 @@ fn create_new_player(id: ObjectId, connection: PlayerConnection, ctx: &ServerCon
         id,
         connection,
         remote_movement: RemoteMovement {
-            position: ctx.start_position,
+            position: ctx.world.start_position,
             direction: None,
             look_direction: mmo_common::object::Direction::Down,
             received_at: now,
         },
-        local_movement: LocalMovement { position: ctx.start_position, updated_at: now },
+        local_movement: LocalMovement { position: ctx.world.start_position, updated_at: now },
         health: max_health,
         max_health,
     }
@@ -113,7 +113,7 @@ fn create_new_player(id: ObjectId, connection: PlayerConnection, ctx: &ServerCon
 async fn handle_message(state: &mut State, message: Message) -> Result<()> {
     match message {
         Message::PlayerConnected { player_id, connection } => {
-            let room_id = state.server_context.start_room;
+            let room_id = state.server_context.world.start_room_id;
 
             let player_meta = PlayerMeta { id: player_id, room_id, connection: connection.clone() };
             state.players.insert(player_id, player_meta);

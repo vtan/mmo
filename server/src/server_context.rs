@@ -10,9 +10,7 @@ use crate::{assets::AssetPaths, mob::MobTemplate, room_state::RoomMap};
 #[derive(Debug, Clone)]
 pub struct ServerContext {
     pub asset_paths: AssetPaths,
-    pub room_maps: HashMap<RoomId, Arc<RoomMap>>,
-    pub start_room: RoomId,
-    pub start_position: Vector2<f32>,
+    pub world: World,
     pub mob_templates: HashMap<String, Arc<MobTemplate>>,
     pub animations: Vec<AnimationSet>,
     pub player_animation: u32,
@@ -24,11 +22,7 @@ pub struct ServerContext {
 }
 
 impl ServerContext {
-    pub fn new(
-        server_config: ServerConfig,
-        asset_paths: AssetPaths,
-        room_maps: HashMap<RoomId, Arc<RoomMap>>,
-    ) -> Result<Self> {
+    pub fn new(server_config: ServerConfig, asset_paths: AssetPaths, world: World) -> Result<Self> {
         let mut animations: Vec<(String, AnimationSet)> =
             server_config.animations.into_iter().collect();
         animations.sort_by_key(|(name, _)| name.clone());
@@ -54,9 +48,7 @@ impl ServerContext {
 
         Ok(Self {
             asset_paths,
-            room_maps,
-            start_room: server_config.start_room,
-            start_position: server_config.start_position,
+            world,
             mob_templates: server_config.mob_templates,
             animations,
             player_animation,
@@ -69,10 +61,15 @@ impl ServerContext {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct World {
+    pub maps: HashMap<RoomId, Arc<RoomMap>>,
+    pub start_room_id: RoomId,
+    pub start_position: Vector2<f32>,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct ServerConfig {
-    pub start_room: RoomId,
-    pub start_position: Vector2<f32>,
     pub animations: HashMap<String, AnimationSet>,
     pub mob_templates: HashMap<String, Arc<MobTemplate>>,
     pub player_animation: String,

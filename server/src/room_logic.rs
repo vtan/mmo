@@ -304,8 +304,8 @@ pub fn handle_dead_players(state: &mut RoomState, writer: &mut RoomWriter) {
             writer.upstream_messages.push(UpstreamMessage::PlayerLeftRoom {
                 sender_room_id: state.room.room_id,
                 player,
-                target_room_id: state.server_context.start_room,
-                target_position: state.server_context.start_position,
+                target_room_id: state.server_context.world.start_room_id,
+                target_position: state.server_context.world.start_position,
             })
         }
     }
