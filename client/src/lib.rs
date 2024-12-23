@@ -14,6 +14,7 @@ use crate::fps_counter::FpsCounter;
 mod app_event;
 mod app_state;
 mod assets;
+mod camera;
 mod fetch;
 mod font_atlas;
 mod fps_counter;

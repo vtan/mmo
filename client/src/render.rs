@@ -3,11 +3,12 @@ use mmo_common::{
     object::ObjectType,
     room::{ForegroundTile, TileIndex},
 };
-use nalgebra::{Orthographic3, Scale2, Scale3, Vector2, Vector4};
+use nalgebra::{Vector2, Vector4};
 use web_sys::WebGl2RenderingContext as GL;
 
 use crate::{
     app_state::AppState,
+    camera::Camera,
     font_atlas::Align,
     vertex_buffer::{LineVertexBuffer, TileVertexBuffer, VertexBuffer},
 };
@@ -75,15 +76,19 @@ pub fn render(state: &mut AppState) {
     let tileset_vertices = tile_vertices.vertex_buffer;
     gl.use_program(Some(&state.program));
 
-    let logical_screen_to_ndc =
-        Orthographic3::new(0.0, 480.0, 270.0, 0.0, -1.0, 1.0).to_homogeneous();
-    let tile_to_pixel_2d = Scale2::new(16.0, 16.0);
-    let tile_to_pixel = Scale3::new(16.0, 16.0, 1.0).to_homogeneous();
-    let tile_to_ndc = logical_screen_to_ndc * tile_to_pixel;
-    gl.uniform_matrix4fv_with_f32_array(
+    let player_position = game_state
+        .objects
+        .iter()
+        .find(|o| o.id == game_state.self_id)
+        .map(|o| o.local_position)
+        .unwrap_or(Vector2::new(0.0, 0.0));
+
+    let camera = Camera::new(player_position, game_state.room.size);
+
+    gl.uniform_matrix3fv_with_f32_array(
         Some(&state.uniform_locations.view_projection),
         false,
-        tile_to_ndc.as_slice(),
+        camera.from_world.as_slice(),
     );
 
     gl.uniform1iv_with_i32_array(Some(&state.uniform_locations.sampler), &[0, 1]);
@@ -103,20 +108,23 @@ pub fn render(state: &mut AppState) {
             if obj.health < obj.max_health {
                 let zero = Vector2::new(0.0, 0.0);
                 let xy = obj.local_position - Vector2::new(0.5, animation.sprite_size.y as _);
-                let wh = Vector2::new(1.0, 2.0 / 16.0);
+                let wh = Vector2::new(1.0, camera.px_to_world(2.0));
                 let color = Vector4::new(0.0, 0.0, 0.0, 1.0);
                 bar_vertices.push_quad(xy, wh, zero, zero, color, 0);
-                let wh = Vector2::new(obj.health as f32 / obj.max_health as f32, 2.0 / 16.0);
+                let wh = Vector2::new(
+                    obj.health as f32 / obj.max_health as f32,
+                    camera.px_to_world(2.0),
+                );
                 let color = Vector4::new(1.0, 0.0, 0.0, 1.0);
                 bar_vertices.push_quad(xy, wh, zero, zero, color, 0);
             }
         }
     }
 
-    gl.uniform_matrix4fv_with_f32_array(
+    gl.uniform_matrix3fv_with_f32_array(
         Some(&state.uniform_locations.view_projection),
         false,
-        tile_to_ndc.as_slice(),
+        camera.from_world.as_slice(),
     );
     gl.uniform1iv_with_i32_array(Some(&state.uniform_locations.sampler), &[0, 1]);
     gl.active_texture(GL::TEXTURE0);
@@ -146,10 +154,10 @@ pub fn render(state: &mut AppState) {
     gl.bind_texture(GL::TEXTURE_2D, Some(&assets.white.texture));
     state.vertex_buffer_renderer.render_lines(&line_vertices, gl);
 
-    gl.uniform_matrix4fv_with_f32_array(
+    gl.uniform_matrix3fv_with_f32_array(
         Some(&state.uniform_locations.view_projection),
         false,
-        logical_screen_to_ndc.as_slice(),
+        camera.from_screen.as_slice(),
     );
 
     gl.use_program(Some(&state.text_program));
@@ -159,10 +167,10 @@ pub fn render(state: &mut AppState) {
         assets.font_atlas.distance_range,
     );
 
-    gl.uniform_matrix4fv_with_f32_array(
+    gl.uniform_matrix3fv_with_f32_array(
         Some(&state.uniform_locations.text_view_projection),
         false,
-        logical_screen_to_ndc.as_slice(),
+        camera.from_screen.as_slice(),
     );
     gl.uniform1iv_with_i32_array(Some(&state.uniform_locations.text_sampler), &[0, 1]);
     gl.active_texture(GL::TEXTURE0);
@@ -204,7 +212,7 @@ pub fn render(state: &mut AppState) {
     let eps = Vector2::new(0.4, 0.4);
     for obj in game_state.objects.iter() {
         if obj.typ == ObjectType::Player {
-            let xy = tile_to_pixel_2d * obj.local_position;
+            let xy = obj.local_position.map(|a| camera.world_to_px(a));
             let color = if obj.id == game_state.self_id {
                 Vector4::new(1.0, 1.0, 0.0, 1.0)
             } else {
@@ -228,7 +236,7 @@ pub fn render(state: &mut AppState) {
     for label in &game_state.damage_labels {
         let dt = game_state.time.now - label.received_at;
         let dy = 5.0 + 10.0 * dt * dt;
-        let xy = tile_to_pixel_2d * label.position - Vector2::new(0.0, dy);
+        let xy = label.position.map(|a| camera.world_to_px(a)) - Vector2::new(0.0, dy);
         let color = Vector4::new(1.0, 0.0, 0.0, 1.0);
         let str = label.damage.to_string();
         assets.font_atlas.push_text(

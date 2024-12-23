@@ -8,10 +8,11 @@ out vec2 vertTexturePosition;
 out vec4 vertColor;
 flat out float vertTextureIndex;
 
-uniform mat4 viewProjection;
+uniform mat3 viewProjection;
 
 void main() {
-    gl_Position = viewProjection * vec4(position, 0.0, 1.0);
+    vec3 position = viewProjection * vec3(position, 1.0);
+    gl_Position = vec4(position.x, position.y, 0.0, position.z);
     vertTexturePosition = texturePosition;
     vertColor = color;
     vertTextureIndex = textureIndex;
