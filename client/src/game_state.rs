@@ -18,6 +18,7 @@ pub struct GameState {
     pub room: Room,
     pub objects: Vec<Object>,
     pub damage_labels: Vec<DamageLabel>,
+    pub show_debug: bool,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -104,6 +105,7 @@ impl PartialGameState {
             room,
             objects: vec![],
             damage_labels: vec![],
+            show_debug: false,
         })
     }
 }

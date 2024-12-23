@@ -8,7 +8,6 @@ use mmo_common::player_command::{
 };
 use mmo_common::player_event::PlayerEvent;
 use mmo_common::room::RoomId;
-use nalgebra::Vector2;
 use tokio::sync::mpsc;
 use tracing::instrument;
 

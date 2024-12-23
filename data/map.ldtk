@@ -1219,25 +1219,6 @@
 					"entityInstances": [
 						{
 							"__identifier": "Mob",
-							"__grid": [7,2],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#BE4A2F",
-							"iid": "4bfc49a0-9b00-11ef-b23c-e5315a9866d5",
-							"width": 16,
-							"height": 16,
-							"defUid": 133,
-							"px": [112,32],
-							"fieldInstances": [{ "__identifier": "mob", "__type": "String", "__value": "slime", "__tile": null, "defUid": 134, "realEditorValues": [{
-								"id": "V_String",
-								"params": ["slime"]
-							}] }],
-							"__worldX": 112,
-							"__worldY": 32
-						},
-						{
-							"__identifier": "Mob",
 							"__grid": [9,9],
 							"__pivot": [0,0],
 							"__tags": [],

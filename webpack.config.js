@@ -24,15 +24,12 @@ module.exports = {
         asyncWebAssembly: true
     },
     devServer: {
-        static: {
-            directory: path.resolve(__dirname, "client/webroot")
-        },
         proxy: {
             "/api/ws": {
                 target: "ws://localhost:8081",
                 ws: true
             },
-            "/assets/": {
+            "/": {
                 target: "http://localhost:8081"
             }
         }

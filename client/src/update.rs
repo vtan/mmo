@@ -23,6 +23,7 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
                         "KeyS" => start_moving(game_state, Direction::Down),
                         "KeyD" => start_moving(game_state, Direction::Right),
                         "Space" => start_attack(game_state),
+                        "KeyP" => game_state.show_debug = !game_state.show_debug,
                         _ => (),
                     }
                 }

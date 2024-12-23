@@ -24,6 +24,7 @@ use axum::Router;
 use server_context::{ServerConfig, ServerContext};
 use tokio::net::TcpSocket;
 use tokio::sync::mpsc;
+use tower_http::services::ServeDir;
 
 struct AppState {
     server_actor_sender: mpsc::Sender<server_actor::Message>,
@@ -38,6 +39,8 @@ async fn main() -> eyre::Result<()> {
         .with_line_number(true)
         .with_thread_ids(true)
         .init();
+
+    let port = std::env::var("MMO_PORT").unwrap_or_else(|_| "8081".to_string());
 
     tracing::info!("Loading maps...");
     let room_maps = ldtk_map::load("data/map.ldtk")?;
@@ -66,13 +69,14 @@ async fn main() -> eyre::Result<()> {
     let app = Router::new()
         .route("/api/ws", get(ws_handler))
         .route("/assets/:filename", get(serve_file_handler))
+        .nest_service("/", ServeDir::new("webroot"))
         .with_state(app_state);
 
     let listener = {
         let socket = TcpSocket::new_v4()?;
         socket.set_reuseaddr(true)?;
         socket.set_nodelay(true)?;
-        socket.bind("0.0.0.0:8081".parse()?)?;
+        socket.bind(format!("0.0.0.0:{port}").parse()?)?;
         socket.listen(1024)?
     };
     axum::serve(listener, app).await?;

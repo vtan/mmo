@@ -13,7 +13,6 @@ use tracing::instrument;
 
 use crate::{object, server_actor};
 
-#[instrument(skip_all)]
 pub async fn handle(ws: WebSocket, server_actor_sender: mpsc::Sender<server_actor::Message>) {
     let player_id = object::next_object_id();
     handle_with_id(ws, server_actor_sender, player_id).await;
@@ -31,6 +30,7 @@ pub async fn handle_with_id(
     if !expect_handshake(&mut ws_stream).await {
         return;
     }
+    tracing::info!("Client joined");
 
     let (event_sender, mut event_receiver) = mpsc::channel::<Vec<Arc<PlayerEvent>>>(64);
     tokio::spawn(async move {
@@ -73,7 +73,8 @@ pub async fn handle_with_id(
         .send(server_actor::Message::PlayerDisconnected { player_id })
         .await
         .unwrap(); // TODO: unwrap
-    tracing::debug!("Receiver closed");
+
+    tracing::info!("Client disconnected");
 }
 
 async fn expect_handshake(ws_stream: &mut SplitStream<WebSocket>) -> bool {
