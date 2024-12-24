@@ -150,6 +150,8 @@ pub async fn start() -> Result<(), JsValue> {
     };
     document.add_event_listener_with_callback("keyup", keyup_listener.unchecked_ref())?;
 
+    render::init(&mut app_state);
+
     start_self_referential_closure(
         move |f| {
             window.request_animation_frame(f).unwrap();
