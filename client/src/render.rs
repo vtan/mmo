@@ -71,7 +71,7 @@ pub fn render(state: &mut AppState) {
         gl.uniform_matrix3fv_with_f32_array(
             Some(&state.uniform_locations.view_projection),
             false,
-            camera.from_world.as_slice(),
+            camera.world_to_ndc.as_slice(),
         );
 
         gl.active_texture(GL::TEXTURE0);
@@ -83,12 +83,12 @@ pub fn render(state: &mut AppState) {
     }
     {
         let mut vertex_buffer = VertexBuffer::new();
-        render_health_bars(game_state, &camera, &mut vertex_buffer);
+        render_health_bars(game_state, &mut vertex_buffer);
 
         gl.uniform_matrix3fv_with_f32_array(
             Some(&state.uniform_locations.view_projection),
             false,
-            camera.from_world.as_slice(),
+            camera.world_to_ndc.as_slice(),
         );
         gl.active_texture(GL::TEXTURE0);
         gl.bind_texture(GL::TEXTURE_2D, Some(&assets.white.texture));
@@ -118,7 +118,7 @@ pub fn render(state: &mut AppState) {
         gl.uniform_matrix3fv_with_f32_array(
             Some(&state.uniform_locations.text_view_projection),
             false,
-            camera.from_screen.as_slice(),
+            camera.screen_to_ndc.as_slice(),
         );
         gl.active_texture(GL::TEXTURE0);
         gl.bind_texture(GL::TEXTURE_2D, Some(&assets.font.texture));
@@ -222,7 +222,7 @@ fn render_foreground_tile_layer(
     }
 }
 
-fn render_health_bars(game_state: &GameState, camera: &Camera, vertex_buffer: &mut VertexBuffer) {
+fn render_health_bars(game_state: &GameState, vertex_buffer: &mut VertexBuffer) {
     for obj in game_state.objects.iter() {
         if let Some(animation) = game_state.client_config.animations.get(obj.animation_id) {
             if obj.health < obj.max_health {
@@ -231,10 +231,7 @@ fn render_health_bars(game_state: &GameState, camera: &Camera, vertex_buffer: &m
                 let wh = Vector2::new(1.0, 1.0 / 8.0);
                 let color = Vector4::new(0.0, 0.0, 0.0, 1.0);
                 vertex_buffer.push_quad(xy, wh, zero, zero, color, 0);
-                let wh = Vector2::new(
-                    obj.health as f32 / obj.max_health as f32,
-                    camera.px_to_world(2.0),
-                );
+                let wh = Vector2::new(obj.health as f32 / obj.max_health as f32, 1.0 / 8.0);
                 let color = Vector4::new(1.0, 0.0, 0.0, 1.0);
                 vertex_buffer.push_quad(xy, wh, zero, zero, color, 0);
             }
@@ -266,7 +263,7 @@ fn render_world_text(
     let eps = Vector2::new(0.4, 0.4);
     for obj in game_state.objects.iter() {
         if obj.typ == ObjectType::Player {
-            let xy = obj.local_position.map(|a| camera.world_to_px(a));
+            let xy = camera.world_point_to_screen(obj.local_position);
             let color = if obj.id == game_state.self_id {
                 Vector4::new(1.0, 1.0, 0.0, 1.0)
             } else {
@@ -283,7 +280,7 @@ fn render_world_text(
     for label in &game_state.damage_labels {
         let dt = game_state.time.now - label.received_at;
         let dy = 5.0 + 10.0 * dt * dt;
-        let xy = label.position.map(|a| camera.world_to_px(a)) - Vector2::new(0.0, dy);
+        let xy = camera.world_point_to_screen(label.position) - Vector2::new(0.0, dy);
         let color = Vector4::new(1.0, 0.0, 0.0, 1.0);
         let str = label.damage.to_string();
         assets
