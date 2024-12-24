@@ -9,7 +9,7 @@ use web_sys::WebGl2RenderingContext as GL;
 use crate::{
     app_state::AppState,
     assets::Assets,
-    camera::Camera,
+    camera::{self, Camera},
     font_atlas::Align,
     fps_counter::FpsCounterAgg,
     game_state::GameState,
@@ -55,7 +55,10 @@ pub fn render(state: &mut AppState) {
     gl.use_program(Some(&state.program));
 
     {
-        let mut vertex_buffer = TileVertexBuffer::new(Vector2::new(1.0, 1.0), Vector2::new(16, 16));
+        let mut vertex_buffer = TileVertexBuffer::new(Vector2::new(
+            assets.tileset.width / camera::PIXELS_PER_TILE,
+            assets.tileset.height / camera::PIXELS_PER_TILE,
+        ));
 
         for layer in &game_state.room.bg_dense_layers {
             render_dense_tile_layer(layer, game_state.room.size, &mut vertex_buffer);

@@ -83,16 +83,14 @@ impl VertexBuffer {
 
 pub struct TileVertexBuffer {
     pub vertex_buffer: VertexBuffer,
-    pub tile_size_on_screen: Vector2<f32>,
     pub tile_size_on_texture: Vector2<f32>,
     pub texture_columns: u32,
 }
 
 impl TileVertexBuffer {
-    pub fn new(tile_size_on_screen: Vector2<f32>, tile_counts: Vector2<u32>) -> Self {
+    pub fn new(tile_counts: Vector2<u32>) -> Self {
         Self {
             vertex_buffer: VertexBuffer::new(),
-            tile_size_on_screen,
             tile_size_on_texture: Vector2::new(1.0, 1.0).component_div(&tile_counts.cast()),
             texture_columns: tile_counts.x,
         }
@@ -115,11 +113,11 @@ impl TileVertexBuffer {
             u * self.tile_size_on_texture.x,
             v * self.tile_size_on_texture.y,
         );
-        let screen_extent = self.tile_size_on_screen.component_mul(&tile_extent.cast());
-        let texture_extent = self.tile_size_on_texture.component_mul(&tile_extent.cast());
+        let tile_extent = tile_extent.cast();
+        let texture_extent = self.tile_size_on_texture.component_mul(&tile_extent);
         self.vertex_buffer.push_quad(
             top_left,
-            screen_extent,
+            tile_extent,
             texture_top_left,
             texture_extent,
             Vector4::new(1.0, 1.0, 1.0, 1.0),
