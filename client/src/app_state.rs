@@ -17,7 +17,7 @@ pub struct AppState {
     pub uniform_locations: UniformLocations,
     pub assets: Option<Assets>,
     pub vertex_buffer_renderer: VertexBufferRenderer,
-    pub fps_counter: FpsCounter,
+    pub fps_counter: Rc<RefCell<FpsCounter>>,
     pub viewport: Vector2<u32>,
     pub events: Rc<RefCell<Vec<AppEvent>>>,
     pub game_state: Result<GameState, PartialGameState>,

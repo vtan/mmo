@@ -11,7 +11,7 @@ use crate::{
     assets::Assets,
     camera::{self, Camera},
     font_atlas::Align,
-    fps_counter::FpsCounterAgg,
+    fps_counter::{FpsCounter, FpsCounterAgg},
     game_state::GameState,
     vertex_buffer::{LineVertexBuffer, TileVertexBuffer, VertexBuffer},
 };
@@ -129,7 +129,7 @@ pub fn render(state: &mut AppState) {
         let mut text_vertices = VertexBuffer::new();
         render_debug_ui(
             game_state,
-            &state.fps_counter.agg,
+            &state.fps_counter.borrow(),
             &camera,
             assets,
             &mut text_vertices,
@@ -293,17 +293,23 @@ fn render_world_text(
 
 fn render_debug_ui(
     game_state: &GameState,
-    fps_counter_agg: &FpsCounterAgg,
+    fps_counter: &FpsCounter,
     camera: &Camera,
     assets: &Assets,
     text_vertices: &mut VertexBuffer,
 ) {
     let x = camera.logical_screen_size.x - 60.0;
     let lines = [
-        ("FPS:", &format!("{:.}", fps_counter_agg.fps)),
-        ("p50:", &format!("{:.1}ms", fps_counter_agg.median_ms)),
-        ("p100:", &format!("{:.1}ms", fps_counter_agg.max_ms)),
-        ("ping:", &format!("{:.1}ms", game_state.ping_rtt * 1000.0)),
+        ("FPS:", &format!("{:.}", fps_counter.agg.fps)),
+        ("p50:", &format!("{:.1}ms", fps_counter.agg.median_ms)),
+        ("p100:", &format!("{:.1} ms", fps_counter.agg.max_ms)),
+        ("ping:", &format!("{:.1} ms", game_state.ping_rtt * 1000.0)),
+        ("in:", &format!("{} B/s", fps_counter.net_stats.in_bytes)),
+        ("", &format!("{} evt/s", fps_counter.net_stats.in_events)),
+        ("", &format!("{} frame/s", fps_counter.net_stats.in_frames)),
+        ("out:", &format!("{} B/s", fps_counter.net_stats.out_bytes)),
+        ("", &format!("{} cmd/s", fps_counter.net_stats.out_commands)),
+        ("", &format!("{} frame/s", fps_counter.net_stats.out_frames)),
     ];
     for (i, (str1, str2)) in lines.iter().enumerate() {
         let y = i as f32 * 5.5;

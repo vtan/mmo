@@ -5,6 +5,8 @@ use js_sys::{ArrayBuffer, Uint8Array};
 use mmo_common::player_command::PlayerCommand;
 use mmo_common::player_command::PlayerCommandEnvelope;
 use mmo_common::player_command::PlayerHandshake;
+use mmo_common::player_event::PlayerEvent;
+use mmo_common::player_event::PlayerEventEnvelope;
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -13,8 +15,12 @@ use web_sys::{MessageEvent, WebSocket};
 use crate::app_event::AppEvent;
 use crate::console_error;
 use crate::console_warn;
+use crate::fps_counter::FpsCounter;
 
-pub fn connect(events: Rc<RefCell<Vec<AppEvent>>>) -> Result<WebSocket, JsValue> {
+pub fn connect(
+    events: Rc<RefCell<Vec<AppEvent>>>,
+    metrics: Rc<RefCell<FpsCounter>>,
+) -> Result<WebSocket, JsValue> {
     let window = web_sys::window().expect("No window");
     let performance = window.performance().expect("No performance");
 
@@ -59,9 +65,13 @@ pub fn connect(events: Rc<RefCell<Vec<AppEvent>>>) -> Result<WebSocket, JsValue>
             let received_at = (performance.now() * 1e-3) as f32;
             if let Ok(buf) = ws_event.data().dyn_into::<ArrayBuffer>() {
                 let bytes = Uint8Array::new(&buf).to_vec();
-                let message = postcard::from_bytes(&bytes).expect("Failed to deserialize message");
+                let len = bytes.len();
+                let message: PlayerEventEnvelope<PlayerEvent> =
+                    postcard::from_bytes(&bytes).expect("Failed to deserialize message");
+                let event_count = message.events.len();
                 let app_event = AppEvent::WebsocketMessage { message, received_at };
                 (*events).borrow_mut().push(app_event);
+                metrics.borrow_mut().record_net_event(len as u32, event_count as u32);
             } else {
                 console_warn!("Unexpected websocket message type");
             }
@@ -73,13 +83,21 @@ pub fn connect(events: Rc<RefCell<Vec<AppEvent>>>) -> Result<WebSocket, JsValue>
     Ok(ws)
 }
 
-pub fn send(ws: &WebSocket, commands: Vec<PlayerCommand>) -> Result<(), JsValue> {
+pub fn send(
+    ws: &WebSocket,
+    commands: Vec<PlayerCommand>,
+    metrics: &mut FpsCounter,
+) -> Result<(), JsValue> {
+    let command_count = commands.len();
     let envelope = PlayerCommandEnvelope { commands };
-    send_serde(ws, envelope)
+    let len = send_serde(ws, envelope)?;
+    metrics.record_net_command(len as u32, command_count as u32);
+    Ok(())
 }
 
-fn send_serde<T: Serialize>(ws: &WebSocket, message: T) -> Result<(), JsValue> {
+fn send_serde<T: Serialize>(ws: &WebSocket, message: T) -> Result<usize, JsValue> {
     let bytes = postcard::to_stdvec(&message).map_err(|e| e.to_string())?;
+    let len = bytes.len();
     ws.send_with_u8_array(&bytes)?;
-    Ok(())
+    Ok(len)
 }

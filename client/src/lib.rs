@@ -113,7 +113,7 @@ pub async fn start() -> Result<(), JsValue> {
 
     let vertex_buffer_renderer = VertexBufferRenderer::new(&gl)?;
 
-    let fps_counter = FpsCounter::new(&window);
+    let fps_counter = Rc::new(RefCell::new(FpsCounter::new(&window)));
 
     let mut app_state = AppState {
         gl,
@@ -122,13 +122,13 @@ pub async fn start() -> Result<(), JsValue> {
         uniform_locations,
         assets: None,
         vertex_buffer_renderer,
-        fps_counter,
+        fps_counter: fps_counter.clone(),
         viewport: Vector2::new(canvas.client_width() as u32, canvas.client_height() as u32),
         events: Rc::new(RefCell::new(vec![])),
         game_state: Err(PartialGameState::new()),
     };
 
-    let ws = ws_connection::connect(app_state.events.clone())?;
+    let ws = ws_connection::connect(app_state.events.clone(), fps_counter)?;
 
     let keydown_listener = {
         let events = app_state.events.clone();
@@ -167,11 +167,14 @@ pub async fn start() -> Result<(), JsValue> {
 
             if let Ok(ref mut game_state) = &mut app_state.game_state {
                 let ws_commands = std::mem::take(&mut game_state.ws_commands);
-                ws_connection::send(&ws, ws_commands).unwrap();
+                if !ws_commands.is_empty() {
+                    ws_connection::send(&ws, ws_commands, &mut app_state.fps_counter.borrow_mut())
+                        .unwrap();
+                }
             }
 
             render::render(&mut app_state);
-            app_state.fps_counter.record_end();
+            app_state.fps_counter.borrow_mut().record_frame_end();
         },
     );
 
@@ -194,7 +197,7 @@ fn start_self_referential_closure(
 }
 
 fn update_time(app_state: &mut AppState) {
-    let now = app_state.fps_counter.record_start();
+    let now = app_state.fps_counter.borrow_mut().record_frame_start();
     let now = (1e-3 * now) as f32;
 
     let time = match app_state.game_state {

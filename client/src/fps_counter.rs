@@ -4,32 +4,48 @@ use web_sys::{Performance, Window};
 
 const MILLISECS_PER_WINDOW: f64 = 1000.0;
 
+#[derive(Debug, Clone)]
 pub struct FpsCounter {
     pub agg: FpsCounterAgg,
+    pub net_stats: NetStats,
     performance: Performance,
     window_started: f64,
     sample_started: f64,
     samples: Vec<f64>,
+    current_net_stats: NetStats,
 }
 
+#[derive(Debug, Clone)]
 pub struct FpsCounterAgg {
     pub fps: f32,
     pub median_ms: f32,
     pub max_ms: f32,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct NetStats {
+    pub in_bytes: u32,
+    pub in_frames: u32,
+    pub in_events: u32,
+    pub out_bytes: u32,
+    pub out_frames: u32,
+    pub out_commands: u32,
+}
+
 impl FpsCounter {
     pub fn new(window: &Window) -> FpsCounter {
         FpsCounter {
             agg: FpsCounterAgg { fps: 0.0, median_ms: 0.0, max_ms: 0.0 },
+            net_stats: NetStats::default(),
             performance: window.performance().expect("Performance not available"),
             window_started: 0.0,
             sample_started: 0.0,
             samples: vec![],
+            current_net_stats: NetStats::default(),
         }
     }
 
-    pub fn record_start(&mut self) -> f64 {
+    pub fn record_frame_start(&mut self) -> f64 {
         let now = self.performance.now();
 
         if now >= self.window_started + MILLISECS_PER_WINDOW {
@@ -50,9 +66,21 @@ impl FpsCounter {
         self.sample_started
     }
 
-    pub fn record_end(&mut self) {
+    pub fn record_frame_end(&mut self) {
         let sample_ended = self.performance.now();
         self.samples.push(sample_ended - self.sample_started);
+    }
+
+    pub fn record_net_event(&mut self, len: u32, events: u32) {
+        self.current_net_stats.in_frames += 1;
+        self.current_net_stats.in_events += events;
+        self.current_net_stats.in_bytes += len;
+    }
+
+    pub fn record_net_command(&mut self, len: u32, commands: u32) {
+        self.current_net_stats.out_frames += 1;
+        self.current_net_stats.out_commands += commands;
+        self.current_net_stats.out_bytes += len;
     }
 
     fn report(&mut self) {
@@ -65,5 +93,6 @@ impl FpsCounter {
                 max_ms: self.samples[len - 1] as f32,
             };
         }
+        self.net_stats = std::mem::take(&mut self.current_net_stats);
     }
 }
