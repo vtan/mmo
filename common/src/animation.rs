@@ -1,7 +1,7 @@
 use nalgebra::Vector2;
 use serde::{Deserialize, Serialize};
 
-use crate::object::Direction;
+use crate::object::Direction4;
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub struct SpriteIndex(pub u16);
@@ -31,12 +31,12 @@ pub struct DirectionalAnimation {
 }
 
 impl DirectionalAnimation {
-    pub fn get(&self, direction: Direction, time: f32) -> Option<SpriteIndex> {
+    pub fn get(&self, direction: Direction4, time: f32) -> Option<SpriteIndex> {
         let frames = match direction {
-            Direction::Right => &self.right,
-            Direction::Down => &self.down,
-            Direction::Left => &self.left,
-            Direction::Up => &self.up,
+            Direction4::Right => &self.right,
+            Direction4::Down => &self.down,
+            Direction4::Left => &self.left,
+            Direction4::Up => &self.up,
         };
         if self.total_length == 0.0 {
             frames.first().copied()

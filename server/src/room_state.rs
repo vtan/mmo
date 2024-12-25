@@ -1,9 +1,8 @@
+use crate::{mob::MobTemplate, player::PlayerConnection, server_context::ServerContext, util};
 use std::{collections::HashMap, sync::Arc};
 
-use crate::{mob::MobTemplate, player::PlayerConnection, server_context::ServerContext, util};
-
 use mmo_common::{
-    object::{Direction, ObjectId},
+    object::{Direction4, Direction8, ObjectId},
     player_event::PlayerEvent,
     room::{ForegroundTile, RoomId, RoomSync, TileIndex},
 };
@@ -75,8 +74,8 @@ pub struct LocalMovement {
 #[derive(Debug, Clone, Copy)]
 pub struct RemoteMovement {
     pub position: Vector2<f32>,
-    pub direction: Option<Direction>,
-    pub look_direction: Direction,
+    pub direction: Option<Direction8>,
+    pub look_direction: Direction4,
     pub received_at: Instant,
 }
 

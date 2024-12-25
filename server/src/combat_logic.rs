@@ -1,5 +1,5 @@
 use mmo_common::{
-    object::{Direction, ObjectId},
+    object::{Direction4, ObjectId},
     player_event::PlayerEvent,
 };
 use nalgebra::Vector2;
@@ -58,13 +58,18 @@ pub fn mob_attack(
     );
 }
 
-fn hit_reaches(from: Vector2<f32>, direction: Direction, range: f32, target: Vector2<f32>) -> bool {
+fn hit_reaches(
+    from: Vector2<f32>,
+    direction: Direction4,
+    range: f32,
+    target: Vector2<f32>,
+) -> bool {
     let range_permits = util::in_distance(from, target, range);
     let angle_permits = match direction {
-        Direction::Up => from.y > target.y,
-        Direction::Down => from.y < target.y,
-        Direction::Left => from.x > target.x,
-        Direction::Right => from.x < target.x,
+        Direction4::Up => from.y > target.y,
+        Direction4::Down => from.y < target.y,
+        Direction4::Left => from.x > target.x,
+        Direction4::Right => from.x < target.x,
     };
     range_permits && angle_permits
 }

@@ -1,7 +1,10 @@
 use nalgebra::Vector2;
 use serde::{Deserialize, Serialize};
 
-use crate::{object::Direction, room::RoomId};
+use crate::{
+    object::{Direction4, Direction8},
+    room::RoomId,
+};
 
 const HANDSHAKE_MAGIC: [u8; 8] = [111, 197, 49, 147, 243, 227, 34, 189];
 
@@ -40,8 +43,8 @@ pub enum GlobalCommand {
 pub enum RoomCommand {
     Move {
         position: Vector2<f32>,
-        direction: Option<Direction>,
-        look_direction: Direction,
+        direction: Option<Direction8>,
+        look_direction: Direction4,
     },
     Attack,
 }

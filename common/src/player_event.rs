@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     animation::AnimationAction,
     client_config::ClientConfig,
-    object::{Direction, ObjectId, ObjectType},
+    object::{Direction4, Direction8, ObjectId, ObjectType},
     room::RoomSync,
 };
 
@@ -42,8 +42,8 @@ pub enum PlayerEvent {
     ObjectMovementChanged {
         object_id: ObjectId,
         position: Vector2<f32>,
-        direction: Option<Direction>,
-        look_direction: Direction,
+        direction: Option<Direction8>,
+        look_direction: Direction4,
     },
     ObjectAnimationAction {
         object_id: ObjectId,

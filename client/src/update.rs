@@ -1,6 +1,6 @@
 use mmo_common::animation::AnimationAction;
 use mmo_common::client_config::ClientConfig;
-use mmo_common::object::Direction;
+use mmo_common::object::{Direction4, Direction8};
 use mmo_common::player_command::{GlobalCommand, PlayerCommand, RoomCommand};
 use mmo_common::player_event::{PlayerEvent, PlayerEventEnvelope};
 use mmo_common::room::RoomSync;
@@ -18,10 +18,10 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
             AppEvent::KeyDown { code } => {
                 if let Ok(game_state) = &mut state.game_state {
                     match code.as_str() {
-                        "KeyW" => start_moving(game_state, Direction::Up),
-                        "KeyA" => start_moving(game_state, Direction::Left),
-                        "KeyS" => start_moving(game_state, Direction::Down),
-                        "KeyD" => start_moving(game_state, Direction::Right),
+                        "KeyW" => direction_pressed(game_state, Direction4::Up, true),
+                        "KeyA" => direction_pressed(game_state, Direction4::Left, true),
+                        "KeyS" => direction_pressed(game_state, Direction4::Down, true),
+                        "KeyD" => direction_pressed(game_state, Direction4::Right, true),
                         "Space" => start_attack(game_state),
                         "KeyP" => game_state.show_debug = !game_state.show_debug,
                         _ => (),
@@ -31,10 +31,10 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
             AppEvent::KeyUp { code } => {
                 if let Ok(game_state) = &mut state.game_state {
                     match code.as_str() {
-                        "KeyW" => stop_moving(game_state, Direction::Up),
-                        "KeyA" => stop_moving(game_state, Direction::Left),
-                        "KeyS" => stop_moving(game_state, Direction::Down),
-                        "KeyD" => stop_moving(game_state, Direction::Right),
+                        "KeyW" => direction_pressed(game_state, Direction4::Up, false),
+                        "KeyA" => direction_pressed(game_state, Direction4::Left, false),
+                        "KeyS" => direction_pressed(game_state, Direction4::Down, false),
+                        "KeyD" => direction_pressed(game_state, Direction4::Right, false),
                         _ => (),
                     }
                 }
@@ -165,7 +165,7 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
                 remote_position_received_at: f32::NEG_INFINITY,
                 local_position: Vector2::new(0.0, 0.0),
                 direction: None,
-                look_direction: Direction::Down,
+                look_direction: Direction4::Down,
                 animation_id: animation_id as usize,
                 animation: None,
                 velocity,
@@ -225,11 +225,15 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
     }
 }
 
-fn start_moving(game_state: &mut GameState, direction: Direction) {
+fn direction_pressed(game_state: &mut GameState, pressed_direction: Direction4, pressed: bool) {
     if let Some(obj) = game_state.objects.iter_mut().find(|o| o.id == game_state.self_id) {
-        if obj.direction != Some(direction) {
-            obj.direction = Some(direction);
-            obj.look_direction = direction;
+        game_state.directions_pressed[pressed_direction as usize] = pressed;
+        let new_direction = direction_from_pressed(&game_state.directions_pressed);
+        if new_direction != obj.direction {
+            obj.direction = new_direction;
+            if let Some(dir) = new_direction {
+                obj.look_direction = dir.to_direction4();
+            }
             obj.remote_position_received_at = game_state.time.now;
 
             let command = PlayerCommand::RoomCommand {
@@ -247,25 +251,21 @@ fn start_moving(game_state: &mut GameState, direction: Direction) {
     }
 }
 
-fn stop_moving(game_state: &mut GameState, direction: Direction) {
-    if let Some(obj) = game_state.objects.iter_mut().find(|o| o.id == game_state.self_id) {
-        if obj.direction == Some(direction) {
-            obj.direction = None;
-            obj.look_direction = direction;
-            obj.remote_position_received_at = game_state.time.now;
-
-            let command = PlayerCommand::RoomCommand {
-                room_id: game_state.room.room_id,
-                command: RoomCommand::Move {
-                    position: obj.remote_position,
-                    direction: obj.direction,
-                    look_direction: obj.look_direction,
-                },
-            };
-            game_state.ws_commands.push(command);
-        }
-    } else {
-        console_error!("No self object found");
+fn direction_from_pressed(pressed: &[bool; 4]) -> Option<Direction8> {
+    let down = pressed[Direction4::Down as usize];
+    let up = pressed[Direction4::Up as usize];
+    let left = pressed[Direction4::Left as usize];
+    let right = pressed[Direction4::Right as usize];
+    match (down, up, left, right) {
+        (true, false, false, false) => Some(Direction8::Down),
+        (false, true, false, false) => Some(Direction8::Up),
+        (false, false, true, false) => Some(Direction8::Left),
+        (false, false, false, true) => Some(Direction8::Right),
+        (true, false, false, true) => Some(Direction8::RightDown),
+        (false, true, false, true) => Some(Direction8::RightUp),
+        (true, false, true, false) => Some(Direction8::LeftDown),
+        (false, true, true, false) => Some(Direction8::LeftUp),
+        _ => None,
     }
 }
 
@@ -292,7 +292,7 @@ fn update_self_movement(game_state: &mut GameState) {
     // TODO: for self probably remote_position = local_position, make that more intentional
     if let Some(obj) = game_state.objects.iter_mut().find(|o| o.id == game_state.self_id) {
         if let Some(direction) = obj.direction {
-            let delta = game_state.time.frame_delta * obj.velocity * direction.to_vector();
+            let delta = game_state.time.frame_delta * obj.velocity * direction.to_unit_vector();
             let target = obj.remote_position + delta;
 
             if room::collision_at(room.size, &room.collisions, target) {
@@ -325,7 +325,7 @@ fn update_remote_movement(game_state: &mut GameState) {
                 Some(dir) => {
                     let mov_distance =
                         obj.velocity * (game_state.time.now - obj.remote_position_received_at);
-                    obj.remote_position + mov_distance * dir.to_vector()
+                    obj.remote_position + mov_distance * dir.to_unit_vector()
                 }
                 None => obj.remote_position,
             };

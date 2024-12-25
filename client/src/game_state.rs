@@ -1,7 +1,7 @@
 use mmo_common::{
     animation::AnimationAction,
     client_config::ClientConfig,
-    object::{Direction, ObjectId, ObjectType},
+    object::{Direction4, Direction8, ObjectId, ObjectType},
     player_command::PlayerCommand,
     player_event::{PlayerEvent, PlayerEventEnvelope},
     room::{ForegroundTile, RoomId, TileIndex},
@@ -11,6 +11,7 @@ use nalgebra::Vector2;
 pub struct GameState {
     pub time: Timestamps,
     pub ws_commands: Vec<PlayerCommand>,
+    pub directions_pressed: [bool; 4],
     pub last_ping: Option<LastPing>,
     pub ping_rtt: f32,
     pub self_id: ObjectId,
@@ -44,8 +45,8 @@ pub struct Object {
     pub remote_position: Vector2<f32>,
     pub remote_position_received_at: f32,
     pub local_position: Vector2<f32>,
-    pub direction: Option<Direction>,
-    pub look_direction: Direction,
+    pub direction: Option<Direction8>,
+    pub look_direction: Direction4,
     pub animation_id: usize,
     pub animation: Option<ObjectAnimation>,
     pub velocity: f32,
@@ -98,6 +99,7 @@ impl PartialGameState {
         Some(GameState {
             time: self.time,
             ws_commands: Vec::new(),
+            directions_pressed: [false; 4],
             last_ping: None,
             ping_rtt: 0.0,
             self_id,

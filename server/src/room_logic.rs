@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use mmo_common::{
     animation::AnimationAction,
-    object::{Direction, ObjectId, ObjectType},
+    object::{Direction4, ObjectId, ObjectType},
     player_command::RoomCommand,
     player_event::PlayerEvent,
     room,
@@ -23,7 +23,7 @@ pub fn on_connect(mut player: Player, state: &mut RoomState, writer: &mut RoomWr
     player.local_movement.updated_at = now;
     player.remote_movement.received_at = now;
     player.remote_movement.direction = None;
-    player.remote_movement.look_direction = Direction::Down;
+    player.remote_movement.look_direction = Direction4::Down;
     player_entered(player, state, writer);
 }
 
@@ -274,7 +274,7 @@ fn interpolate_position(
 ) -> LocalMovement {
     if let Some(direction) = remote_movement.direction {
         let elapsed = now - remote_movement.received_at;
-        let direction = direction.to_vector();
+        let direction = direction.to_unit_vector();
         let delta = direction * ctx.player_velocity * elapsed.as_secs_f32();
         let position = remote_movement.position + delta;
         LocalMovement { position, updated_at: now }

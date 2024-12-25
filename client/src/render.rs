@@ -191,7 +191,7 @@ fn render_foreground(game_state: &GameState, tile_vertices: &mut TileVertexBuffe
                 }
                 None => (&animation.idle, obj.remote_position_received_at),
             };
-            let direction = obj.direction.unwrap_or(obj.look_direction);
+            let direction = obj.look_direction;
             let animation_time = game_state.time.now - started_at;
             if let Some(sprite_index) = animation.get(direction, animation_time) {
                 tile_vertices.push_tile_multi(position, sprite_size, sprite_index.0 as _, 1);

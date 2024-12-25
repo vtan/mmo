@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use mmo_common::{
-    object::{Direction, ObjectId, ALL_DIRECTIONS},
+    object::{Direction4, Direction8, ObjectId, ALL_DIRECTIONS_8},
     player_event::PlayerEvent,
 };
 use tokio::time::Instant;
@@ -35,7 +35,7 @@ pub fn populate_mobs(map: &RoomMap, ctx: &ServerContext, now: Instant) -> Vec<Mo
                     movement: RemoteMovement {
                         position,
                         direction: None,
-                        look_direction: Direction::Down,
+                        look_direction: Direction4::Down,
                         received_at: now,
                     },
                     attack_target: None,
@@ -58,8 +58,9 @@ pub fn on_tick(tick: Tick, state: &mut RoomState, writer: &mut RoomWriter) {
         let mut crossed_tile = false;
         if let Some(direction) = mob.movement.direction {
             let prev_position = mob.movement.position;
-            mob.movement.position +=
-                direction.to_vector() * mob.template.velocity * tick::TICK_INTERVAL.as_secs_f32();
+            mob.movement.position += direction.to_unit_vector()
+                * mob.template.velocity
+                * tick::TICK_INTERVAL.as_secs_f32();
             crossed_tile =
                 prev_position.map(|x| x as u32) != mob.movement.position.map(|x| x as u32);
         }
@@ -82,8 +83,8 @@ pub fn on_tick(tick: Tick, state: &mut RoomState, writer: &mut RoomWriter) {
                 }
             } else {
                 let direction = attack_target.local_movement.position - mob.movement.position;
-                let direction = Direction::from_vector(direction);
-                let next_tile = mob.movement.position + direction.to_vector();
+                let direction = Direction8::from_vector(direction);
+                let next_tile = mob.movement.position + direction.to_unit_vector();
                 let can_move = !mmo_common::room::collision_at(
                     state.map.size,
                     &state.map.collisions,
@@ -92,7 +93,7 @@ pub fn on_tick(tick: Tick, state: &mut RoomState, writer: &mut RoomWriter) {
                 if can_move {
                     if mob.movement.direction != Some(direction) {
                         mob.movement.direction = Some(direction);
-                        mob.movement.look_direction = direction;
+                        mob.movement.look_direction = direction.to_direction4();
                         changed_direction = true;
                     }
                 } else {
@@ -105,7 +106,8 @@ pub fn on_tick(tick: Tick, state: &mut RoomState, writer: &mut RoomWriter) {
         } else {
             if crossed_tile || mob.movement.direction.is_none() {
                 mob.movement.direction = choose_direction(mob, &state.map);
-                mob.movement.look_direction = mob.movement.direction.unwrap_or(Direction::Down);
+                mob.movement.look_direction =
+                    mob.movement.direction.unwrap_or(Direction8::Down).to_direction4();
                 changed_direction = true;
             }
         }
@@ -152,14 +154,14 @@ fn choose_attack_target<'a>(
     None
 }
 
-fn choose_direction(mob: &Mob, map: &RoomMap) -> Option<Direction> {
+fn choose_direction(mob: &Mob, map: &RoomMap) -> Option<Direction8> {
     let mut rng = fastrand::Rng::new();
     let current_tile = mob.movement.position;
-    let candidates = ALL_DIRECTIONS
+    let candidates = ALL_DIRECTIONS_8
         .iter()
         .copied()
         .filter(|dir| {
-            let next_tile = current_tile + dir.to_vector();
+            let next_tile = current_tile + dir.to_neighbor_vector();
             let in_movement_range = mob.in_movement_range(next_tile);
             let collides = mmo_common::room::collision_at(map.size, &map.collisions, next_tile);
             in_movement_range && !collides

@@ -100,7 +100,7 @@ fn create_new_player(id: ObjectId, connection: PlayerConnection, ctx: &ServerCon
         remote_movement: RemoteMovement {
             position: ctx.world.start_position,
             direction: None,
-            look_direction: mmo_common::object::Direction::Down,
+            look_direction: mmo_common::object::Direction4::Down,
             received_at: now,
         },
         local_movement: LocalMovement { position: ctx.world.start_position, updated_at: now },
