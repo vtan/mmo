@@ -262,12 +262,16 @@ fn render_world_text(game_state: &GameState, assets: &Assets, vertex_buffer: &mu
         }
     }
 
-    for label in &game_state.damage_labels {
+    for label in &game_state.health_change_labels {
         let dt = game_state.time.now - label.received_at;
         let dy = 5.0 + 10.0 * dt * dt;
         let xy = game_state.camera.world_point_to_screen(label.position) - Vector2::new(0.0, dy);
-        let color = Vector4::new(1.0, 0.0, 0.0, 1.0);
-        let str = label.damage.to_string();
+        let color = if label.health_change > 0 {
+            Vector4::new(0.0, 1.0, 1.0, 1.0)
+        } else {
+            Vector4::new(1.0, 0.0, 0.0, 1.0)
+        };
+        let str = label.health_change.abs().to_string();
         assets
             .font_atlas
             .push_text(&str, xy + eps, 8.0, black, Align::Center, vertex_buffer);

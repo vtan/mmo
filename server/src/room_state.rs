@@ -1,4 +1,6 @@
-use crate::{mob::MobTemplate, player::PlayerConnection, server_context::ServerContext, util};
+use crate::{
+    mob::MobTemplate, player::PlayerConnection, server_context::ServerContext, tick::Tick, util,
+};
 use std::{collections::HashMap, sync::Arc};
 
 use mmo_common::{
@@ -37,6 +39,7 @@ pub struct Player {
     pub remote_movement: RemoteMovement,
     pub health: i32,
     pub max_health: i32,
+    pub last_damaged_at: Tick,
 }
 
 #[derive(Debug, Clone)]
@@ -48,7 +51,7 @@ pub struct Mob {
     pub movement: RemoteMovement,
     pub attack_target: Option<ObjectId>,
     pub health: i32,
-    pub last_attacked_at: u32,
+    pub last_attacked_at: Tick,
 }
 
 impl Mob {

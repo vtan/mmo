@@ -14,7 +14,7 @@ use tracing::instrument;
 use crate::player::{self, PlayerConnection};
 use crate::room_state::{LocalMovement, Player, RemoteMovement};
 use crate::server_context::ServerContext;
-use crate::tick;
+use crate::tick::{self, Tick};
 use crate::{room_actor, room_state};
 
 #[derive(Debug)]
@@ -93,7 +93,7 @@ pub async fn run(
 
 fn create_new_player(id: ObjectId, connection: PlayerConnection, ctx: &ServerContext) -> Player {
     let now = tokio::time::Instant::now();
-    let max_health = ctx.player_max_health;
+    let max_health = ctx.player.max_health;
     Player {
         id,
         connection,
@@ -106,6 +106,7 @@ fn create_new_player(id: ObjectId, connection: PlayerConnection, ctx: &ServerCon
         local_movement: LocalMovement { position: ctx.world.start_position, updated_at: now },
         health: max_health,
         max_health,
+        last_damaged_at: Tick(0),
     }
 }
 

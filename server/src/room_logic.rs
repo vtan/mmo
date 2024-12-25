@@ -14,7 +14,7 @@ use crate::{
     combat_logic, mob_logic,
     room_state::{LocalMovement, Player, RemoteMovement, RoomState, RoomWriter, UpstreamMessage},
     server_context::ServerContext,
-    tick::Tick,
+    tick::TickEvent,
 };
 
 #[instrument(skip_all, fields(player_id = player.id.0))]
@@ -40,7 +40,7 @@ fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter
                 object_id: player_id,
                 object_type: ObjectType::Player,
                 animation_id: state.server_context.player_animation,
-                velocity: state.server_context.player_velocity,
+                velocity: state.server_context.player.velocity,
                 health: player.health,
                 max_health: player.max_health,
             },
@@ -69,7 +69,7 @@ fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter
                     object_id: player_in_room.id,
                     object_type: ObjectType::Player,
                     animation_id: state.server_context.player_animation,
-                    velocity: state.server_context.player_velocity,
+                    velocity: state.server_context.player.velocity,
                     health: player_in_room.health,
                     max_health: player_in_room.max_health,
                 },
@@ -179,7 +179,7 @@ pub fn on_command(
     }
 }
 
-pub fn on_tick(tick: Tick, state: &mut RoomState, writer: &mut RoomWriter) {
+pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) {
     let now = tick.monotonic_time;
 
     let player_ids = state.players.keys().copied().collect::<Vec<_>>();
@@ -240,6 +240,7 @@ pub fn on_tick(tick: Tick, state: &mut RoomState, writer: &mut RoomWriter) {
         }
     }
 
+    combat_logic::heal_players(tick, state, writer);
     mob_logic::on_tick(tick, state, writer);
     handle_dead_players(state, writer);
 }
@@ -275,7 +276,7 @@ fn interpolate_position(
     if let Some(direction) = remote_movement.direction {
         let elapsed = now - remote_movement.received_at;
         let direction = direction.to_unit_vector();
-        let delta = direction * ctx.player_velocity * elapsed.as_secs_f32();
+        let delta = direction * ctx.player.velocity * elapsed.as_secs_f32();
         let position = remote_movement.position + delta;
         LocalMovement { position, updated_at: now }
     } else {

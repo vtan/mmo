@@ -5,7 +5,12 @@ use mmo_common::{animation::AnimationSet, room::RoomId};
 use nalgebra::Vector2;
 use serde::Deserialize;
 
-use crate::{assets::AssetPaths, mob::MobTemplate, room_state::RoomMap};
+use crate::{
+    assets::AssetPaths,
+    mob::MobTemplate,
+    room_state::RoomMap,
+    tick::{TickDuration, TickRate},
+};
 
 #[derive(Debug, Clone)]
 pub struct ServerContext {
@@ -13,12 +18,9 @@ pub struct ServerContext {
     pub world: World,
     pub mob_templates: HashMap<String, Arc<MobTemplate>>,
     pub animations: Vec<AnimationSet>,
-    pub player_animation: u32,
     pub mob_animations: HashMap<String, u32>,
-    pub player_velocity: f32,
-    pub player_max_health: i32,
-    pub player_damage: i32,
-    pub player_attack_range: f32,
+    pub player: PlayerConfig,
+    pub player_animation: u32,
 }
 
 impl ServerContext {
@@ -51,12 +53,9 @@ impl ServerContext {
             world,
             mob_templates: server_config.mob_templates,
             animations,
-            player_animation,
             mob_animations,
-            player_velocity: server_config.player_velocity,
-            player_max_health: server_config.player_max_health,
-            player_damage: server_config.player_damage,
-            player_attack_range: server_config.player_attack_range,
+            player: server_config.player,
+            player_animation,
         })
     }
 }
@@ -72,11 +71,8 @@ pub struct World {
 pub struct ServerConfig {
     pub animations: HashMap<String, AnimationSet>,
     pub mob_templates: HashMap<String, Arc<MobTemplate>>,
+    pub player: PlayerConfig,
     pub player_animation: String,
-    pub player_velocity: f32,
-    pub player_max_health: i32,
-    pub player_damage: i32,
-    pub player_attack_range: f32,
 }
 
 impl ServerConfig {
@@ -85,4 +81,15 @@ impl ServerConfig {
         let config = toml::from_str(&content)?;
         Ok(config)
     }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct PlayerConfig {
+    pub velocity: f32,
+    pub max_health: i32,
+    pub damage: i32,
+    pub attack_range: f32,
+    pub heal_after: TickDuration,
+    pub heal_rate: TickRate,
+    pub heal_amount: u32,
 }

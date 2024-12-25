@@ -6,6 +6,7 @@ use nalgebra::Vector2;
 
 use crate::{
     room_state::{Mob, Player, RoomState, RoomWriter},
+    tick::TickEvent,
     util,
 };
 
@@ -20,15 +21,19 @@ pub fn player_attack(player_id: ObjectId, state: &mut RoomState, writer: &mut Ro
         if hit_reaches(
             player.local_movement.position,
             player.remote_movement.look_direction,
-            state.server_context.player_attack_range,
+            state.server_context.player.attack_range,
             mob.movement.position,
         ) {
-            let damage = state.server_context.player_damage;
+            let damage = state.server_context.player.damage;
             mob.health = (mob.health - damage).max(0);
 
             writer.broadcast(
                 state.players.keys().copied(),
-                PlayerEvent::ObjectDamaged { object_id: mob.id, health: mob.health, damage },
+                PlayerEvent::ObjectHealthChanged {
+                    object_id: mob.id,
+                    health: mob.health,
+                    change: -damage,
+                },
             );
 
             if mob.health == 0 {
@@ -44,6 +49,7 @@ pub fn player_attack(player_id: ObjectId, state: &mut RoomState, writer: &mut Ro
 }
 
 pub fn mob_attack(
+    tick: TickEvent,
     player: &mut Player,
     mob: &Mob,
     player_ids: &[ObjectId],
@@ -51,11 +57,39 @@ pub fn mob_attack(
 ) {
     let damage = mob.template.damage;
     player.health = (player.health - damage).max(0);
+    player.last_damaged_at = tick.tick;
 
     writer.broadcast(
         player_ids.iter().copied(),
-        PlayerEvent::ObjectDamaged { object_id: player.id, health: player.health, damage },
+        PlayerEvent::ObjectHealthChanged {
+            object_id: player.id,
+            health: player.health,
+            change: -damage,
+        },
     );
+}
+
+pub fn heal_players(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) {
+    if tick.tick.is_nth(state.server_context.player.heal_rate) {
+        let player_ids = state.players.keys().copied().collect::<Vec<_>>();
+        for player in state.players.values_mut() {
+            if player.health < player.max_health
+                && tick.tick - player.last_damaged_at > state.server_context.player.heal_after
+            {
+                let heal = state.server_context.player.heal_amount as i32;
+                player.health = (player.health + heal).min(player.max_health);
+
+                writer.broadcast(
+                    player_ids.iter().copied(),
+                    PlayerEvent::ObjectHealthChanged {
+                        object_id: player.id,
+                        health: player.health,
+                        change: heal,
+                    },
+                );
+            }
+        }
+    }
 }
 
 fn hit_reaches(

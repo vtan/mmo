@@ -10,7 +10,9 @@ use nalgebra::Vector2;
 use crate::app_event::{AppEvent, MouseButton};
 use crate::app_state::AppState;
 use crate::camera::Camera;
-use crate::game_state::{GameState, LastPing, Object, ObjectAnimation, PartialGameState, Room};
+use crate::game_state::{
+    GameState, HealthChangeLabel, LastPing, Object, ObjectAnimation, PartialGameState, Room,
+};
 use crate::{assets, console_error, console_warn};
 
 pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
@@ -84,7 +86,7 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
             a.local_position.y.partial_cmp(&b.local_position.y).expect("NaN")
         });
         game_state
-            .damage_labels
+            .health_change_labels
             .retain(|label| game_state.time.now - label.received_at < 1.0);
     }
 }
@@ -120,7 +122,7 @@ fn update_partial(partial: &mut PartialGameState, events: PlayerEventEnvelope<Pl
             | PlayerEvent::ObjectAppeared { .. }
             | PlayerEvent::ObjectMovementChanged { .. }
             | PlayerEvent::ObjectAnimationAction { .. }
-            | PlayerEvent::ObjectDamaged { .. }
+            | PlayerEvent::ObjectHealthChanged { .. }
             | PlayerEvent::ObjectDisappeared { .. } => {
                 remaining.events.push(event);
             }
@@ -210,7 +212,7 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
                 console_warn!("Got ObjectAnimationAction for {object_id:?} but no object");
             }
         }
-        PlayerEvent::ObjectDamaged { object_id, damage, health } => {
+        PlayerEvent::ObjectHealthChanged { object_id, change: damage, health } => {
             if let Some(obj) = game_state.objects.iter_mut().find(|o| o.id == object_id) {
                 obj.health = health;
 
@@ -220,8 +222,8 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
                     .get(obj.animation_id)
                     .map(|a| a.sprite_size.y as f32)
                     .unwrap_or(0.0);
-                game_state.damage_labels.push(crate::game_state::DamageLabel {
-                    damage,
+                game_state.health_change_labels.push(HealthChangeLabel {
+                    health_change: damage,
                     position: obj.local_position - Vector2::new(0.0, obj_height),
                     received_at: game_state.time.now,
                 });

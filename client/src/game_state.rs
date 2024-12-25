@@ -21,7 +21,7 @@ pub struct GameState {
     pub room: Room,
     pub objects: Vec<Object>,
     pub camera: Camera,
-    pub damage_labels: Vec<DamageLabel>,
+    pub health_change_labels: Vec<HealthChangeLabel>,
     pub show_debug: bool,
 }
 
@@ -64,8 +64,8 @@ pub struct ObjectAnimation {
 }
 
 #[derive(Debug, Clone)]
-pub struct DamageLabel {
-    pub damage: i32,
+pub struct HealthChangeLabel {
+    pub health_change: i32,
     pub position: Vector2<f32>,
     pub received_at: f32,
 }
@@ -111,7 +111,7 @@ impl PartialGameState {
             room,
             objects: vec![],
             camera,
-            damage_labels: vec![],
+            health_change_labels: vec![],
             show_debug: false,
         })
     }

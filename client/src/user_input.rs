@@ -16,7 +16,6 @@ pub fn setup_handlers(
                 let app_event = AppEvent::KeyDown { code: event.code() };
                 (*events).borrow_mut().push(app_event);
             }
-            event.prevent_default();
         })
         .into_js_value()
     };
@@ -27,7 +26,6 @@ pub fn setup_handlers(
         Closure::<dyn FnMut(_)>::new(move |event: KeyboardEvent| {
             let app_event = AppEvent::KeyUp { code: event.code() };
             (*events).borrow_mut().push(app_event);
-            event.prevent_default();
         })
         .into_js_value()
     };

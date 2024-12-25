@@ -1,5 +1,7 @@
 use serde::Deserialize;
 
+use crate::tick::TickDuration;
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct MobTemplate {
     pub id: String,
@@ -9,5 +11,5 @@ pub struct MobTemplate {
     pub attack_range: f32,
     pub max_health: i32,
     pub damage: i32,
-    pub attack_cooldown_ticks: u32,
+    pub attack_cooldown: TickDuration,
 }

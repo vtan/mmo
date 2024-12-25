@@ -49,9 +49,9 @@ pub enum PlayerEvent {
         object_id: ObjectId,
         action: AnimationAction,
     },
-    ObjectDamaged {
+    ObjectHealthChanged {
         object_id: ObjectId,
-        damage: i32,
+        change: i32,
         health: i32,
     },
 }

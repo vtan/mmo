@@ -1,8 +1,12 @@
-player_velocity = 4.0
-player_attack_range = 1.5
-player_max_health = 100
-player_damage = 10
 player_animation = "player"
+[player]
+velocity = 4.0
+attack_range = 1.5
+max_health = 100
+damage = 10
+heal_after = 15.0
+heal_rate = 3.0
+heal_amount = 1
 
 [mob_templates.slime]
 id = "slime"
@@ -12,7 +16,7 @@ movement_range = 4.0
 attack_range = 0.8
 max_health = 50
 damage = 5
-attack_cooldown_ticks = 10
+attack_cooldown = 2.0
 
 [animations.player]
 sprite_size = [1, 2]

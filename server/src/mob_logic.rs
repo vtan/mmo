@@ -12,7 +12,7 @@ use crate::{
     object,
     room_state::{Mob, Player, RemoteMovement, RoomMap, RoomState, RoomWriter},
     server_context::ServerContext,
-    tick::{self, Tick},
+    tick::{self, Tick, TickEvent},
 };
 
 pub fn populate_mobs(map: &RoomMap, ctx: &ServerContext, now: Instant) -> Vec<Mob> {
@@ -40,7 +40,7 @@ pub fn populate_mobs(map: &RoomMap, ctx: &ServerContext, now: Instant) -> Vec<Mo
                     },
                     attack_target: None,
                     health,
-                    last_attacked_at: 0,
+                    last_attacked_at: Tick(0),
                 };
                 Some(mob)
             } else {
@@ -50,7 +50,7 @@ pub fn populate_mobs(map: &RoomMap, ctx: &ServerContext, now: Instant) -> Vec<Mo
         .collect()
 }
 
-pub fn on_tick(tick: Tick, state: &mut RoomState, writer: &mut RoomWriter) {
+pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) {
     let player_ids = state.players.keys().copied().collect::<Vec<_>>();
 
     for mob in &mut state.mobs {
@@ -77,8 +77,8 @@ pub fn on_tick(tick: Tick, state: &mut RoomState, writer: &mut RoomWriter) {
                     changed_direction = true;
                 }
 
-                if tick.tick - mob.last_attacked_at >= mob.template.attack_cooldown_ticks {
-                    combat_logic::mob_attack(attack_target, mob, &player_ids, writer);
+                if tick.tick - mob.last_attacked_at >= mob.template.attack_cooldown {
+                    combat_logic::mob_attack(tick, attack_target, mob, &player_ids, writer);
                     mob.last_attacked_at = tick.tick;
                 }
             } else {
