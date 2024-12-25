@@ -11,6 +11,7 @@ use crate::metrics::Metrics;
 use crate::vertex_buffer_renderer::VertexBufferRenderer;
 
 pub struct AppState {
+    pub client_git_sha: &'static str,
     pub gl: WebGl2RenderingContext,
     pub program: WebGlProgram,
     pub text_program: WebGlProgram,

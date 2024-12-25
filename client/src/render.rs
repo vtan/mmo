@@ -117,6 +117,7 @@ pub fn render(state: &mut AppState) {
     {
         let mut text_vertices = VertexBuffer::new();
         render_debug_ui(
+            state,
             game_state,
             &state.metrics.borrow(),
             assets,
@@ -275,12 +276,13 @@ fn render_world_text(game_state: &GameState, assets: &Assets, vertex_buffer: &mu
 }
 
 fn render_debug_ui(
+    app_state: &AppState,
     game_state: &GameState,
     metrics: &Metrics,
     assets: &Assets,
-    text_vertices: &mut VertexBuffer,
+    buf: &mut VertexBuffer,
 ) {
-    let x = game_state.camera.logical_screen_size.x - 60.0;
+    let x = game_state.camera.logical_screen_size.x - 48.0;
     let lines = [
         ("FPS:", &format!("{:.}", metrics.fps_stats.fps)),
         ("p50:", &format!("{:.1}ms", metrics.fps_stats.median_ms)),
@@ -295,23 +297,29 @@ fn render_debug_ui(
     ];
     for (i, (str1, str2)) in lines.iter().enumerate() {
         let y = i as f32 * 5.5;
+        let xy = Vector2::new(x, y);
         let color = Vector4::new(1.0, 1.0, 1.0, 1.0);
         let fa = &assets.font_atlas;
-        fa.push_text(
-            str1,
-            Vector2::new(x, y),
-            6.0,
-            color,
-            Align::Left,
-            text_vertices,
-        );
-        fa.push_text(
-            str2,
-            Vector2::new(x + 16.0, y),
-            6.0,
-            color,
-            Align::Left,
-            text_vertices,
-        );
+        fa.push_text(str1, xy, 6.0, color, Align::Left, buf);
+        let xy = xy + Vector2::new(16.0, 0.0);
+        fa.push_text(str2, xy, 6.0, color, Align::Left, buf);
+    }
+
+    let y = game_state.camera.logical_screen_size.y - 12.0;
+    let lines = [
+        ("client:", &format!("{:.7}", &app_state.client_git_sha)),
+        (
+            "server:",
+            &format!("{:.7}", game_state.client_config.server_git_sha),
+        ),
+    ];
+    for (i, (str1, str2)) in lines.iter().enumerate() {
+        let y = y + i as f32 * 5.5;
+        let xy = Vector2::new(x, y);
+        let color = Vector4::new(1.0, 1.0, 1.0, 1.0);
+        let fa = &assets.font_atlas;
+        fa.push_text(str1, xy, 6.0, color, Align::Left, buf);
+        let xy = xy + Vector2::new(16.0, 0.0);
+        fa.push_text(str2, xy, 6.0, color, Align::Left, buf);
     }
 }

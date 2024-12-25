@@ -35,6 +35,8 @@ static TEXT_FRAGMENT_SHADER: &str = include_str!("text-frag.glsl");
 
 #[wasm_bindgen(start)]
 pub async fn start() -> Result<(), JsValue> {
+    let client_git_sha = option_env!("VERGEN_GIT_SHA").unwrap_or("???");
+
     let window = web_sys::window().ok_or("No window")?;
     let document = window.document().ok_or("No document")?;
     let canvas = document.get_element_by_id("canvas").ok_or("No canvas")?;
@@ -116,6 +118,7 @@ pub async fn start() -> Result<(), JsValue> {
     let metrics = Rc::new(RefCell::new(Metrics::new(&window)));
 
     let mut app_state = AppState {
+        client_git_sha,
         gl,
         program,
         text_program,

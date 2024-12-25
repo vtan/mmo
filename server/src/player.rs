@@ -10,6 +10,7 @@ pub type PlayerConnection = mpsc::Sender<Vec<Arc<PlayerEvent>>>;
 // TODO: use Arc?
 pub fn client_config(server_context: &ServerContext) -> ClientConfig {
     ClientConfig {
+        server_git_sha: option_env!("VERGEN_GIT_SHA").unwrap_or("???").to_string(),
         asset_paths: server_context.asset_paths.paths.clone(),
         animations: server_context.animations.clone(),
     }

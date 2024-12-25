@@ -4,6 +4,7 @@ use crate::animation::AnimationSet;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ClientConfig {
+    pub server_git_sha: String,
     pub asset_paths: AssetPaths,
     pub animations: Vec<AnimationSet>,
 }

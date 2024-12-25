@@ -2,9 +2,13 @@
 name = "mmo-client"
 version = "0.1.0"
 edition = "2021"
+build = "build.rs"
 
 [lib]
 crate-type = ["cdylib"]
+
+[build-dependencies]
+vergen-git2 = { version = "1.0", features = ["build"] }
 
 [dependencies]
 mmo-common = { path = "../common" }
