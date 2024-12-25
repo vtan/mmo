@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use nalgebra::Vector2;
 use web_sys::{WebGl2RenderingContext, WebGlProgram, WebGlUniformLocation};
 
 use crate::app_event::AppEvent;
@@ -17,6 +18,7 @@ pub struct AppState {
     pub assets: Option<Assets>,
     pub vertex_buffer_renderer: VertexBufferRenderer,
     pub fps_counter: FpsCounter,
+    pub viewport: Vector2<u32>,
     pub events: Rc<RefCell<Vec<AppEvent>>>,
     pub game_state: Result<GameState, PartialGameState>,
 }

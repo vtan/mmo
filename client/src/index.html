@@ -6,11 +6,24 @@
 
     <title>mmo</title>
 
-    <link rel="stylesheet" href="stylesheet.css" />
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+      }
+
+      canvas {
+        display: block;
+        margin: 0;
+        padding: 0;
+        width: 100vw;
+        height: 100vh;
+        image-rendering: pixelated;
+      }
+    </style>
   </head>
   <body>
-    <div>
-      <canvas id="canvas" width="960" height="540"></canvas>
-    </div>
+    <canvas id="canvas" width="960" height="540"></canvas>
   </body>
 </html>

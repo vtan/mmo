@@ -1,4 +1,4 @@
-player_velocity = 3.0
+player_velocity = 4.0
 player_attack_range = 1.5
 player_max_health = 100
 player_damage = 10

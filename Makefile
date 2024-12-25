@@ -23,5 +23,4 @@ release:
 		RUSTFLAGS='-C target-feature=+neon' \
 		cargo build --package mmo-server --release --target aarch64-unknown-linux-musl
 	cp server/target/aarch64-unknown-linux-musl/release/mmo-server target/dist/
-	cp -r webroot/* target/dist/webroot/
 	cp -r assets data target/dist/

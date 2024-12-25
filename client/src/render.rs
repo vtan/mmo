@@ -49,7 +49,7 @@ pub fn render(state: &mut AppState) {
             .map(|o| o.local_position)
             .unwrap_or(Vector2::new(0.0, 0.0));
 
-        Camera::new(player_position, game_state.room.size)
+        Camera::new(player_position, game_state.room.size, state.viewport)
     };
 
     gl.use_program(Some(&state.program));
@@ -118,7 +118,7 @@ pub fn render(state: &mut AppState) {
         gl.uniform_matrix3fv_with_f32_array(
             Some(&state.uniform_locations.text_view_projection),
             false,
-            camera.screen_to_ndc.as_slice(),
+            camera.logical_screen_to_ndc.as_slice(),
         );
         gl.active_texture(GL::TEXTURE0);
         gl.bind_texture(GL::TEXTURE_2D, Some(&assets.font.texture));
@@ -130,6 +130,7 @@ pub fn render(state: &mut AppState) {
         render_debug_ui(
             game_state,
             &state.fps_counter.agg,
+            &camera,
             assets,
             &mut text_vertices,
         );
@@ -293,22 +294,24 @@ fn render_world_text(
 fn render_debug_ui(
     game_state: &GameState,
     fps_counter_agg: &FpsCounterAgg,
+    camera: &Camera,
     assets: &Assets,
     text_vertices: &mut VertexBuffer,
 ) {
-    let fps_lines = [
+    let x = camera.logical_screen_size.x - 60.0;
+    let lines = [
         ("FPS:", &format!("{:.}", fps_counter_agg.fps)),
         ("p50:", &format!("{:.1}ms", fps_counter_agg.median_ms)),
         ("p100:", &format!("{:.1}ms", fps_counter_agg.max_ms)),
         ("ping:", &format!("{:.1}ms", game_state.ping_rtt * 1000.0)),
     ];
-    for (i, (str1, str2)) in fps_lines.iter().enumerate() {
+    for (i, (str1, str2)) in lines.iter().enumerate() {
         let y = i as f32 * 5.5;
-        let color = Vector4::new(1.0, 1.0, 1.0, 0.6);
+        let color = Vector4::new(1.0, 1.0, 1.0, 1.0);
         let fa = &assets.font_atlas;
         fa.push_text(
             str1,
-            Vector2::new(420.0, y),
+            Vector2::new(x, y),
             6.0,
             color,
             Align::Left,
@@ -316,7 +319,7 @@ fn render_debug_ui(
         );
         fa.push_text(
             str2,
-            Vector2::new(432.0, y),
+            Vector2::new(x + 16.0, y),
             6.0,
             color,
             Align::Left,

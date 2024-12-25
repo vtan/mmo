@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use game_state::PartialGameState;
+use nalgebra::Vector2;
 use vertex_buffer_renderer::VertexBufferRenderer;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -122,6 +123,7 @@ pub async fn start() -> Result<(), JsValue> {
         assets: None,
         vertex_buffer_renderer,
         fps_counter,
+        viewport: Vector2::new(canvas.client_width() as u32, canvas.client_height() as u32),
         events: Rc::new(RefCell::new(vec![])),
         game_state: Err(PartialGameState::new()),
     };
@@ -158,7 +160,7 @@ pub async fn start() -> Result<(), JsValue> {
         },
         move || {
             update_time(&mut app_state);
-            update_canvas_size(&canvas, &mut app_state.gl);
+            update_canvas_size(&canvas, &mut app_state);
 
             let events = (*app_state.events).take();
             update::update(&mut app_state, events);
@@ -204,12 +206,13 @@ fn update_time(app_state: &mut AppState) {
     time.frame_delta = now - prev_time;
 }
 
-fn update_canvas_size(canvas: &web_sys::HtmlCanvasElement, gl: &mut GL) {
+fn update_canvas_size(canvas: &web_sys::HtmlCanvasElement, app_state: &mut AppState) {
     let client_width = canvas.client_width() as u32;
     let client_height = canvas.client_height() as u32;
     if (canvas.width(), canvas.height()) != (client_width, client_height) {
         canvas.set_width(client_width);
         canvas.set_height(client_height);
-        gl.viewport(0, 0, client_width as i32, client_height as i32);
+        app_state.gl.viewport(0, 0, client_width as i32, client_height as i32);
+        app_state.viewport = Vector2::new(client_width, client_height);
     }
 }
