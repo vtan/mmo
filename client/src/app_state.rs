@@ -6,8 +6,8 @@ use web_sys::{WebGl2RenderingContext, WebGlProgram, WebGlUniformLocation};
 
 use crate::app_event::AppEvent;
 use crate::assets::Assets;
-use crate::fps_counter::FpsCounter;
 use crate::game_state::{GameState, PartialGameState};
+use crate::metrics::Metrics;
 use crate::vertex_buffer_renderer::VertexBufferRenderer;
 
 pub struct AppState {
@@ -17,7 +17,7 @@ pub struct AppState {
     pub uniform_locations: UniformLocations,
     pub assets: Option<Assets>,
     pub vertex_buffer_renderer: VertexBufferRenderer,
-    pub fps_counter: Rc<RefCell<FpsCounter>>,
+    pub metrics: Rc<RefCell<Metrics>>,
     pub viewport: Vector2<u32>,
     pub events: Rc<RefCell<Vec<AppEvent>>>,
     pub game_state: Result<GameState, PartialGameState>,

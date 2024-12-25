@@ -15,11 +15,11 @@ use web_sys::{MessageEvent, WebSocket};
 use crate::app_event::AppEvent;
 use crate::console_error;
 use crate::console_warn;
-use crate::fps_counter::FpsCounter;
+use crate::metrics::Metrics;
 
 pub fn connect(
     events: Rc<RefCell<Vec<AppEvent>>>,
-    metrics: Rc<RefCell<FpsCounter>>,
+    metrics: Rc<RefCell<Metrics>>,
 ) -> Result<WebSocket, JsValue> {
     let window = web_sys::window().expect("No window");
     let performance = window.performance().expect("No performance");
@@ -86,7 +86,7 @@ pub fn connect(
 pub fn send(
     ws: &WebSocket,
     commands: Vec<PlayerCommand>,
-    metrics: &mut FpsCounter,
+    metrics: &mut Metrics,
 ) -> Result<(), JsValue> {
     let command_count = commands.len();
     let envelope = PlayerCommandEnvelope { commands };

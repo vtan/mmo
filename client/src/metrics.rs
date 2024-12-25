@@ -5,8 +5,8 @@ use web_sys::{Performance, Window};
 const MILLISECS_PER_WINDOW: f64 = 1000.0;
 
 #[derive(Debug, Clone)]
-pub struct FpsCounter {
-    pub agg: FpsCounterAgg,
+pub struct Metrics {
+    pub fps_stats: FpsStats,
     pub net_stats: NetStats,
     performance: Performance,
     window_started: f64,
@@ -15,8 +15,8 @@ pub struct FpsCounter {
     current_net_stats: NetStats,
 }
 
-#[derive(Debug, Clone)]
-pub struct FpsCounterAgg {
+#[derive(Debug, Clone, Default)]
+pub struct FpsStats {
     pub fps: f32,
     pub median_ms: f32,
     pub max_ms: f32,
@@ -32,10 +32,10 @@ pub struct NetStats {
     pub out_commands: u32,
 }
 
-impl FpsCounter {
-    pub fn new(window: &Window) -> FpsCounter {
-        FpsCounter {
-            agg: FpsCounterAgg { fps: 0.0, median_ms: 0.0, max_ms: 0.0 },
+impl Metrics {
+    pub fn new(window: &Window) -> Metrics {
+        Metrics {
+            fps_stats: FpsStats::default(),
             net_stats: NetStats::default(),
             performance: window.performance().expect("Performance not available"),
             window_started: 0.0,
@@ -87,7 +87,7 @@ impl FpsCounter {
         let len = self.samples.len();
         if len > 0 {
             self.samples.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Less));
-            self.agg = FpsCounterAgg {
+            self.fps_stats = FpsStats {
                 fps: len as f32,
                 median_ms: self.samples[len / 2] as f32,
                 max_ms: self.samples[len - 1] as f32,

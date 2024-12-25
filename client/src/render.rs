@@ -11,8 +11,8 @@ use crate::{
     assets::Assets,
     camera::{self, Camera},
     font_atlas::Align,
-    fps_counter::{FpsCounter, FpsCounterAgg},
     game_state::GameState,
+    metrics::Metrics,
     vertex_buffer::{LineVertexBuffer, TileVertexBuffer, VertexBuffer},
 };
 
@@ -129,7 +129,7 @@ pub fn render(state: &mut AppState) {
         let mut text_vertices = VertexBuffer::new();
         render_debug_ui(
             game_state,
-            &state.fps_counter.borrow(),
+            &state.metrics.borrow(),
             &camera,
             assets,
             &mut text_vertices,
@@ -293,23 +293,23 @@ fn render_world_text(
 
 fn render_debug_ui(
     game_state: &GameState,
-    fps_counter: &FpsCounter,
+    metrics: &Metrics,
     camera: &Camera,
     assets: &Assets,
     text_vertices: &mut VertexBuffer,
 ) {
     let x = camera.logical_screen_size.x - 60.0;
     let lines = [
-        ("FPS:", &format!("{:.}", fps_counter.agg.fps)),
-        ("p50:", &format!("{:.1}ms", fps_counter.agg.median_ms)),
-        ("p100:", &format!("{:.1} ms", fps_counter.agg.max_ms)),
+        ("FPS:", &format!("{:.}", metrics.fps_stats.fps)),
+        ("p50:", &format!("{:.1}ms", metrics.fps_stats.median_ms)),
+        ("p100:", &format!("{:.1} ms", metrics.fps_stats.max_ms)),
         ("ping:", &format!("{:.1} ms", game_state.ping_rtt * 1000.0)),
-        ("in:", &format!("{} B/s", fps_counter.net_stats.in_bytes)),
-        ("", &format!("{} evt/s", fps_counter.net_stats.in_events)),
-        ("", &format!("{} frame/s", fps_counter.net_stats.in_frames)),
-        ("out:", &format!("{} B/s", fps_counter.net_stats.out_bytes)),
-        ("", &format!("{} cmd/s", fps_counter.net_stats.out_commands)),
-        ("", &format!("{} frame/s", fps_counter.net_stats.out_frames)),
+        ("in:", &format!("{} B/s", metrics.net_stats.in_bytes)),
+        ("", &format!("{} evt/s", metrics.net_stats.in_events)),
+        ("", &format!("{} frame/s", metrics.net_stats.in_frames)),
+        ("out:", &format!("{} B/s", metrics.net_stats.out_bytes)),
+        ("", &format!("{} cmd/s", metrics.net_stats.out_commands)),
+        ("", &format!("{} frame/s", metrics.net_stats.out_frames)),
     ];
     for (i, (str1, str2)) in lines.iter().enumerate() {
         let y = i as f32 * 5.5;
