@@ -7,12 +7,15 @@ use mmo_common::room::RoomSync;
 use mmo_common::{rle, room};
 use nalgebra::Vector2;
 
-use crate::app_event::AppEvent;
+use crate::app_event::{AppEvent, MouseButton};
 use crate::app_state::AppState;
+use crate::camera::Camera;
 use crate::game_state::{GameState, LastPing, Object, ObjectAnimation, PartialGameState, Room};
 use crate::{assets, console_error, console_warn};
 
 pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
+    update_camera(state);
+
     for event in events {
         match event {
             AppEvent::KeyDown { code } => {
@@ -36,6 +39,13 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
                         "KeyS" => direction_pressed(game_state, Direction4::Down, false),
                         "KeyD" => direction_pressed(game_state, Direction4::Right, false),
                         _ => (),
+                    }
+                }
+            }
+            AppEvent::MouseDown { x, y, button } => {
+                if let Ok(game_state) = &mut state.game_state {
+                    if button == MouseButton::Left {
+                        mouse_left_pressed(game_state, Vector2::new(x as f32, y as f32));
                     }
                 }
             }
@@ -225,6 +235,20 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
     }
 }
 
+fn update_camera(state: &mut AppState) {
+    if let Ok(ref mut game_state) = &mut state.game_state {
+        let focus = game_state
+            .objects
+            .iter()
+            .find(|o| o.id == game_state.self_id)
+            .map(|o| o.local_position)
+            .unwrap_or_default();
+        let map_size = game_state.room.size;
+        let viewport = state.viewport;
+        game_state.camera = Camera::new(focus, map_size, viewport);
+    }
+}
+
 fn direction_pressed(game_state: &mut GameState, pressed_direction: Direction4, pressed: bool) {
     if let Some(obj) = game_state.objects.iter_mut().find(|o| o.id == game_state.self_id) {
         game_state.directions_pressed[pressed_direction as usize] = pressed;
@@ -267,6 +291,25 @@ fn direction_from_pressed(pressed: &[bool; 4]) -> Option<Direction8> {
         (false, true, true, false) => Some(Direction8::LeftUp),
         _ => None,
     }
+}
+
+fn mouse_left_pressed(game_state: &mut GameState, mouse: Vector2<f32>) {
+    if let Some(player) = game_state.objects.iter_mut().find(|o| o.id == game_state.self_id) {
+        let to_click = game_state.camera.screen_point_to_world(mouse) - player.local_position;
+        let look_direction = Direction4::from_vector(to_click);
+        if look_direction != player.look_direction {
+            player.look_direction = look_direction;
+            game_state.ws_commands.push(PlayerCommand::RoomCommand {
+                room_id: game_state.room.room_id,
+                command: RoomCommand::Move {
+                    position: player.local_position,
+                    direction: player.direction,
+                    look_direction,
+                },
+            });
+        }
+    }
+    start_attack(game_state);
 }
 
 fn start_attack(game_state: &mut GameState) {

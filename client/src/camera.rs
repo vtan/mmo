@@ -11,6 +11,8 @@ pub struct Camera {
     pub world_to_logical_screen: Matrix3<f32>,
     pub logical_screen_to_ndc: Matrix3<f32>,
     pub logical_screen_size: Vector2<f32>,
+    world_to_camera: Translation2<f32>,
+    camera_to_screen: Scale2<f32>,
 }
 
 impl Camera {
@@ -43,6 +45,8 @@ impl Camera {
         let camera_to_logical_screen = Scale2::new(pixels_per_tile, pixels_per_tile);
         let logical_screen_to_screen =
             Scale2::new(pixels_per_logical_pixel, pixels_per_logical_pixel);
+        let camera_to_screen = logical_screen_to_screen * camera_to_logical_screen;
+
         let world_to_logical_screen =
             camera_to_logical_screen.to_homogeneous() * world_to_camera.to_homogeneous();
 
@@ -57,11 +61,21 @@ impl Camera {
             world_to_logical_screen,
             logical_screen_to_ndc,
             logical_screen_size,
+            world_to_camera,
+            camera_to_screen,
         }
     }
 
     pub fn world_point_to_screen(&self, p: Vector2<f32>) -> Vector2<f32> {
         self.world_to_logical_screen.transform_point(&Point2::from(p)).coords
+    }
+
+    pub fn screen_point_to_world(&self, p: Vector2<f32>) -> Vector2<f32> {
+        self.world_to_camera
+            .inverse_transform_point(
+                &self.camera_to_screen.pseudo_inverse().transform_point(&Point2::from(p)),
+            )
+            .coords
     }
 }
 

@@ -32,6 +32,7 @@ features = [
   'KeyboardEvent',
   'Location',
   'MessageEvent',
+  'MouseEvent',
   'Performance',
   'Request',
   'RequestInit',

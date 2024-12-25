@@ -8,6 +8,8 @@ use mmo_common::{
 };
 use nalgebra::Vector2;
 
+use crate::camera::Camera;
+
 pub struct GameState {
     pub time: Timestamps,
     pub ws_commands: Vec<PlayerCommand>,
@@ -18,6 +20,7 @@ pub struct GameState {
     pub client_config: ClientConfig,
     pub room: Room,
     pub objects: Vec<Object>,
+    pub camera: Camera,
     pub damage_labels: Vec<DamageLabel>,
     pub show_debug: bool,
 }
@@ -96,6 +99,7 @@ impl PartialGameState {
         let self_id = self.self_id?;
         let client_config = self.client_config.clone()?;
         let room = self.room.clone()?;
+        let camera = Camera::new(Default::default(), Default::default(), Default::default());
         Some(GameState {
             time: self.time,
             ws_commands: Vec::new(),
@@ -106,6 +110,7 @@ impl PartialGameState {
             client_config,
             room,
             objects: vec![],
+            camera,
             damage_labels: vec![],
             show_debug: false,
         })

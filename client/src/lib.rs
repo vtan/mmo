@@ -6,9 +6,8 @@ use nalgebra::Vector2;
 use vertex_buffer_renderer::VertexBufferRenderer;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use web_sys::{KeyboardEvent, WebGl2RenderingContext as GL};
+use web_sys::WebGl2RenderingContext as GL;
 
-use crate::app_event::AppEvent;
 use crate::app_state::{AppState, UniformLocations};
 use crate::metrics::Metrics;
 
@@ -24,6 +23,7 @@ mod render;
 mod shader;
 mod texture;
 mod update;
+mod user_input;
 mod util;
 mod vertex_buffer;
 mod vertex_buffer_renderer;
@@ -130,27 +130,7 @@ pub async fn start() -> Result<(), JsValue> {
 
     let ws = ws_connection::connect(app_state.events.clone(), metrics)?;
 
-    let keydown_listener = {
-        let events = app_state.events.clone();
-        Closure::<dyn FnMut(_)>::new(move |event: KeyboardEvent| {
-            if !event.repeat() {
-                let app_event = AppEvent::KeyDown { code: event.code() };
-                (*events).borrow_mut().push(app_event);
-            }
-        })
-        .into_js_value()
-    };
-    document.add_event_listener_with_callback("keydown", keydown_listener.unchecked_ref())?;
-
-    let keyup_listener = {
-        let events = app_state.events.clone();
-        Closure::<dyn FnMut(_)>::new(move |event: KeyboardEvent| {
-            let app_event = AppEvent::KeyUp { code: event.code() };
-            (*events).borrow_mut().push(app_event);
-        })
-        .into_js_value()
-    };
-    document.add_event_listener_with_callback("keyup", keyup_listener.unchecked_ref())?;
+    user_input::setup_handlers(&document, app_state.events.clone())?;
 
     render::init(&mut app_state);
 

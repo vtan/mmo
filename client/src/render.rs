@@ -9,7 +9,7 @@ use web_sys::WebGl2RenderingContext as GL;
 use crate::{
     app_state::AppState,
     assets::Assets,
-    camera::{self, Camera},
+    camera::{self},
     font_atlas::Align,
     game_state::GameState,
     metrics::Metrics,
@@ -41,17 +41,6 @@ pub fn render(state: &mut AppState) {
         Err(_) => return,
     };
 
-    let camera = {
-        let player_position = game_state
-            .objects
-            .iter()
-            .find(|o| o.id == game_state.self_id)
-            .map(|o| o.local_position)
-            .unwrap_or(Vector2::new(0.0, 0.0));
-
-        Camera::new(player_position, game_state.room.size, state.viewport)
-    };
-
     gl.use_program(Some(&state.program));
 
     {
@@ -71,7 +60,7 @@ pub fn render(state: &mut AppState) {
         gl.uniform_matrix3fv_with_f32_array(
             Some(&state.uniform_locations.view_projection),
             false,
-            camera.world_to_ndc.as_slice(),
+            game_state.camera.world_to_ndc.as_slice(),
         );
 
         gl.active_texture(GL::TEXTURE0);
@@ -88,7 +77,7 @@ pub fn render(state: &mut AppState) {
         gl.uniform_matrix3fv_with_f32_array(
             Some(&state.uniform_locations.view_projection),
             false,
-            camera.world_to_ndc.as_slice(),
+            game_state.camera.world_to_ndc.as_slice(),
         );
         gl.active_texture(GL::TEXTURE0);
         gl.bind_texture(GL::TEXTURE_2D, Some(&assets.white.texture));
@@ -109,7 +98,7 @@ pub fn render(state: &mut AppState) {
 
     {
         let mut vertex_buffer = VertexBuffer::new();
-        render_world_text(game_state, &camera, assets, &mut vertex_buffer);
+        render_world_text(game_state, assets, &mut vertex_buffer);
 
         gl.uniform1f(
             Some(&state.uniform_locations.text_distance_range),
@@ -118,7 +107,7 @@ pub fn render(state: &mut AppState) {
         gl.uniform_matrix3fv_with_f32_array(
             Some(&state.uniform_locations.text_view_projection),
             false,
-            camera.logical_screen_to_ndc.as_slice(),
+            game_state.camera.logical_screen_to_ndc.as_slice(),
         );
         gl.active_texture(GL::TEXTURE0);
         gl.bind_texture(GL::TEXTURE_2D, Some(&assets.font.texture));
@@ -130,7 +119,6 @@ pub fn render(state: &mut AppState) {
         render_debug_ui(
             game_state,
             &state.metrics.borrow(),
-            &camera,
             assets,
             &mut text_vertices,
         );
@@ -254,17 +242,12 @@ fn render_debug_lines(game_state: &GameState, vertex_buffer: &mut LineVertexBuff
     }
 }
 
-fn render_world_text(
-    game_state: &GameState,
-    camera: &Camera,
-    assets: &Assets,
-    vertex_buffer: &mut VertexBuffer,
-) {
+fn render_world_text(game_state: &GameState, assets: &Assets, vertex_buffer: &mut VertexBuffer) {
     let black = Vector4::new(0.0, 0.0, 0.0, 1.0);
     let eps = Vector2::new(0.4, 0.4);
     for obj in game_state.objects.iter() {
         if obj.typ == ObjectType::Player {
-            let xy = camera.world_point_to_screen(obj.local_position);
+            let xy = game_state.camera.world_point_to_screen(obj.local_position);
             let color = if obj.id == game_state.self_id {
                 Vector4::new(1.0, 1.0, 0.0, 1.0)
             } else {
@@ -281,7 +264,7 @@ fn render_world_text(
     for label in &game_state.damage_labels {
         let dt = game_state.time.now - label.received_at;
         let dy = 5.0 + 10.0 * dt * dt;
-        let xy = camera.world_point_to_screen(label.position) - Vector2::new(0.0, dy);
+        let xy = game_state.camera.world_point_to_screen(label.position) - Vector2::new(0.0, dy);
         let color = Vector4::new(1.0, 0.0, 0.0, 1.0);
         let str = label.damage.to_string();
         assets
@@ -294,11 +277,10 @@ fn render_world_text(
 fn render_debug_ui(
     game_state: &GameState,
     metrics: &Metrics,
-    camera: &Camera,
     assets: &Assets,
     text_vertices: &mut VertexBuffer,
 ) {
-    let x = camera.logical_screen_size.x - 60.0;
+    let x = game_state.camera.logical_screen_size.x - 60.0;
     let lines = [
         ("FPS:", &format!("{:.}", metrics.fps_stats.fps)),
         ("p50:", &format!("{:.1}ms", metrics.fps_stats.median_ms)),
