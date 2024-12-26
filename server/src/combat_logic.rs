@@ -1,4 +1,5 @@
 use mmo_common::{
+    animation::AnimationAction,
     object::{Direction4, ObjectId},
     player_event::PlayerEvent,
 };
@@ -59,13 +60,19 @@ pub fn mob_attack(
     player.health = (player.health - damage).max(0);
     player.last_damaged_at = tick.tick;
 
-    writer.broadcast(
+    writer.broadcast_many(
         player_ids.iter().copied(),
-        PlayerEvent::ObjectHealthChanged {
-            object_id: player.id,
-            health: player.health,
-            change: -damage,
-        },
+        &[
+            PlayerEvent::ObjectAnimationAction {
+                object_id: mob.id,
+                action: AnimationAction::Attack,
+            },
+            PlayerEvent::ObjectHealthChanged {
+                object_id: player.id,
+                health: player.health,
+                change: -damage,
+            },
+        ],
     );
 }
 
