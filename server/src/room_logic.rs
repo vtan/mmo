@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use mmo_common::{
-    animation::AnimationAction,
     object::{Direction4, ObjectId, ObjectType},
     player_command::RoomCommand,
     player_event::PlayerEvent,
@@ -172,7 +171,7 @@ pub fn on_command(
                 RoomWriterTarget::AllExcept(player_id),
                 PlayerEvent::ObjectAnimationAction {
                     object_id: player_id,
-                    action: AnimationAction::Attack,
+                    animation_index: state.server_context.player.attack_animation_index,
                 },
             );
         }

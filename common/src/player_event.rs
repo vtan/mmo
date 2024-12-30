@@ -2,7 +2,6 @@ use nalgebra::Vector2;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    animation::AnimationAction,
     client_config::ClientConfig,
     object::{Direction4, Direction8, ObjectId, ObjectType},
     room::RoomSync,
@@ -47,7 +46,7 @@ pub enum PlayerEvent {
     },
     ObjectAnimationAction {
         object_id: ObjectId,
-        action: AnimationAction,
+        animation_index: u8,
     },
     ObjectHealthChanged {
         object_id: ObjectId,

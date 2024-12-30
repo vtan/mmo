@@ -1,4 +1,3 @@
-use mmo_common::animation::AnimationAction;
 use mmo_common::client_config::ClientConfig;
 use mmo_common::object::{Direction4, Direction8};
 use mmo_common::player_command::{GlobalCommand, PlayerCommand, RoomCommand};
@@ -212,9 +211,10 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
                 console_warn!("Got ObjectMovementChanged for {object_id:?} but no object");
             }
         }
-        PlayerEvent::ObjectAnimationAction { object_id, action } => {
+        PlayerEvent::ObjectAnimationAction { object_id, animation_index } => {
             if let Some(obj) = game_state.objects.iter_mut().find(|o| o.id == object_id) {
-                obj.animation = Some(ObjectAnimation { action, started_at: game_state.time.now });
+                obj.animation =
+                    Some(ObjectAnimation { animation_index, started_at: game_state.time.now });
             } else {
                 console_warn!("Got ObjectAnimationAction for {object_id:?} but no object");
             }
@@ -332,7 +332,7 @@ fn mouse_left_pressed(game_state: &mut GameState, mouse: Vector2<f32>) {
 fn start_attack(game_state: &mut GameState) {
     if let Some(obj) = game_state.objects.iter_mut().find(|o| o.id == game_state.self_id) {
         obj.animation = Some(ObjectAnimation {
-            action: AnimationAction::Attack,
+            animation_index: game_state.client_config.player_attack_animation_index,
             started_at: game_state.time.now,
         });
 
@@ -399,9 +399,8 @@ fn update_remote_movement(game_state: &mut GameState) {
 fn is_animation_running(object: &Object, client_config: &ClientConfig, now: f32) -> bool {
     if let Some(animation) = &object.animation {
         let runtime = now - animation.started_at;
-        let animation = match animation.action {
-            AnimationAction::Attack => &client_config.animations[object.animation_id].attack,
-        };
+        let animation = &client_config.animations[object.animation_id].custom
+            [animation.animation_index as usize];
         runtime < animation.total_length
     } else {
         false

@@ -1,5 +1,6 @@
 player_animation = "player"
 [player]
+attack_animation_index = 0
 velocity = 4.0
 attack_range = 1.5
 max_health = 100
@@ -18,17 +19,19 @@ attack_cooldown = 2.0
 
 [[mob_templates.slime.attacks]]
 target_type = { type = "Single" }
+animation_index = 0
 range = 0.8
 damage = 5
 telegraph_length = 0.3
 length = 0.5
 
 [[mob_templates.slime.attacks]]
-target_type = { type = "Area", radius = 1.5 }
+target_type = { type = "Area", radius = 1.0 }
+animation_index = 1
 range = 3.0
 damage = 10
-telegraph_length = 0.3
-length = 0.5
+telegraph_length = 0.8
+length = 1.0
 
 [animations.player]
 sprite_size = [1, 2]
@@ -50,7 +53,7 @@ up = [3, 4, 3, 5]
 right = [6, 7, 6, 8]
 left = [9, 10, 9, 11]
 
-[animations.player.attack]
+[[animations.player.custom]]
 total_length = 0.2
 start_times = [0.0, 0.1]
 down = [1, 2]
@@ -78,9 +81,17 @@ up = [67, 68, 67, 69]
 right = [70, 71, 70, 72]
 left = [73, 74, 73, 75]
 
-[animations.slime.attack]
+[[animations.slime.custom]]
 total_length = 0.5
 start_times = [0.0, 0.30, 0.367, 0.433]
+down = [66, 65, 66, 65]
+up = [69, 68, 69, 68]
+right = [72, 71, 72, 71]
+left = [75, 74, 75, 74]
+
+[[animations.slime.custom]]
+total_length = 1.0
+start_times = [0.0, 0.80, 0.867, 0.933]
 down = [66, 65, 66, 65]
 up = [69, 68, 69, 68]
 right = [72, 71, 72, 71]

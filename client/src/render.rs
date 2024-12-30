@@ -1,5 +1,4 @@
 use mmo_common::{
-    animation::AnimationAction,
     object::ObjectType,
     room::{ForegroundTile, TileIndex},
 };
@@ -173,9 +172,10 @@ fn render_foreground(game_state: &GameState, tile_vertices: &mut TileVertexBuffe
             let position = obj.local_position - (sprite_size.cast() - animation.anchor);
 
             let (animation, started_at) = match &obj.animation {
-                Some(obj_animation) => match obj_animation.action {
-                    AnimationAction::Attack => (&animation.attack, obj_animation.started_at),
-                },
+                Some(obj_animation) => {
+                    let animation = &animation.custom[obj_animation.animation_index as usize];
+                    (animation, obj_animation.started_at)
+                }
                 None if obj.direction.is_some() => {
                     (&animation.walk, obj.remote_position_received_at)
                 }
@@ -246,7 +246,7 @@ fn render_debug_lines(game_state: &GameState, vertex_buffer: &mut LineVertexBuff
 
 fn render_attack_markers(game_state: &GameState, vertex_buffer: &mut VertexBuffer) {
     for marker in &game_state.attack_markers {
-        let wh = Vector2::new(marker.radius, marker.radius);
+        let wh = Vector2::new(2.0, 2.0) * marker.radius;
         let xy = marker.position - wh / 2.0;
         let color = Vector4::new(1.0, 0.0, 0.0, 0.2);
         vertex_buffer.push_quad(

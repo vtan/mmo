@@ -1,5 +1,4 @@
 use mmo_common::{
-    animation::AnimationAction,
     client_config::ClientConfig,
     object::{Direction4, Direction8, ObjectId, ObjectType},
     player_command::PlayerCommand,
@@ -60,7 +59,7 @@ pub struct Object {
 
 #[derive(Debug, Clone)]
 pub struct ObjectAnimation {
-    pub action: AnimationAction,
+    pub animation_index: u8,
     pub started_at: f32,
 }
 

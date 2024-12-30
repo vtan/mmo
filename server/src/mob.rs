@@ -20,6 +20,7 @@ pub struct MobAttack {
     pub damage: i32,
     pub telegraph_length: TickDuration,
     pub length: TickDuration,
+    pub animation_index: u8,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]

@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use mmo_common::{
-    animation::AnimationAction,
     object::{Direction4, Direction8, ALL_DIRECTIONS_8},
     player_event::PlayerEvent,
 };
@@ -105,7 +104,7 @@ pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) 
                                 RoomWriterTarget::All,
                                 PlayerEvent::ObjectAnimationAction {
                                     object_id: mob.id,
-                                    action: AnimationAction::Attack,
+                                    animation_index: attack.animation_index,
                                 },
                             );
                             if let MobAttackTargetType::Area { radius } = attack.target_type {
@@ -114,7 +113,7 @@ pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) 
                                     PlayerEvent::AttackTargeted {
                                         position: target.local_movement.position,
                                         radius,
-                                        length: attack.length.as_secs_f32(),
+                                        length: attack.telegraph_length.as_secs_f32(),
                                     },
                                 );
                             }

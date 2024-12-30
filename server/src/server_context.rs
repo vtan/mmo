@@ -85,6 +85,7 @@ impl ServerConfig {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct PlayerConfig {
+    pub attack_animation_index: u8,
     pub velocity: f32,
     pub max_health: i32,
     pub damage: i32,

@@ -7,6 +7,7 @@ pub struct ClientConfig {
     pub server_git_sha: String,
     pub asset_paths: AssetPaths,
     pub animations: Vec<AnimationSet>,
+    pub player_attack_animation_index: u8,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
