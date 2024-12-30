@@ -37,7 +37,7 @@ impl FontAtlas {
         text: &str,
         anchor: Vector2<f32>,
         height: f32,
-        color: Vector4<f32>,
+        color: Vector4<u8>,
         align: Align,
         vertex_buffer: &mut VertexBuffer,
     ) {
@@ -64,7 +64,7 @@ impl FontAtlas {
         glyph: &Glyph,
         top_left: Vector2<f32>,
         height: f32,
-        color: Vector4<f32>,
+        color: Vector4<u8>,
         texture_index: u32,
         vertex_buffer: &mut VertexBuffer,
     ) {

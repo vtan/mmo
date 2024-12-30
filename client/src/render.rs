@@ -220,10 +220,10 @@ fn render_health_bars(game_state: &GameState, vertex_buffer: &mut VertexBuffer) 
                 let zero = Vector2::new(0.0, 0.0);
                 let xy = obj.local_position - Vector2::new(0.5, animation.sprite_size.y as _);
                 let wh = Vector2::new(1.0, 1.0 / 8.0);
-                let color = Vector4::new(0.0, 0.0, 0.0, 1.0);
+                let color = Vector4::new(0, 0, 0, 0xff);
                 vertex_buffer.push_quad(xy, wh, zero, zero, color, 0);
                 let wh = Vector2::new(obj.health as f32 / obj.max_health as f32, 1.0 / 8.0);
-                let color = Vector4::new(1.0, 0.0, 0.0, 1.0);
+                let color = Vector4::new(0xff, 0, 0, 0xff);
                 vertex_buffer.push_quad(xy, wh, zero, zero, color, 0);
             }
         }
@@ -237,7 +237,7 @@ fn render_debug_lines(game_state: &GameState, vertex_buffer: &mut LineVertexBuff
                 vertex_buffer.push_rect(
                     obj.remote_position - Vector2::new(0.2, 0.05),
                     Vector2::new(0.4, 0.1),
-                    Vector4::new(1.0, 0.0, 1.0, 1.0),
+                    Vector4::new(0xff, 0, 0, 0xff),
                 );
             }
         }
@@ -248,7 +248,7 @@ fn render_attack_markers(game_state: &GameState, vertex_buffer: &mut VertexBuffe
     for marker in &game_state.attack_markers {
         let wh = Vector2::new(2.0, 2.0) * marker.radius;
         let xy = marker.position - wh / 2.0;
-        let color = Vector4::new(1.0, 0.0, 0.0, 0.2);
+        let color = Vector4::new(0xff, 0, 0, 0x1f);
         vertex_buffer.push_quad(
             xy,
             wh,
@@ -273,15 +273,15 @@ fn render_attack_markers(game_state: &GameState, vertex_buffer: &mut VertexBuffe
 }
 
 fn render_world_text(game_state: &GameState, assets: &Assets, vertex_buffer: &mut VertexBuffer) {
-    let black = Vector4::new(0.0, 0.0, 0.0, 1.0);
+    let black = Vector4::new(0, 0, 0, 0xff);
     let eps = Vector2::new(0.4, 0.4);
     for obj in game_state.objects.iter() {
         if obj.typ == ObjectType::Player {
             let xy = game_state.camera.world_point_to_screen(obj.local_position);
             let color = if obj.id == game_state.self_id {
-                Vector4::new(1.0, 1.0, 0.0, 1.0)
+                Vector4::new(0xff, 0xff, 0, 0xff)
             } else {
-                Vector4::new(1.0, 1.0, 1.0, 1.0)
+                Vector4::new(0xff, 0xff, 0xff, 0xff)
             };
             let str = obj.id.0.to_string();
             assets
@@ -296,11 +296,11 @@ fn render_world_text(game_state: &GameState, assets: &Assets, vertex_buffer: &mu
         let dy = 5.0 + 10.0 * dt * dt;
         let xy = game_state.camera.world_point_to_screen(label.position) - Vector2::new(0.0, dy);
         let color = if label.health_change > 0 {
-            Vector4::new(0.0, 1.0, 1.0, 1.0)
+            Vector4::new(0, 0xff, 0xff, 0xff)
         } else if label.object_type == ObjectType::Mob {
-            Vector4::new(1.0, 1.0, 1.0, 1.0)
+            Vector4::new(0xff, 0xff, 0xff, 0xff)
         } else {
-            Vector4::new(1.0, 0.0, 0.0, 1.0)
+            Vector4::new(0xff, 0, 0, 0xff)
         };
         let str = label.health_change.abs().to_string();
         assets
@@ -333,7 +333,7 @@ fn render_debug_ui(
     for (i, (str1, str2)) in lines.iter().enumerate() {
         let y = i as f32 * 5.5;
         let xy = Vector2::new(x, y);
-        let color = Vector4::new(1.0, 1.0, 1.0, 1.0);
+        let color = Vector4::new(0xff, 0xff, 0xff, 0xff);
         let fa = &assets.font_atlas;
         fa.push_text(str1, xy, 6.0, color, Align::Left, buf);
         let xy = xy + Vector2::new(16.0, 0.0);
@@ -351,7 +351,7 @@ fn render_debug_ui(
     for (i, (str1, str2)) in lines.iter().enumerate() {
         let y = y + i as f32 * 5.5;
         let xy = Vector2::new(x, y);
-        let color = Vector4::new(1.0, 1.0, 1.0, 1.0);
+        let color = Vector4::new(0xff, 0xff, 0xff, 0xff);
         let fa = &assets.font_atlas;
         fa.push_text(str1, xy, 6.0, color, Align::Left, buf);
         let xy = xy + Vector2::new(16.0, 0.0);

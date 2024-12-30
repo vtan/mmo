@@ -1,4 +1,4 @@
-use std::mem::size_of;
+use std::mem::{offset_of, size_of};
 
 use wasm_bindgen::JsValue;
 use web_sys::WebGl2RenderingContext as GL;
@@ -29,7 +29,7 @@ impl VertexBufferRenderer {
             let num_components = 2;
             let typ = GL::FLOAT;
             let normalize = false;
-            let offset = 0;
+            let offset = offset_of!(TexturedVertex, position) as i32;
             gl.vertex_attrib_pointer_with_i32(
                 ATTRIB_LOC_POSITION,
                 num_components,
@@ -44,7 +44,7 @@ impl VertexBufferRenderer {
             let num_components = 2;
             let typ = GL::FLOAT;
             let normalize = false;
-            let offset = 2 * size_of::<f32>() as i32;
+            let offset = offset_of!(TexturedVertex, texture_position) as i32;
             gl.vertex_attrib_pointer_with_i32(
                 ATTRIB_LOC_TEXTURE_POSITION,
                 num_components,
@@ -57,9 +57,9 @@ impl VertexBufferRenderer {
         }
         {
             let num_components = 4;
-            let typ = GL::FLOAT;
-            let normalize = false;
-            let offset = 4 * size_of::<f32>() as i32;
+            let typ = GL::UNSIGNED_BYTE;
+            let normalize = true;
+            let offset = offset_of!(TexturedVertex, color) as i32;
             gl.vertex_attrib_pointer_with_i32(
                 ATTRIB_LOC_COLOR,
                 num_components,
@@ -74,7 +74,7 @@ impl VertexBufferRenderer {
             let num_components = 1;
             let typ = GL::UNSIGNED_INT;
             let normalize = false;
-            let offset = 8 * size_of::<f32>() as i32;
+            let offset = offset_of!(TexturedVertex, texture_index) as i32;
             gl.vertex_attrib_pointer_with_i32(
                 ATTRIB_LOC_TEXTURE_INDEX,
                 num_components,
