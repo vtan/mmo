@@ -54,6 +54,11 @@ pub enum PlayerEvent {
         change: i32,
         health: i32,
     },
+    AttackTargeted {
+        position: Vector2<f32>,
+        radius: f32,
+        length: f32,
+    },
 }
 
 impl AsRef<PlayerEvent> for PlayerEvent {

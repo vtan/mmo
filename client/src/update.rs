@@ -11,7 +11,8 @@ use crate::app_event::{AppEvent, MouseButton};
 use crate::app_state::AppState;
 use crate::camera::Camera;
 use crate::game_state::{
-    GameState, HealthChangeLabel, LastPing, Object, ObjectAnimation, PartialGameState, Room,
+    AttackMarker, GameState, HealthChangeLabel, LastPing, Object, ObjectAnimation,
+    PartialGameState, Room,
 };
 use crate::{assets, console_error, console_warn};
 
@@ -88,6 +89,9 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
         game_state
             .health_change_labels
             .retain(|label| game_state.time.now - label.received_at < 1.0);
+        game_state
+            .attack_markers
+            .retain(|marker| game_state.time.now - marker.received_at < marker.length);
     }
 }
 
@@ -123,6 +127,7 @@ fn update_partial(partial: &mut PartialGameState, events: PlayerEventEnvelope<Pl
             | PlayerEvent::ObjectMovementChanged { .. }
             | PlayerEvent::ObjectAnimationAction { .. }
             | PlayerEvent::ObjectHealthChanged { .. }
+            | PlayerEvent::AttackTargeted { .. }
             | PlayerEvent::ObjectDisappeared { .. } => {
                 remaining.events.push(event);
             }
@@ -161,6 +166,8 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
         PlayerEvent::RoomEntered { room } => {
             game_state.room = load_room_map(*room);
             game_state.objects.clear();
+            game_state.health_change_labels.clear();
+            game_state.attack_markers.clear();
         }
         PlayerEvent::ObjectAppeared {
             object_id,
@@ -230,6 +237,14 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
             } else {
                 console_warn!("Got ObjectDamaged for {object_id:?} but no object");
             }
+        }
+        PlayerEvent::AttackTargeted { position, radius, length } => {
+            game_state.attack_markers.push(AttackMarker {
+                position,
+                radius,
+                length,
+                received_at: game_state.time.now,
+            });
         }
         PlayerEvent::ObjectDisappeared { object_id } => {
             game_state.objects.retain(|o| o.id != object_id);

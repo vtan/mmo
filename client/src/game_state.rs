@@ -22,6 +22,7 @@ pub struct GameState {
     pub objects: Vec<Object>,
     pub camera: Camera,
     pub health_change_labels: Vec<HealthChangeLabel>,
+    pub attack_markers: Vec<AttackMarker>,
     pub show_debug: bool,
 }
 
@@ -70,6 +71,14 @@ pub struct HealthChangeLabel {
     pub received_at: f32,
 }
 
+#[derive(Debug, Clone)]
+pub struct AttackMarker {
+    pub position: Vector2<f32>,
+    pub radius: f32,
+    pub length: f32,
+    pub received_at: f32,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct LastPing {
     pub sequence_number: u32,
@@ -112,6 +121,7 @@ impl PartialGameState {
             objects: vec![],
             camera,
             health_change_labels: vec![],
+            attack_markers: vec![],
             show_debug: false,
         })
     }

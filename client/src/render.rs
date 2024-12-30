@@ -73,6 +73,7 @@ pub fn render(state: &mut AppState) {
     {
         let mut vertex_buffer = VertexBuffer::new();
         render_health_bars(game_state, &mut vertex_buffer);
+        render_attack_markers(game_state, &mut vertex_buffer);
 
         gl.uniform_matrix3fv_with_f32_array(
             Some(&state.uniform_locations.view_projection),
@@ -240,6 +241,34 @@ fn render_debug_lines(game_state: &GameState, vertex_buffer: &mut LineVertexBuff
                 );
             }
         }
+    }
+}
+
+fn render_attack_markers(game_state: &GameState, vertex_buffer: &mut VertexBuffer) {
+    for marker in &game_state.attack_markers {
+        let wh = Vector2::new(marker.radius, marker.radius);
+        let xy = marker.position - wh / 2.0;
+        let color = Vector4::new(1.0, 0.0, 0.0, 0.2);
+        vertex_buffer.push_quad(
+            xy,
+            wh,
+            Vector2::new(0.0, 0.0),
+            Vector2::new(0.0, 0.0),
+            color,
+            0,
+        );
+
+        let t = (game_state.time.now - marker.received_at) / marker.length;
+        let wh = wh * t;
+        let xy = marker.position - wh / 2.0;
+        vertex_buffer.push_quad(
+            xy,
+            wh,
+            Vector2::new(0.0, 0.0),
+            Vector2::new(0.0, 0.0),
+            color,
+            0,
+        );
     }
 }
 

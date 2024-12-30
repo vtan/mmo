@@ -57,11 +57,13 @@ pub struct Mob {
 pub enum MobAttackState {
     Targeting {
         target_id: ObjectId,
+        attack_index: u8,
     },
     Telegraphed {
         target_id: ObjectId,
         attack_index: u8,
         attack_started_at: Tick,
+        attack_position: Vector2<f32>,
     },
     DamageDealt {
         attack_index: u8,
@@ -76,10 +78,6 @@ impl Mob {
             self.spawn.position.cast().add_scalar(0.5),
             self.template.movement_range,
         )
-    }
-
-    pub fn in_attack_range(&self, v: Vector2<f32>) -> bool {
-        util::in_distance(v, self.movement.position, self.template.attack_range)
     }
 }
 

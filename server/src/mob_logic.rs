@@ -9,12 +9,13 @@ use tokio::time::Instant;
 
 use crate::{
     combat_logic,
-    mob::MobTemplate,
+    mob::{MobAttackTargetType, MobTemplate},
     object,
     room_state::{Mob, MobAttackState, Player, RemoteMovement, RoomMap, RoomState},
     room_writer::{RoomWriter, RoomWriterTarget},
     server_context::ServerContext,
     tick::{self, Tick, TickEvent},
+    util,
 };
 
 pub fn populate_mobs(map: &RoomMap, ctx: &ServerContext, now: Instant) -> Vec<Mob> {
@@ -79,19 +80,27 @@ pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) 
                 let target =
                     state.players.values().find(|player| is_valid_attack_target(mob, player));
                 if let Some(target) = target {
-                    mob.attack_state = Some(MobAttackState::Targeting { target_id: target.id });
+                    let target_id = target.id;
+                    let attack_index = choose_attack(mob);
+                    mob.attack_state = Some(MobAttackState::Targeting { target_id, attack_index });
                 }
             }
 
-            Some(MobAttackState::Targeting { target_id }) => {
+            Some(MobAttackState::Targeting { target_id, attack_index }) => {
                 let target = state.players.get(&target_id);
                 let target = target.filter(|target| is_valid_attack_target(mob, target));
                 if let Some(target) = target {
-                    if mob.in_attack_range(target.local_movement.position) {
+                    let attack = mob.template.attacks[attack_index as usize].clone();
+                    let in_attack_range = util::in_distance(
+                        target.local_movement.position,
+                        mob.movement.position,
+                        attack.range,
+                    );
+
+                    if in_attack_range {
                         changed_direction |= change_direction_for_attack(mob, target);
 
                         if tick.tick - mob.last_attacked_at >= mob.template.attack_cooldown {
-                            let attack_index = choose_attack(mob);
                             writer.tell(
                                 RoomWriterTarget::All,
                                 PlayerEvent::ObjectAnimationAction {
@@ -99,10 +108,22 @@ pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) 
                                     action: AnimationAction::Attack,
                                 },
                             );
+                            if let MobAttackTargetType::Area { radius } = attack.target_type {
+                                writer.tell(
+                                    RoomWriterTarget::All,
+                                    PlayerEvent::AttackTargeted {
+                                        position: target.local_movement.position,
+                                        radius,
+                                        length: attack.length.as_secs_f32(),
+                                    },
+                                );
+                            }
+
                             mob.attack_state = Some(MobAttackState::Telegraphed {
                                 target_id,
                                 attack_index,
                                 attack_started_at: tick.tick,
+                                attack_position: target.local_movement.position,
                             });
                             mob.last_attacked_at = tick.tick;
                         }
@@ -114,11 +135,30 @@ pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) 
                 }
             }
 
-            Some(MobAttackState::Telegraphed { target_id, attack_index, attack_started_at }) => {
+            Some(MobAttackState::Telegraphed {
+                target_id,
+                attack_index,
+                attack_started_at,
+                attack_position,
+            }) => {
                 let attack = &mob.template.attacks[attack_index as usize];
                 if tick.tick - attack_started_at >= attack.telegraph_length {
-                    if let Some(target) = state.players.get_mut(&target_id) {
-                        combat_logic::mob_attack(tick, target, mob, attack, writer);
+                    match attack.target_type {
+                        MobAttackTargetType::Single => {
+                            if let Some(target) = state.players.get_mut(&target_id) {
+                                combat_logic::mob_attack_player(tick, target, mob, attack, writer);
+                            }
+                        }
+                        MobAttackTargetType::Area { radius } => {
+                            combat_logic::mob_attack_area(
+                                tick,
+                                attack,
+                                attack_position,
+                                radius,
+                                &mut state.players,
+                                writer,
+                            );
+                        }
                     }
                     mob.attack_state =
                         Some(MobAttackState::DamageDealt { attack_index, attack_started_at });

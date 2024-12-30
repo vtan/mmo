@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use mmo_common::{
     object::{Direction4, ObjectId},
     player_event::PlayerEvent,
@@ -8,7 +10,7 @@ use crate::{
     mob::MobAttack,
     room_state::{Mob, Player, RoomState},
     room_writer::{RoomWriter, RoomWriterTarget},
-    tick::TickEvent,
+    tick::{Tick, TickEvent},
     util,
 };
 
@@ -50,7 +52,7 @@ pub fn player_attack(player_id: ObjectId, state: &mut RoomState, writer: &mut Ro
     state.mobs.retain(|mob| mob.health > 0);
 }
 
-pub fn mob_attack(
+pub fn mob_attack_player(
     tick: TickEvent,
     player: &mut Player,
     mob: &Mob,
@@ -59,22 +61,48 @@ pub fn mob_attack(
 ) {
     let attack_direction =
         Direction4::from_vector(player.local_movement.position - mob.movement.position);
-    if mob.in_attack_range(player.local_movement.position)
-        && attack_direction == mob.movement.look_direction
-    {
-        let damage = attack.damage;
-        player.health = (player.health - damage).max(0);
-        player.last_damaged_at = tick.tick;
-
-        writer.tell(
-            RoomWriterTarget::All,
-            PlayerEvent::ObjectHealthChanged {
-                object_id: player.id,
-                health: player.health,
-                change: -damage,
-            },
-        );
+    let in_attack_range = util::in_distance(
+        player.local_movement.position,
+        mob.movement.position,
+        attack.range,
+    );
+    if in_attack_range && attack_direction == mob.movement.look_direction {
+        hurt_player(player, attack.damage, tick.tick, writer);
     }
+}
+
+pub fn mob_attack_area(
+    tick: TickEvent,
+    attack: &MobAttack,
+    attack_position: Vector2<f32>,
+    attack_radius: f32,
+    players: &mut HashMap<ObjectId, Player>,
+    writer: &mut RoomWriter,
+) {
+    for player in players.values_mut() {
+        let in_attack_range = util::in_distance(
+            player.local_movement.position,
+            attack_position,
+            attack_radius,
+        );
+        if in_attack_range {
+            hurt_player(player, attack.damage, tick.tick, writer);
+        }
+    }
+}
+
+fn hurt_player(player: &mut Player, damage: i32, tick: Tick, writer: &mut RoomWriter) {
+    player.health = (player.health - damage).max(0);
+    player.last_damaged_at = tick;
+
+    writer.tell(
+        RoomWriterTarget::All,
+        PlayerEvent::ObjectHealthChanged {
+            object_id: player.id,
+            health: player.health,
+            change: -damage,
+        },
+    );
 }
 
 pub fn heal_players(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) {

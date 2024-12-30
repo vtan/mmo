@@ -13,12 +13,20 @@ id = "slime"
 animation_id = "slime"
 velocity = 1.0
 movement_range = 4.0
-attack_range = 0.8
 max_health = 50
 attack_cooldown = 2.0
 
 [[mob_templates.slime.attacks]]
+target_type = { type = "Single" }
+range = 0.8
 damage = 5
+telegraph_length = 0.3
+length = 0.5
+
+[[mob_templates.slime.attacks]]
+target_type = { type = "Area", radius = 1.5 }
+range = 3.0
+damage = 10
 telegraph_length = 0.3
 length = 0.5
 

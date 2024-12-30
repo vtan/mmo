@@ -34,6 +34,12 @@ impl Sub<Tick> for Tick {
 #[serde(from = "f32")]
 pub struct TickDuration(pub u32);
 
+impl TickDuration {
+    pub fn as_secs_f32(&self) -> f32 {
+        self.0 as f32 * TICK_INTERVAL.as_secs_f32()
+    }
+}
+
 impl From<f32> for TickDuration {
     fn from(secs: f32) -> Self {
         Self((secs / TICK_INTERVAL.as_secs_f32()) as u32)
