@@ -1,5 +1,4 @@
 use mmo_common::{
-    animation::AnimationAction,
     object::{Direction4, ObjectId},
     player_event::PlayerEvent,
 };
@@ -56,24 +55,24 @@ pub fn mob_attack(
     player_ids: &[ObjectId],
     writer: &mut RoomWriter,
 ) {
-    let damage = mob.template.damage;
-    player.health = (player.health - damage).max(0);
-    player.last_damaged_at = tick.tick;
+    let attack_direction =
+        Direction4::from_vector(player.local_movement.position - mob.movement.position);
+    if mob.in_attack_range(player.local_movement.position)
+        && attack_direction == mob.movement.look_direction
+    {
+        let damage = mob.template.damage;
+        player.health = (player.health - damage).max(0);
+        player.last_damaged_at = tick.tick;
 
-    writer.broadcast_many(
-        player_ids.iter().copied(),
-        &[
-            PlayerEvent::ObjectAnimationAction {
-                object_id: mob.id,
-                action: AnimationAction::Attack,
-            },
+        writer.broadcast(
+            player_ids.iter().copied(),
             PlayerEvent::ObjectHealthChanged {
                 object_id: player.id,
                 health: player.health,
                 change: -damage,
             },
-        ],
-    );
+        );
+    }
 }
 
 pub fn heal_players(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) {
@@ -83,8 +82,9 @@ pub fn heal_players(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWri
             if player.health < player.max_health
                 && tick.tick - player.last_damaged_at > state.server_context.player.heal_after
             {
-                let heal = state.server_context.player.heal_amount as i32;
-                player.health = (player.health + heal).min(player.max_health);
+                let heal = (state.server_context.player.heal_amount as i32)
+                    .min(player.max_health - player.health);
+                player.health += heal;
 
                 writer.broadcast(
                     player_ids.iter().copied(),

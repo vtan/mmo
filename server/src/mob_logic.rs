@@ -1,6 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use mmo_common::{
+    animation::AnimationAction,
     object::{Direction4, Direction8, ObjectId, ALL_DIRECTIONS_8},
     player_event::PlayerEvent,
 };
@@ -10,7 +11,7 @@ use crate::{
     combat_logic,
     mob::MobTemplate,
     object,
-    room_state::{Mob, Player, RemoteMovement, RoomMap, RoomState, RoomWriter},
+    room_state::{Mob, MobAttackState, Player, RemoteMovement, RoomMap, RoomState, RoomWriter},
     server_context::ServerContext,
     tick::{self, Tick, TickEvent},
 };
@@ -39,6 +40,7 @@ pub fn populate_mobs(map: &RoomMap, ctx: &ServerContext, now: Instant) -> Vec<Mo
                         received_at: now,
                     },
                     attack_target: None,
+                    attack_state: None,
                     health,
                     last_attacked_at: Tick(0),
                 };
@@ -69,16 +71,45 @@ pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) 
         let mut changed_direction = false;
         let attack_target = choose_attack_target(&mut state.players, mob);
 
-        #[allow(clippy::collapsible_else_if)]
-        if let Some(attack_target) = attack_target {
+        if let Some(attack_state) = mob.attack_state {
+            match attack_state {
+                MobAttackState::Telegraphed { started_at } => {
+                    if tick.tick - started_at >= mob.template.attack_telegraph_length {
+                        if let Some(attack_target) = attack_target {
+                            combat_logic::mob_attack(tick, attack_target, mob, &player_ids, writer);
+                        }
+                        mob.attack_state = Some(MobAttackState::DamageDealt { started_at });
+                    }
+                }
+                MobAttackState::DamageDealt { started_at } => {
+                    if tick.tick - started_at >= mob.template.attack_length {
+                        mob.attack_state = None;
+                    }
+                }
+            }
+        } else if let Some(attack_target) = attack_target {
             if mob.in_attack_range(attack_target.local_movement.position) {
                 if mob.movement.direction.is_some() {
                     mob.movement.direction = None;
                     changed_direction = true;
                 }
+                let attack_direction = Direction4::from_vector(
+                    attack_target.local_movement.position - mob.movement.position,
+                );
+                if mob.movement.look_direction != attack_direction {
+                    mob.movement.look_direction = attack_direction;
+                    changed_direction = true;
+                }
 
                 if tick.tick - mob.last_attacked_at >= mob.template.attack_cooldown {
-                    combat_logic::mob_attack(tick, attack_target, mob, &player_ids, writer);
+                    writer.broadcast(
+                        player_ids.iter().copied(),
+                        PlayerEvent::ObjectAnimationAction {
+                            object_id: mob.id,
+                            action: AnimationAction::Attack,
+                        },
+                    );
+                    mob.attack_state = Some(MobAttackState::Telegraphed { started_at: tick.tick });
                     mob.last_attacked_at = tick.tick;
                 }
             } else {
@@ -97,6 +128,7 @@ pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) 
                         changed_direction = true;
                     }
                 } else {
+                    #[allow(clippy::collapsible_else_if)]
                     if mob.movement.direction.is_some() {
                         mob.movement.direction = None;
                         changed_direction = true;
@@ -104,6 +136,7 @@ pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) 
                 }
             }
         } else {
+            #[allow(clippy::collapsible_else_if)]
             if crossed_tile || mob.movement.direction.is_none() {
                 mob.movement.direction = choose_direction(mob, &state.map);
                 mob.movement.look_direction =
@@ -140,6 +173,7 @@ fn choose_attack_target<'a>(
             }
         } else {
             mob.attack_target = None;
+            mob.attack_state = None;
         }
     }
     // find someone to attack
