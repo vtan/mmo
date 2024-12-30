@@ -9,6 +9,7 @@ mod player;
 mod room_actor;
 mod room_logic;
 mod room_state;
+mod room_writer;
 mod server_actor;
 mod server_context;
 mod tick;

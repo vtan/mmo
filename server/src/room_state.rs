@@ -5,7 +5,6 @@ use std::{collections::HashMap, sync::Arc};
 
 use mmo_common::{
     object::{Direction4, Direction8, ObjectId},
-    player_event::PlayerEvent,
     room::{ForegroundTile, RoomId, RoomSync, TileIndex},
 };
 use nalgebra::Vector2;
@@ -100,46 +99,6 @@ pub struct Portal {
 pub struct MobSpawn {
     pub position: Vector2<u32>,
     pub mob_template: String,
-}
-
-#[derive(Debug, Clone)]
-pub struct RoomWriter {
-    pub events: HashMap<ObjectId, Vec<Arc<PlayerEvent>>>,
-    pub upstream_messages: Vec<UpstreamMessage>,
-}
-
-impl RoomWriter {
-    pub fn new() -> Self {
-        Self { events: HashMap::new(), upstream_messages: vec![] }
-    }
-
-    pub fn tell(&mut self, player_id: ObjectId, event: PlayerEvent) {
-        self.tell_many(player_id, &[event]);
-    }
-
-    pub fn tell_many(&mut self, player_id: ObjectId, events: &[PlayerEvent]) {
-        for event in events {
-            self.events.entry(player_id).or_default().push(Arc::new(event.clone()));
-        }
-    }
-
-    pub fn broadcast(&mut self, player_ids: impl Iterator<Item = ObjectId>, event: PlayerEvent) {
-        let event = Arc::new(event);
-        for player_id in player_ids {
-            self.events.entry(player_id).or_default().push(event.clone());
-        }
-    }
-
-    pub fn broadcast_many(
-        &mut self,
-        player_ids: impl Iterator<Item = ObjectId>,
-        events: &[PlayerEvent],
-    ) {
-        let events = events.iter().map(|event| Arc::new(event.clone())).collect::<Vec<_>>();
-        for player_id in player_ids {
-            self.events.entry(player_id).or_default().extend(events.iter().cloned());
-        }
-    }
 }
 
 #[derive(Debug, Clone)]

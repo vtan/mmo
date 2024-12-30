@@ -12,7 +12,8 @@ use tracing::instrument;
 
 use crate::{
     combat_logic, mob_logic,
-    room_state::{LocalMovement, Player, RemoteMovement, RoomState, RoomWriter, UpstreamMessage},
+    room_state::{LocalMovement, Player, RemoteMovement, RoomState, UpstreamMessage},
+    room_writer::{RoomWriter, RoomWriterTarget},
     server_context::ServerContext,
     tick::TickEvent,
 };
@@ -33,8 +34,8 @@ fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter
     let player_remote_movement = player.remote_movement;
     let now = Instant::now();
 
-    writer.broadcast_many(
-        state.players.keys().copied(),
+    writer.tell_many(
+        RoomWriterTarget::AllExcept(player_id),
         &[
             PlayerEvent::ObjectAppeared {
                 object_id: player_id,
@@ -56,14 +57,14 @@ fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter
     state.players.insert(player_id, player);
 
     writer.tell(
-        player_id,
+        RoomWriterTarget::Player(player_id),
         PlayerEvent::RoomEntered { room: Box::new(state.room.clone()) },
     );
     for player_in_room in state.players.values() {
         let position =
             interpolate_position(&state.server_context, player_in_room.remote_movement, now);
         writer.tell_many(
-            player_id,
+            RoomWriterTarget::Player(player_id),
             &[
                 PlayerEvent::ObjectAppeared {
                     object_id: player_in_room.id,
@@ -84,7 +85,7 @@ fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter
     }
     for mob in state.mobs.iter() {
         writer.tell(
-            player_id,
+            RoomWriterTarget::Player(player_id),
             PlayerEvent::ObjectAppeared {
                 object_id: mob.id,
                 object_type: ObjectType::Mob,
@@ -95,7 +96,7 @@ fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter
             },
         );
         writer.tell(
-            player_id,
+            RoomWriterTarget::Player(player_id),
             PlayerEvent::ObjectMovementChanged {
                 object_id: mob.id,
                 position: mob.movement.position,
@@ -118,8 +119,8 @@ fn remove_player(
 ) -> Option<Player> {
     // FIXME: this removes the player before flushing the writer
     if let Some(player) = players.remove(&player_id) {
-        writer.broadcast(
-            players.keys().copied().filter(|id| *id != player_id),
+        writer.tell(
+            RoomWriterTarget::AllExcept(player_id),
             PlayerEvent::ObjectDisappeared { object_id: player_id },
         );
         Some(player)
@@ -140,7 +141,6 @@ pub fn on_command(
             // TODO: at least a basic check whether the position is plausible
             let now = Instant::now();
 
-            let player_ids = state.players.keys().copied().collect::<Vec<_>>();
             let player = if let Some(player) = state.players.get_mut(&player_id) {
                 player
             } else {
@@ -151,12 +151,12 @@ pub fn on_command(
                 RemoteMovement { position, direction, look_direction, received_at: now };
 
             if room::collision_at(state.map.size, &state.map.collisions, position) {
-                prevent_collision(player, &player_ids, now, writer);
+                prevent_collision(player, now, writer);
             } else {
                 player.local_movement = LocalMovement { position, updated_at: now };
 
-                writer.broadcast(
-                    player_ids.iter().copied().filter(|pid| *pid != player_id),
+                writer.tell(
+                    RoomWriterTarget::AllExcept(player_id),
                     PlayerEvent::ObjectMovementChanged {
                         object_id: player_id,
                         position: player.local_movement.position,
@@ -168,8 +168,8 @@ pub fn on_command(
         }
         RoomCommand::Attack => {
             combat_logic::player_attack(player_id, state, writer);
-            writer.broadcast(
-                state.players.keys().copied().filter(|pid| *pid != player_id),
+            writer.tell(
+                RoomWriterTarget::AllExcept(player_id),
                 PlayerEvent::ObjectAnimationAction {
                     object_id: player_id,
                     action: AnimationAction::Attack,
@@ -182,12 +182,9 @@ pub fn on_command(
 pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) {
     let now = tick.monotonic_time;
 
-    let player_ids = state.players.keys().copied().collect::<Vec<_>>();
     let mut players_left = vec![];
 
-    for player_id in player_ids.iter().copied() {
-        let player = state.players.get_mut(&player_id).expect("Player not found");
-
+    for player in state.players.values_mut() {
         let last_position = player.local_movement.position;
         let local_movement =
             interpolate_position(&state.server_context, player.remote_movement, now);
@@ -205,17 +202,17 @@ pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) 
             &state.map.collisions,
             local_movement.position,
         ) {
-            prevent_collision(player, &player_ids, now, writer);
+            prevent_collision(player, now, writer);
         } else if let Some(portal) = portal {
             if crossed_tile {
-                players_left.push((player_id, portal));
+                players_left.push((player.id, portal));
             }
         } else {
             player.local_movement = local_movement;
 
             if crossed_tile {
-                writer.broadcast(
-                    player_ids.iter().copied().filter(|pid| *pid != player_id),
+                writer.tell(
+                    RoomWriterTarget::AllExcept(player.id),
                     PlayerEvent::ObjectMovementChanged {
                         object_id: player.id,
                         position: local_movement.position,
@@ -245,20 +242,15 @@ pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) 
     handle_dead_players(state, writer);
 }
 
-fn prevent_collision(
-    player: &mut Player,
-    player_ids: &[ObjectId],
-    now: Instant,
-    writer: &mut RoomWriter,
-) {
+fn prevent_collision(player: &mut Player, now: Instant, writer: &mut RoomWriter) {
     player.remote_movement = RemoteMovement {
         position: player.local_movement.position,
         direction: None,
         look_direction: player.remote_movement.look_direction,
         received_at: now, // TODO: mark that this was a correction?
     };
-    writer.broadcast(
-        player_ids.iter().copied(),
+    writer.tell(
+        RoomWriterTarget::All,
         PlayerEvent::ObjectMovementChanged {
             object_id: player.id,
             position: player.remote_movement.position,

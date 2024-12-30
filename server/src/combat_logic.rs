@@ -5,7 +5,8 @@ use mmo_common::{
 use nalgebra::Vector2;
 
 use crate::{
-    room_state::{Mob, Player, RoomState, RoomWriter},
+    room_state::{Mob, Player, RoomState},
+    room_writer::{RoomWriter, RoomWriterTarget},
     tick::TickEvent,
     util,
 };
@@ -27,8 +28,8 @@ pub fn player_attack(player_id: ObjectId, state: &mut RoomState, writer: &mut Ro
             let damage = state.server_context.player.damage;
             mob.health = (mob.health - damage).max(0);
 
-            writer.broadcast(
-                state.players.keys().copied(),
+            writer.tell(
+                RoomWriterTarget::All,
                 PlayerEvent::ObjectHealthChanged {
                     object_id: mob.id,
                     health: mob.health,
@@ -37,8 +38,8 @@ pub fn player_attack(player_id: ObjectId, state: &mut RoomState, writer: &mut Ro
             );
 
             if mob.health == 0 {
-                writer.broadcast(
-                    state.players.keys().copied(),
+                writer.tell(
+                    RoomWriterTarget::All,
                     PlayerEvent::ObjectDisappeared { object_id: mob.id },
                 );
             }
@@ -48,13 +49,7 @@ pub fn player_attack(player_id: ObjectId, state: &mut RoomState, writer: &mut Ro
     state.mobs.retain(|mob| mob.health > 0);
 }
 
-pub fn mob_attack(
-    tick: TickEvent,
-    player: &mut Player,
-    mob: &Mob,
-    player_ids: &[ObjectId],
-    writer: &mut RoomWriter,
-) {
+pub fn mob_attack(tick: TickEvent, player: &mut Player, mob: &Mob, writer: &mut RoomWriter) {
     let attack_direction =
         Direction4::from_vector(player.local_movement.position - mob.movement.position);
     if mob.in_attack_range(player.local_movement.position)
@@ -64,8 +59,8 @@ pub fn mob_attack(
         player.health = (player.health - damage).max(0);
         player.last_damaged_at = tick.tick;
 
-        writer.broadcast(
-            player_ids.iter().copied(),
+        writer.tell(
+            RoomWriterTarget::All,
             PlayerEvent::ObjectHealthChanged {
                 object_id: player.id,
                 health: player.health,
@@ -77,7 +72,6 @@ pub fn mob_attack(
 
 pub fn heal_players(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) {
     if tick.tick.is_nth(state.server_context.player.heal_rate) {
-        let player_ids = state.players.keys().copied().collect::<Vec<_>>();
         for player in state.players.values_mut() {
             if player.health < player.max_health
                 && tick.tick - player.last_damaged_at > state.server_context.player.heal_after
@@ -86,8 +80,8 @@ pub fn heal_players(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWri
                     .min(player.max_health - player.health);
                 player.health += heal;
 
-                writer.broadcast(
-                    player_ids.iter().copied(),
+                writer.tell(
+                    RoomWriterTarget::All,
                     PlayerEvent::ObjectHealthChanged {
                         object_id: player.id,
                         health: player.health,

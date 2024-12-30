@@ -9,7 +9,8 @@ use tokio::sync::mpsc;
 use tokio::time::Instant;
 use tracing::instrument;
 
-use crate::room_state::{Player, RoomMap, RoomState, RoomWriter, UpstreamMessage};
+use crate::room_state::{Player, RoomMap, RoomState, UpstreamMessage};
+use crate::room_writer::{RoomWriter, RoomWriterTarget};
 use crate::server_context::ServerContext;
 use crate::{mob_logic, room_logic, tick};
 
@@ -101,16 +102,45 @@ async fn flush_writer(
     state: &RoomState,
     upstream_sender: &mpsc::Sender<UpstreamMessage>,
 ) {
-    for (player_id, events) in writer.events.drain() {
-        if let Some(player) = state.players.get(&player_id) {
-            player.connection.send(events).await.unwrap(); // TODO: unwrap
-        } else {
-            tracing::error!(
-                player_id = player_id.0,
-                "Player not found when sending events"
-            );
+    // TODO: serialize once per batch, not for each player
+    while !writer.events.is_empty() {
+        let len = writer.events.len();
+        let target = writer.events[len - 1].target;
+        let mut batch = writer
+            .events
+            .iter()
+            .rev()
+            .take_while(|event| event.target == target)
+            .map(|event| event.event.clone())
+            .collect::<Vec<_>>();
+        batch.reverse();
+        writer.events.truncate(len - batch.len());
+
+        match target {
+            RoomWriterTarget::Player(player_id) => {
+                if let Some(player) = state.players.get(&player_id) {
+                    player.connection.send(batch).await.unwrap(); // TODO: unwrap
+                } else {
+                    tracing::error!(player_id = player_id.0, "Player not found");
+                }
+            }
+
+            RoomWriterTarget::All => {
+                for player in state.players.values() {
+                    player.connection.send(batch.clone()).await.unwrap(); // TODO: unwrap
+                }
+            }
+
+            RoomWriterTarget::AllExcept(player_id) => {
+                for player in state.players.values() {
+                    if player.id != player_id {
+                        player.connection.send(batch.clone()).await.unwrap(); // TODO: unwrap
+                    }
+                }
+            }
         }
     }
+
     for message in writer.upstream_messages.drain(..) {
         upstream_sender.send(message).await.unwrap(); // TODO: unwrap
     }

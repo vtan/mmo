@@ -11,7 +11,8 @@ use crate::{
     combat_logic,
     mob::MobTemplate,
     object,
-    room_state::{Mob, MobAttackState, Player, RemoteMovement, RoomMap, RoomState, RoomWriter},
+    room_state::{Mob, MobAttackState, Player, RemoteMovement, RoomMap, RoomState},
+    room_writer::{RoomWriter, RoomWriterTarget},
     server_context::ServerContext,
     tick::{self, Tick, TickEvent},
 };
@@ -53,8 +54,6 @@ pub fn populate_mobs(map: &RoomMap, ctx: &ServerContext, now: Instant) -> Vec<Mo
 }
 
 pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) {
-    let player_ids = state.players.keys().copied().collect::<Vec<_>>();
-
     for mob in &mut state.mobs {
         // update position
         let mut crossed_tile = false;
@@ -76,7 +75,7 @@ pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) 
                 MobAttackState::Telegraphed { started_at } => {
                     if tick.tick - started_at >= mob.template.attack_telegraph_length {
                         if let Some(attack_target) = attack_target {
-                            combat_logic::mob_attack(tick, attack_target, mob, &player_ids, writer);
+                            combat_logic::mob_attack(tick, attack_target, mob, writer);
                         }
                         mob.attack_state = Some(MobAttackState::DamageDealt { started_at });
                     }
@@ -102,8 +101,8 @@ pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) 
                 }
 
                 if tick.tick - mob.last_attacked_at >= mob.template.attack_cooldown {
-                    writer.broadcast(
-                        player_ids.iter().copied(),
+                    writer.tell(
+                        RoomWriterTarget::All,
                         PlayerEvent::ObjectAnimationAction {
                             object_id: mob.id,
                             action: AnimationAction::Attack,
@@ -146,8 +145,8 @@ pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) 
         }
 
         if crossed_tile || changed_direction {
-            writer.broadcast(
-                player_ids.iter().copied(),
+            writer.tell(
+                RoomWriterTarget::All,
                 PlayerEvent::ObjectMovementChanged {
                     object_id: mob.id,
                     position: mob.movement.position,
