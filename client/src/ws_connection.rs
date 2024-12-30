@@ -69,9 +69,14 @@ pub fn connect(
                 let message: PlayerEventEnvelope<PlayerEvent> =
                     postcard::from_bytes(&bytes).expect("Failed to deserialize message");
                 let event_count = message.events.len();
-                let app_event = AppEvent::WebsocketMessage { message, received_at };
+                let app_event = AppEvent::WebsocketMessage {
+                    message,
+                    received_at,
+                };
                 (*events).borrow_mut().push(app_event);
-                metrics.borrow_mut().record_net_event(len as u32, event_count as u32);
+                metrics
+                    .borrow_mut()
+                    .record_net_event(len as u32, event_count as u32);
             } else {
                 console_warn!("Unexpected websocket message type");
             }

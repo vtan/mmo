@@ -97,7 +97,10 @@ pub struct PartialGameState {
 impl PartialGameState {
     pub fn new() -> Self {
         Self {
-            time: Timestamps { now: 0.0, frame_delta: 0.0 },
+            time: Timestamps {
+                now: 0.0,
+                frame_delta: 0.0,
+            },
             self_id: None,
             client_config: None,
             room: None,

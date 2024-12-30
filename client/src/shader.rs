@@ -7,7 +7,11 @@ pub fn compile(gl: &GL, shader_type: u32, source: &str) -> Result<WebGlShader, S
     gl.shader_source(&shader, source);
     gl.compile_shader(&shader);
 
-    if gl.get_shader_parameter(&shader, GL::COMPILE_STATUS).as_bool().unwrap_or(false) {
+    if gl
+        .get_shader_parameter(&shader, GL::COMPILE_STATUS)
+        .as_bool()
+        .unwrap_or(false)
+    {
         Ok(shader)
     } else {
         Err(gl
@@ -29,7 +33,11 @@ pub fn link(
     gl.attach_shader(&program, frag_shader);
     gl.link_program(&program);
 
-    if gl.get_program_parameter(&program, GL::LINK_STATUS).as_bool().unwrap_or(false) {
+    if gl
+        .get_program_parameter(&program, GL::LINK_STATUS)
+        .as_bool()
+        .unwrap_or(false)
+    {
         Ok(program)
     } else {
         Err(gl

@@ -43,7 +43,10 @@ pub async fn handle_with_id(
     });
 
     server_actor_sender
-        .send(server_actor::Message::PlayerConnected { player_id, connection: event_sender })
+        .send(server_actor::Message::PlayerConnected {
+            player_id,
+            connection: event_sender,
+        })
         .await
         .unwrap();
 

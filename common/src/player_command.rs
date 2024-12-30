@@ -15,7 +15,9 @@ pub struct PlayerHandshake {
 
 impl PlayerHandshake {
     pub fn new() -> Self {
-        Self { magic: HANDSHAKE_MAGIC }
+        Self {
+            magic: HANDSHAKE_MAGIC,
+        }
     }
 
     pub fn is_valid(&self) -> bool {
@@ -30,8 +32,13 @@ pub struct PlayerCommandEnvelope {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum PlayerCommand {
-    GlobalCommand { command: GlobalCommand },
-    RoomCommand { room_id: RoomId, command: RoomCommand },
+    GlobalCommand {
+        command: GlobalCommand,
+    },
+    RoomCommand {
+        room_id: RoomId,
+        command: RoomCommand,
+    },
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

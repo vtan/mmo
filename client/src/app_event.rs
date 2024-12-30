@@ -3,13 +3,26 @@ use mmo_common::player_event::{PlayerEvent, PlayerEventEnvelope};
 use crate::assets::Assets;
 
 pub enum AppEvent {
-    KeyDown { code: String },
-    KeyUp { code: String },
-    MouseDown { x: i32, y: i32, button: MouseButton },
+    KeyDown {
+        code: String,
+    },
+    KeyUp {
+        code: String,
+    },
+    MouseDown {
+        x: i32,
+        y: i32,
+        button: MouseButton,
+    },
     WebsocketConnected,
     WebsocketDisconnected,
-    WebsocketMessage { message: PlayerEventEnvelope<PlayerEvent>, received_at: f32 },
-    AssetsLoaded { assets: Assets },
+    WebsocketMessage {
+        message: PlayerEventEnvelope<PlayerEvent>,
+        received_at: f32,
+    },
+    AssetsLoaded {
+        assets: Assets,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -19,9 +19,17 @@ use crate::{room_actor, room_state};
 
 #[derive(Debug)]
 pub enum Message {
-    PlayerConnected { player_id: ObjectId, connection: PlayerConnection },
-    PlayerDisconnected { player_id: ObjectId },
-    PlayerCommand { player_id: ObjectId, command: PlayerCommandEnvelope },
+    PlayerConnected {
+        player_id: ObjectId,
+        connection: PlayerConnection,
+    },
+    PlayerDisconnected {
+        player_id: ObjectId,
+    },
+    PlayerCommand {
+        player_id: ObjectId,
+        command: PlayerCommandEnvelope,
+    },
 }
 
 impl Message {
@@ -103,7 +111,10 @@ fn create_new_player(id: ObjectId, connection: PlayerConnection, ctx: &ServerCon
             look_direction: mmo_common::object::Direction4::Down,
             received_at: now,
         },
-        local_movement: LocalMovement { position: ctx.world.start_position, updated_at: now },
+        local_movement: LocalMovement {
+            position: ctx.world.start_position,
+            updated_at: now,
+        },
         health: max_health,
         max_health,
         last_damaged_at: Tick(0),
@@ -113,10 +124,17 @@ fn create_new_player(id: ObjectId, connection: PlayerConnection, ctx: &ServerCon
 #[instrument(skip_all, fields(player_id = message.player_id().0))]
 async fn handle_message(state: &mut State, message: Message) -> Result<()> {
     match message {
-        Message::PlayerConnected { player_id, connection } => {
+        Message::PlayerConnected {
+            player_id,
+            connection,
+        } => {
             let room_id = state.server_context.world.start_room_id;
 
-            let player_meta = PlayerMeta { id: player_id, room_id, connection: connection.clone() };
+            let player_meta = PlayerMeta {
+                id: player_id,
+                room_id,
+                connection: connection.clone(),
+            };
             state.players.insert(player_id, player_meta);
 
             connection
@@ -129,13 +147,17 @@ async fn handle_message(state: &mut State, message: Message) -> Result<()> {
             let player = create_new_player(player_id, connection, &state.server_context);
 
             let room = get_or_create_room(state, room_id);
-            room.sender.send(room_actor::Message::PlayerConnected { player }).await?;
+            room.sender
+                .send(room_actor::Message::PlayerConnected { player })
+                .await?;
         }
         Message::PlayerDisconnected { player_id } => {
             if let Some(player) = state.players.remove(&player_id) {
                 let room_id = player.room_id;
                 if let Some(room) = state.rooms.get_mut(&room_id) {
-                    room.sender.send(room_actor::Message::PlayerDisconnected { player_id }).await?;
+                    room.sender
+                        .send(room_actor::Message::PlayerDisconnected { player_id })
+                        .await?;
                     remove_room_if_empty(state, room_id);
                 } else {
                     tracing::warn!(
@@ -218,7 +240,10 @@ async fn handle_upstream_message(
                 player.local_movement.position = target_position;
 
                 let target_room = get_or_create_room(state, target_room_id);
-                target_room.sender.send(room_actor::Message::PlayerConnected { player }).await?;
+                target_room
+                    .sender
+                    .send(room_actor::Message::PlayerConnected { player })
+                    .await?;
             } else {
                 tracing::error!("Player not found");
             }
@@ -229,7 +254,11 @@ async fn handle_upstream_message(
 }
 
 fn get_or_create_room(state: &mut State, room_id: RoomId) -> &mut Room {
-    let State { rooms, room_actor_upstream_sender, .. } = state;
+    let State {
+        rooms,
+        room_actor_upstream_sender,
+        ..
+    } = state;
     rooms.entry(room_id).or_insert_with(|| {
         let server_context = state.server_context.clone();
         let upstream_sender = room_actor_upstream_sender.clone();
@@ -245,12 +274,18 @@ fn get_or_create_room(state: &mut State, room_id: RoomId) -> &mut Room {
             )
             .await
         });
-        Room { sender: room_actor_sender }
+        Room {
+            sender: room_actor_sender,
+        }
     })
 }
 
 fn remove_room_if_empty(state: &mut State, room_id: RoomId) {
-    if !state.players.values().any(|player| player.room_id == room_id) {
+    if !state
+        .players
+        .values()
+        .any(|player| player.room_id == room_id)
+    {
         state.rooms.remove(&room_id);
     }
 }

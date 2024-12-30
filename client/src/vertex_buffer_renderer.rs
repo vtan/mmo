@@ -18,7 +18,9 @@ pub struct VertexBufferRenderer {
 
 impl VertexBufferRenderer {
     pub fn new(gl: &GL) -> Result<Self, JsValue> {
-        let vao = gl.create_vertex_array().ok_or("Could not create vertex array object")?;
+        let vao = gl
+            .create_vertex_array()
+            .ok_or("Could not create vertex array object")?;
         gl.bind_vertex_array(Some(&vao));
 
         let vbo = gl.create_buffer().ok_or("Could not create buffer")?;

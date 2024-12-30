@@ -101,7 +101,9 @@ pub async fn start() -> Result<(), JsValue> {
         view_projection: gl
             .get_uniform_location(&program, "viewProjection")
             .ok_or("No uniform location")?,
-        sampler: gl.get_uniform_location(&program, "sampler").ok_or("No uniform location")?,
+        sampler: gl
+            .get_uniform_location(&program, "sampler")
+            .ok_or("No uniform location")?,
         text_view_projection: gl
             .get_uniform_location(&text_program, "viewProjection")
             .ok_or("No uniform location")?,
@@ -198,7 +200,9 @@ fn update_canvas_size(canvas: &web_sys::HtmlCanvasElement, app_state: &mut AppSt
     if (canvas.width(), canvas.height()) != (client_width, client_height) {
         canvas.set_width(client_width);
         canvas.set_height(client_height);
-        app_state.gl.viewport(0, 0, client_width as i32, client_height as i32);
+        app_state
+            .gl
+            .viewport(0, 0, client_width as i32, client_height as i32);
         app_state.viewport = Vector2::new(client_width, client_height);
     }
 }

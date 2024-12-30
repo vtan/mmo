@@ -57,7 +57,9 @@ fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter
 
     writer.tell(
         RoomWriterTarget::Player(player_id),
-        PlayerEvent::RoomEntered { room: Box::new(state.room.clone()) },
+        PlayerEvent::RoomEntered {
+            room: Box::new(state.room.clone()),
+        },
     );
     for player_in_room in state.players.values() {
         let position =
@@ -120,7 +122,9 @@ fn remove_player(
     if let Some(player) = players.remove(&player_id) {
         writer.tell(
             RoomWriterTarget::AllExcept(player_id),
-            PlayerEvent::ObjectDisappeared { object_id: player_id },
+            PlayerEvent::ObjectDisappeared {
+                object_id: player_id,
+            },
         );
         Some(player)
     } else {
@@ -136,7 +140,11 @@ pub fn on_command(
     writer: &mut RoomWriter,
 ) {
     match command {
-        RoomCommand::Move { position, direction, look_direction } => {
+        RoomCommand::Move {
+            position,
+            direction,
+            look_direction,
+        } => {
             // TODO: at least a basic check whether the position is plausible
             let now = Instant::now();
 
@@ -146,13 +154,20 @@ pub fn on_command(
                 return;
             };
 
-            player.remote_movement =
-                RemoteMovement { position, direction, look_direction, received_at: now };
+            player.remote_movement = RemoteMovement {
+                position,
+                direction,
+                look_direction,
+                received_at: now,
+            };
 
             if room::collision_at(state.map.size, &state.map.collisions, position) {
                 prevent_collision(player, now, writer);
             } else {
-                player.local_movement = LocalMovement { position, updated_at: now };
+                player.local_movement = LocalMovement {
+                    position,
+                    updated_at: now,
+                };
 
                 writer.tell(
                     RoomWriterTarget::AllExcept(player_id),
@@ -227,12 +242,14 @@ pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) 
         if let Some(player) = remove_player(player_id, &mut state.players, writer) {
             let target_room_id = portal.target_room_id;
             let target_position = portal.target_position.add_scalar(0.5);
-            writer.upstream_messages.push(UpstreamMessage::PlayerLeftRoom {
-                sender_room_id: state.room.room_id,
-                player,
-                target_room_id,
-                target_position,
-            });
+            writer
+                .upstream_messages
+                .push(UpstreamMessage::PlayerLeftRoom {
+                    sender_room_id: state.room.room_id,
+                    player,
+                    target_room_id,
+                    target_position,
+                });
         }
     }
 
@@ -269,9 +286,15 @@ fn interpolate_position(
         let direction = direction.to_unit_vector();
         let delta = direction * ctx.player.velocity * elapsed.as_secs_f32();
         let position = remote_movement.position + delta;
-        LocalMovement { position, updated_at: now }
+        LocalMovement {
+            position,
+            updated_at: now,
+        }
     } else {
-        LocalMovement { position: remote_movement.position, updated_at: now }
+        LocalMovement {
+            position: remote_movement.position,
+            updated_at: now,
+        }
     }
 }
 
@@ -279,26 +302,26 @@ pub fn handle_dead_players(state: &mut RoomState, writer: &mut RoomWriter) {
     let dead_player_ids = state
         .players
         .values()
-        .filter_map(
-            |player| {
-                if player.health == 0 {
-                    Some(player.id)
-                } else {
-                    None
-                }
-            },
-        )
+        .filter_map(|player| {
+            if player.health == 0 {
+                Some(player.id)
+            } else {
+                None
+            }
+        })
         .collect::<Vec<_>>();
 
     for dead_player_id in dead_player_ids {
         if let Some(mut player) = remove_player(dead_player_id, &mut state.players, writer) {
             player.health = player.max_health;
-            writer.upstream_messages.push(UpstreamMessage::PlayerLeftRoom {
-                sender_room_id: state.room.room_id,
-                player,
-                target_room_id: state.server_context.world.start_room_id,
-                target_position: state.server_context.world.start_position,
-            })
+            writer
+                .upstream_messages
+                .push(UpstreamMessage::PlayerLeftRoom {
+                    sender_room_id: state.room.room_id,
+                    player,
+                    target_room_id: state.server_context.world.start_room_id,
+                    target_position: state.server_context.world.start_position,
+                })
         }
     }
 }

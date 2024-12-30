@@ -67,13 +67,18 @@ impl Camera {
     }
 
     pub fn world_point_to_screen(&self, p: Vector2<f32>) -> Vector2<f32> {
-        self.world_to_logical_screen.transform_point(&Point2::from(p)).coords
+        self.world_to_logical_screen
+            .transform_point(&Point2::from(p))
+            .coords
     }
 
     pub fn screen_point_to_world(&self, p: Vector2<f32>) -> Vector2<f32> {
         self.world_to_camera
             .inverse_transform_point(
-                &self.camera_to_screen.pseudo_inverse().transform_point(&Point2::from(p)),
+                &self
+                    .camera_to_screen
+                    .pseudo_inverse()
+                    .transform_point(&Point2::from(p)),
             )
             .coords
     }

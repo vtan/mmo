@@ -17,13 +17,19 @@ pub fn encode<T: Clone + PartialEq>(data: &[T]) -> Rle<T> {
     }
 
     let mut runs = Vec::new();
-    let mut current_run = Run { value: data[0].clone(), count: 1 };
+    let mut current_run = Run {
+        value: data[0].clone(),
+        count: 1,
+    };
     for value in &data[1..] {
         if *value == current_run.value {
             current_run.count += 1;
         } else {
             runs.push(current_run);
-            current_run = Run { value: value.clone(), count: 1 };
+            current_run = Run {
+                value: value.clone(),
+                count: 1,
+            };
         }
     }
     runs.push(current_run);

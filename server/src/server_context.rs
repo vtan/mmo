@@ -30,8 +30,10 @@ impl ServerContext {
         animations.sort_by_key(|(name, _)| name.clone());
 
         let animation_keys: Vec<String> = animations.iter().map(|(name, _)| name.clone()).collect();
-        let animations: Vec<AnimationSet> =
-            animations.into_iter().map(|(_, animation)| animation).collect();
+        let animations: Vec<AnimationSet> = animations
+            .into_iter()
+            .map(|(_, animation)| animation)
+            .collect();
 
         let player_animation = animation_keys
             .iter()

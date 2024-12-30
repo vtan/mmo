@@ -132,7 +132,9 @@ pub struct LineVertexBuffer {
 
 impl LineVertexBuffer {
     pub fn new() -> Self {
-        Self { vertex_buffer: VertexBuffer::new() }
+        Self {
+            vertex_buffer: VertexBuffer::new(),
+        }
     }
 
     pub fn push_line(&mut self, start: Vector2<f32>, end: Vector2<f32>, color: Vector4<u8>) {

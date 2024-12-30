@@ -35,7 +35,11 @@ pub fn load(path: &str) -> Result<World> {
         .map(|(i, map)| (RoomId(i as u64), Arc::new(map.map)))
         .collect();
 
-    Ok(World { maps, start_room_id, start_position })
+    Ok(World {
+        maps,
+        start_room_id,
+        start_position,
+    })
 }
 
 struct ParsedMap {
@@ -80,12 +84,15 @@ fn convert_map(ldtk_map: &LdtkMap, ldtk_level: &LdtkLevel) -> Result<ParsedMap> 
             }
 
             let has_duplicate_positions = {
-                let unique_positions =
-                    tiles.iter().map(|tile| tile.px).collect::<std::collections::HashSet<_>>();
+                let unique_positions = tiles
+                    .iter()
+                    .map(|tile| tile.px)
+                    .collect::<std::collections::HashSet<_>>();
                 unique_positions.len() != tiles.len()
             };
-            let has_foreground_tiles =
-                tiles.iter().any(|tile| foreground_tile_ids.contains_key(&tile.t));
+            let has_foreground_tiles = tiles
+                .iter()
+                .any(|tile| foreground_tile_ids.contains_key(&tile.t));
 
             if has_duplicate_positions || has_foreground_tiles {
                 let (bg, fg) = convert_sparse_layer(ldtk_map, ldtk_layer, &foreground_tile_ids);
@@ -177,7 +184,11 @@ fn convert_sparse_layer(
     for tile in ldtk_layer.tiles() {
         let position = Vector2::new(tile.px[0] / grid_size, tile.px[1] / grid_size);
         if let Some(height) = foreground_tile_ids.get(&tile.t) {
-            fg.push(ForegroundTile { position, height: *height, tile_index: tile.t });
+            fg.push(ForegroundTile {
+                position,
+                height: *height,
+                tile_index: tile.t,
+            });
         } else {
             bg.push((position, tile.t));
         }
@@ -227,8 +238,16 @@ fn collect_collisions(
 }
 
 fn collect_enum_tile_ids(ldtk_map: &LdtkMap, enum_value: &str) -> Result<HashSet<TileIndex>> {
-    let tileset = ldtk_map.defs.tilesets.first().ok_or_else(|| eyre::eyre!("No first tileset"))?;
-    if let Some(enum_tags) = tileset.enum_tags.iter().find(|tag| tag.enum_value_id == enum_value) {
+    let tileset = ldtk_map
+        .defs
+        .tilesets
+        .first()
+        .ok_or_else(|| eyre::eyre!("No first tileset"))?;
+    if let Some(enum_tags) = tileset
+        .enum_tags
+        .iter()
+        .find(|tag| tag.enum_value_id == enum_value)
+    {
         Ok(enum_tags.tile_ids.iter().copied().collect())
     } else {
         Ok(HashSet::new())
@@ -270,7 +289,9 @@ fn find_start_position(maps: &[ParsedMap]) -> Result<(RoomId, Vector2<u32>)> {
         .iter()
         .enumerate()
         .flat_map(|(i, map)| {
-            map.player_starts.iter().map(move |position| (RoomId(i as u64), *position))
+            map.player_starts
+                .iter()
+                .map(move |position| (RoomId(i as u64), *position))
         })
         .collect::<Vec<_>>();
     match player_start_entities.as_slice() {

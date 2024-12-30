@@ -29,7 +29,12 @@ impl FontAtlas {
                 glyphs.insert(ch, glyph);
             }
         }
-        Self { atlas_size, distance_range, metrics, glyphs }
+        Self {
+            atlas_size,
+            distance_range,
+            metrics,
+            glyphs,
+        }
     }
 
     pub fn push_text(

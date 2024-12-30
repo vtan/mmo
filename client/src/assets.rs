@@ -27,5 +27,11 @@ pub async fn load(gl: &GL, asset_paths: &AssetPaths) -> Result<Assets, JsValue> 
     let font_meta = fetch::fetch_json(&window, &asset_paths.font_meta).await?;
     let font_atlas = FontAtlas::from_meta(font_meta);
 
-    Ok(Assets { tileset, charset, font, white, font_atlas })
+    Ok(Assets {
+        tileset,
+        charset,
+        font,
+        white,
+        font_atlas,
+    })
 }

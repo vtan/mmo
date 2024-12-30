@@ -37,7 +37,11 @@ impl DirectionalAnimation {
             frames.first().copied()
         } else {
             let rel_time = time % self.total_length;
-            let i = self.start_times.iter().take_while(|t| **t <= rel_time).count();
+            let i = self
+                .start_times
+                .iter()
+                .take_while(|t| **t <= rel_time)
+                .count();
             if i > 0 {
                 frames.get(i - 1).copied()
             } else {

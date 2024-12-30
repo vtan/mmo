@@ -25,7 +25,10 @@ pub enum RoomWriterTarget {
 
 impl RoomWriter {
     pub fn new() -> Self {
-        Self { events: vec![], upstream_messages: vec![] }
+        Self {
+            events: vec![],
+            upstream_messages: vec![],
+        }
     }
 
     pub fn tell(&mut self, target: RoomWriterTarget, event: PlayerEvent) {
@@ -34,7 +37,10 @@ impl RoomWriter {
 
     pub fn tell_many(&mut self, target: RoomWriterTarget, events: &[PlayerEvent]) {
         for event in events {
-            self.events.push(RoomWriterEvent { target, event: Arc::new(event.clone()) });
+            self.events.push(RoomWriterEvent {
+                target,
+                event: Arc::new(event.clone()),
+            });
         }
     }
 }

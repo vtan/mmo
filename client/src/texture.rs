@@ -46,7 +46,11 @@ pub async fn load_texture(gl: &GL, uri: &str, filter: u32) -> Result<Texture, Js
     )?;
     gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MIN_FILTER, filter as i32);
     gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MAG_FILTER, filter as i32);
-    Ok(Texture { texture, width, height })
+    Ok(Texture {
+        texture,
+        width,
+        height,
+    })
 }
 
 pub fn create_white_texture(gl: &GL) -> Result<Texture, JsValue> {
@@ -73,5 +77,9 @@ pub fn create_white_texture(gl: &GL) -> Result<Texture, JsValue> {
     )?;
     gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MIN_FILTER, GL::NEAREST as i32);
     gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MAG_FILTER, GL::NEAREST as i32);
-    Ok(Texture { texture, width: width as u32, height: height as u32 })
+    Ok(Texture {
+        texture,
+        width: width as u32,
+        height: height as u32,
+    })
 }

@@ -53,7 +53,10 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
             }
             AppEvent::WebsocketConnected => {}
             AppEvent::WebsocketDisconnected => state.game_state = Err(PartialGameState::new()),
-            AppEvent::WebsocketMessage { message, received_at } => {
+            AppEvent::WebsocketMessage {
+                message,
+                received_at,
+            } => {
                 update_async(state, &message);
 
                 match &mut state.game_state {
@@ -83,7 +86,10 @@ pub fn update(state: &mut AppState, events: Vec<AppEvent>) {
         add_ping_if_needed(game_state);
 
         game_state.objects.sort_unstable_by(|a, b| {
-            a.local_position.y.partial_cmp(&b.local_position.y).expect("NaN")
+            a.local_position
+                .y
+                .partial_cmp(&b.local_position.y)
+                .expect("NaN")
         });
         game_state
             .health_change_labels
@@ -102,7 +108,9 @@ fn update_async(state: &mut AppState, message: &PlayerEventEnvelope<PlayerEvent>
             let asset_paths = client_config.asset_paths.clone();
             wasm_bindgen_futures::spawn_local(async move {
                 let assets = assets::load(&gl, &asset_paths).await.unwrap();
-                (*events).borrow_mut().push(AppEvent::AssetsLoaded { assets });
+                (*events)
+                    .borrow_mut()
+                    .push(AppEvent::AssetsLoaded { assets });
             });
         }
     }
@@ -114,7 +122,10 @@ fn update_partial(partial: &mut PartialGameState, events: PlayerEventEnvelope<Pl
 
     for event in events.events {
         match event {
-            PlayerEvent::Initial { self_id, client_config } => {
+            PlayerEvent::Initial {
+                self_id,
+                client_config,
+            } => {
                 partial.self_id = Some(self_id);
                 partial.client_config = Some(*client_config);
             }
@@ -198,7 +209,12 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
                 game_state.objects.push(object);
             }
         }
-        PlayerEvent::ObjectMovementChanged { object_id, position, direction, look_direction } => {
+        PlayerEvent::ObjectMovementChanged {
+            object_id,
+            position,
+            direction,
+            look_direction,
+        } => {
             if let Some(obj) = game_state.objects.iter_mut().find(|o| o.id == object_id) {
                 obj.remote_position = position;
                 obj.remote_position_received_at = received_at;
@@ -211,15 +227,24 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
                 console_warn!("Got ObjectMovementChanged for {object_id:?} but no object");
             }
         }
-        PlayerEvent::ObjectAnimationAction { object_id, animation_index } => {
+        PlayerEvent::ObjectAnimationAction {
+            object_id,
+            animation_index,
+        } => {
             if let Some(obj) = game_state.objects.iter_mut().find(|o| o.id == object_id) {
-                obj.animation =
-                    Some(ObjectAnimation { animation_index, started_at: game_state.time.now });
+                obj.animation = Some(ObjectAnimation {
+                    animation_index,
+                    started_at: game_state.time.now,
+                });
             } else {
                 console_warn!("Got ObjectAnimationAction for {object_id:?} but no object");
             }
         }
-        PlayerEvent::ObjectHealthChanged { object_id, change: damage, health } => {
+        PlayerEvent::ObjectHealthChanged {
+            object_id,
+            change: damage,
+            health,
+        } => {
             if let Some(obj) = game_state.objects.iter_mut().find(|o| o.id == object_id) {
                 obj.health = health;
 
@@ -239,7 +264,12 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
                 console_warn!("Got ObjectDamaged for {object_id:?} but no object");
             }
         }
-        PlayerEvent::AttackTargeted { attacker_object_id, position, radius, length } => {
+        PlayerEvent::AttackTargeted {
+            attacker_object_id,
+            position,
+            radius,
+            length,
+        } => {
             game_state.attack_markers.push(AttackMarker {
                 attacker_object_id,
                 position,
@@ -250,7 +280,9 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
         }
         PlayerEvent::ObjectDisappeared { object_id } => {
             game_state.objects.retain(|o| o.id != object_id);
-            game_state.attack_markers.retain(|m| m.attacker_object_id != object_id);
+            game_state
+                .attack_markers
+                .retain(|m| m.attacker_object_id != object_id);
         }
     }
 }
@@ -270,7 +302,11 @@ fn update_camera(state: &mut AppState) {
 }
 
 fn direction_pressed(game_state: &mut GameState, pressed_direction: Direction4, pressed: bool) {
-    if let Some(obj) = game_state.objects.iter_mut().find(|o| o.id == game_state.self_id) {
+    if let Some(obj) = game_state
+        .objects
+        .iter_mut()
+        .find(|o| o.id == game_state.self_id)
+    {
         game_state.directions_pressed[pressed_direction as usize] = pressed;
         let new_direction = direction_from_pressed(&game_state.directions_pressed);
         if new_direction != obj.direction {
@@ -314,7 +350,11 @@ fn direction_from_pressed(pressed: &[bool; 4]) -> Option<Direction8> {
 }
 
 fn mouse_left_pressed(game_state: &mut GameState, mouse: Vector2<f32>) {
-    if let Some(player) = game_state.objects.iter_mut().find(|o| o.id == game_state.self_id) {
+    if let Some(player) = game_state
+        .objects
+        .iter_mut()
+        .find(|o| o.id == game_state.self_id)
+    {
         let to_click = game_state.camera.screen_point_to_world(mouse) - player.local_position;
         let look_direction = Direction4::from_vector(to_click);
         if look_direction != player.look_direction {
@@ -333,7 +373,11 @@ fn mouse_left_pressed(game_state: &mut GameState, mouse: Vector2<f32>) {
 }
 
 fn start_attack(game_state: &mut GameState) {
-    if let Some(obj) = game_state.objects.iter_mut().find(|o| o.id == game_state.self_id) {
+    if let Some(obj) = game_state
+        .objects
+        .iter_mut()
+        .find(|o| o.id == game_state.self_id)
+    {
         obj.animation = Some(ObjectAnimation {
             animation_index: game_state.client_config.player_attack_animation_index,
             started_at: game_state.time.now,
@@ -353,7 +397,11 @@ fn update_self_movement(game_state: &mut GameState) {
     let room = &game_state.room;
 
     // TODO: for self probably remote_position = local_position, make that more intentional
-    if let Some(obj) = game_state.objects.iter_mut().find(|o| o.id == game_state.self_id) {
+    if let Some(obj) = game_state
+        .objects
+        .iter_mut()
+        .find(|o| o.id == game_state.self_id)
+    {
         if let Some(direction) = obj.direction {
             let delta = game_state.time.frame_delta * obj.velocity * direction.to_unit_vector();
             let target = obj.remote_position + delta;
@@ -425,7 +473,10 @@ fn add_ping_if_needed(gs: &mut GameState) {
         gs.ws_commands.push(PlayerCommand::GlobalCommand {
             command: GlobalCommand::Ping { sequence_number },
         });
-        gs.last_ping = Some(LastPing { sequence_number, sent_at: gs.time.now });
+        gs.last_ping = Some(LastPing {
+            sequence_number,
+            sent_at: gs.time.now,
+        });
     }
 }
 

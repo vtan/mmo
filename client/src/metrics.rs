@@ -86,7 +86,8 @@ impl Metrics {
     fn report(&mut self) {
         let len = self.samples.len();
         if len > 0 {
-            self.samples.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Less));
+            self.samples
+                .sort_unstable_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Less));
             self.fps_stats = FpsStats {
                 fps: len as f32,
                 median_ms: self.samples[len / 2] as f32,

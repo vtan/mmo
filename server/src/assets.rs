@@ -60,7 +60,11 @@ fn load_asset(local_filename: &str) -> Result<AssetPath> {
     let request_filename = generate_filename(local_filename, &hash);
     let request_path = format!("/assets/{}", request_filename);
 
-    Ok(AssetPath { request_filename, request_path, local_path })
+    Ok(AssetPath {
+        request_filename,
+        request_path,
+        local_path,
+    })
 }
 
 fn hash_file_content(path: &str) -> Result<String> {

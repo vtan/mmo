@@ -71,21 +71,32 @@ pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) 
             None => {
                 if crossed_tile || mob.movement.direction.is_none() {
                     mob.movement.direction = choose_direction(mob, &state.map);
-                    mob.movement.look_direction =
-                        mob.movement.direction.unwrap_or(Direction8::Down).to_direction4();
+                    mob.movement.look_direction = mob
+                        .movement
+                        .direction
+                        .unwrap_or(Direction8::Down)
+                        .to_direction4();
                     changed_direction = true;
                 }
 
-                let target =
-                    state.players.values().find(|player| is_valid_attack_target(mob, player));
+                let target = state
+                    .players
+                    .values()
+                    .find(|player| is_valid_attack_target(mob, player));
                 if let Some(target) = target {
                     let target_id = target.id;
                     let attack_index = choose_attack(mob);
-                    mob.attack_state = Some(MobAttackState::Targeting { target_id, attack_index });
+                    mob.attack_state = Some(MobAttackState::Targeting {
+                        target_id,
+                        attack_index,
+                    });
                 }
             }
 
-            Some(MobAttackState::Targeting { target_id, attack_index }) => {
+            Some(MobAttackState::Targeting {
+                target_id,
+                attack_index,
+            }) => {
                 let target = state.players.get(&target_id);
                 let target = target.filter(|target| is_valid_attack_target(mob, target));
                 if let Some(target) = target {
@@ -160,12 +171,17 @@ pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) 
                             );
                         }
                     }
-                    mob.attack_state =
-                        Some(MobAttackState::DamageDealt { attack_index, attack_started_at });
+                    mob.attack_state = Some(MobAttackState::DamageDealt {
+                        attack_index,
+                        attack_started_at,
+                    });
                 }
             }
 
-            Some(MobAttackState::DamageDealt { attack_index, attack_started_at }) => {
+            Some(MobAttackState::DamageDealt {
+                attack_index,
+                attack_started_at,
+            }) => {
                 let attack = &mob.template.attacks[attack_index as usize];
                 if tick.tick - attack_started_at >= attack.length {
                     mob.attack_state = None;

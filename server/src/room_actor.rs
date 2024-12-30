@@ -16,9 +16,16 @@ use crate::{mob_logic, room_logic, tick};
 
 #[derive(Debug)]
 pub enum Message {
-    PlayerConnected { player: Player },
-    PlayerDisconnected { player_id: ObjectId },
-    PlayerCommand { player_id: ObjectId, command: RoomCommand },
+    PlayerConnected {
+        player: Player,
+    },
+    PlayerDisconnected {
+        player_id: ObjectId,
+    },
+    PlayerCommand {
+        player_id: ObjectId,
+        command: RoomCommand,
+    },
 }
 
 #[instrument(skip_all, fields(room_id = room_id.0))]
@@ -35,7 +42,13 @@ pub async fn run(
     let map = server_context.world.maps.get(&room_id).unwrap().clone();
     let room = make_room_sync(room_id, &map);
     let mobs = mob_logic::populate_mobs(&map, &server_context, now);
-    let mut state = RoomState { server_context, map, room, players: HashMap::new(), mobs };
+    let mut state = RoomState {
+        server_context,
+        map,
+        room,
+        players: HashMap::new(),
+        mobs,
+    };
     let mut writer = RoomWriter::new();
 
     loop {
@@ -147,7 +160,11 @@ async fn flush_writer(
 }
 
 fn make_room_sync(room_id: RoomId, map: &RoomMap) -> RoomSync {
-    let bg_dense_layers = map.bg_dense_layers.iter().map(|layer| rle::encode(layer)).collect();
+    let bg_dense_layers = map
+        .bg_dense_layers
+        .iter()
+        .map(|layer| rle::encode(layer))
+        .collect();
     let bg_sparse_layer = map.bg_sparse_layer.clone();
     let fg_sparse_layer = map.fg_sparse_layer.clone();
     let collisions = rle::encode(&map.collisions);

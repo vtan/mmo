@@ -67,7 +67,9 @@ pub fn render(state: &mut AppState) {
         gl.active_texture(GL::TEXTURE1);
         gl.bind_texture(GL::TEXTURE_2D, Some(&assets.charset.texture));
 
-        state.vertex_buffer_renderer.render_triangles(&vertex_buffer, gl);
+        state
+            .vertex_buffer_renderer
+            .render_triangles(&vertex_buffer, gl);
     }
     {
         let mut vertex_buffer = VertexBuffer::new();
@@ -82,7 +84,9 @@ pub fn render(state: &mut AppState) {
         gl.active_texture(GL::TEXTURE0);
         gl.bind_texture(GL::TEXTURE_2D, Some(&assets.white.texture));
 
-        state.vertex_buffer_renderer.render_triangles(&vertex_buffer, gl);
+        state
+            .vertex_buffer_renderer
+            .render_triangles(&vertex_buffer, gl);
     }
     {
         let mut vertex_buffer = LineVertexBuffer::new();
@@ -91,7 +95,9 @@ pub fn render(state: &mut AppState) {
 
         gl.active_texture(GL::TEXTURE0);
         gl.bind_texture(GL::TEXTURE_2D, Some(&assets.white.texture));
-        state.vertex_buffer_renderer.render_lines(&line_vertices, gl);
+        state
+            .vertex_buffer_renderer
+            .render_lines(&line_vertices, gl);
     }
 
     gl.use_program(Some(&state.text_program));
@@ -112,7 +118,9 @@ pub fn render(state: &mut AppState) {
         gl.active_texture(GL::TEXTURE0);
         gl.bind_texture(GL::TEXTURE_2D, Some(&assets.font.texture));
 
-        state.vertex_buffer_renderer.render_triangles(&vertex_buffer, gl);
+        state
+            .vertex_buffer_renderer
+            .render_triangles(&vertex_buffer, gl);
     }
     {
         let mut text_vertices = VertexBuffer::new();
@@ -123,7 +131,9 @@ pub fn render(state: &mut AppState) {
             assets,
             &mut text_vertices,
         );
-        state.vertex_buffer_renderer.render_triangles(&text_vertices, gl);
+        state
+            .vertex_buffer_renderer
+            .render_triangles(&text_vertices, gl);
     }
 }
 
@@ -287,7 +297,9 @@ fn render_world_text(game_state: &GameState, assets: &Assets, vertex_buffer: &mu
             assets
                 .font_atlas
                 .push_text(&str, xy + eps, 6.0, black, Align::Center, vertex_buffer);
-            assets.font_atlas.push_text(&str, xy, 6.0, color, Align::Center, vertex_buffer);
+            assets
+                .font_atlas
+                .push_text(&str, xy, 6.0, color, Align::Center, vertex_buffer);
         }
     }
 
@@ -306,7 +318,9 @@ fn render_world_text(game_state: &GameState, assets: &Assets, vertex_buffer: &mu
         assets
             .font_atlas
             .push_text(&str, xy + eps, 8.0, black, Align::Center, vertex_buffer);
-        assets.font_atlas.push_text(&str, xy, 8.0, color, Align::Center, vertex_buffer);
+        assets
+            .font_atlas
+            .push_text(&str, xy, 8.0, color, Align::Center, vertex_buffer);
     }
 }
 

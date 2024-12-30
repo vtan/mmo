@@ -65,7 +65,10 @@ async fn main() -> eyre::Result<()> {
         async move { server_actor::run(server_context, server_actor_receiver, tick_sender).await }
     });
 
-    let app_state = Box::leak(Box::new(AppState { server_actor_sender, server_context }));
+    let app_state = Box::leak(Box::new(AppState {
+        server_actor_sender,
+        server_context,
+    }));
 
     let app = Router::new()
         .route("/api/ws", get(ws_handler))

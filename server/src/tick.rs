@@ -72,7 +72,10 @@ pub fn spawn_producer() -> (broadcast::Sender<TickEvent>, JoinHandle<()>) {
             let monotonic_time = interval.tick().await;
 
             tick.0 += 1;
-            let tick = TickEvent { tick, monotonic_time };
+            let tick = TickEvent {
+                tick,
+                monotonic_time,
+            };
 
             // Ignore errors if there are no receivers
             let _ = spawn_tick_sender.send(tick);
