@@ -73,6 +73,7 @@ pub struct HealthChangeLabel {
 
 #[derive(Debug, Clone)]
 pub struct AttackMarker {
+    pub attacker_object_id: ObjectId,
     pub position: Vector2<f32>,
     pub radius: f32,
     pub length: f32,

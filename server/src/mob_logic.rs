@@ -111,6 +111,7 @@ pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) 
                                 writer.tell(
                                     RoomWriterTarget::All,
                                     PlayerEvent::AttackTargeted {
+                                        attacker_object_id: mob.id,
                                         position: target.local_movement.position,
                                         radius,
                                         length: attack.telegraph_length.as_secs_f32(),

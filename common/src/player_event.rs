@@ -54,6 +54,7 @@ pub enum PlayerEvent {
         health: i32,
     },
     AttackTargeted {
+        attacker_object_id: ObjectId,
         position: Vector2<f32>,
         radius: f32,
         length: f32,

@@ -239,8 +239,9 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
                 console_warn!("Got ObjectDamaged for {object_id:?} but no object");
             }
         }
-        PlayerEvent::AttackTargeted { position, radius, length } => {
+        PlayerEvent::AttackTargeted { attacker_object_id, position, radius, length } => {
             game_state.attack_markers.push(AttackMarker {
+                attacker_object_id,
                 position,
                 radius,
                 length,
@@ -249,6 +250,7 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
         }
         PlayerEvent::ObjectDisappeared { object_id } => {
             game_state.objects.retain(|o| o.id != object_id);
+            game_state.attack_markers.retain(|m| m.attacker_object_id != object_id);
         }
     }
 }
