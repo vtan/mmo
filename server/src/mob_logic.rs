@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use fastrand::Rng;
 use mmo_common::{
     object::{Direction4, Direction8, ALL_DIRECTIONS_8},
     player_event::PlayerEvent,
@@ -53,23 +54,35 @@ pub fn populate_mobs(map: &RoomMap, ctx: &ServerContext, now: Instant) -> Vec<Mo
 }
 
 pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) {
+    let mut rng = Rng::new();
     for mob in &mut state.mobs {
-        // update position
         let mut crossed_tile = false;
-        if let Some(direction) = mob.movement.direction {
-            let prev_position = mob.movement.position;
-            mob.movement.position += direction.to_unit_vector()
-                * mob.template.velocity
-                * tick::TICK_INTERVAL.as_secs_f32();
-            crossed_tile =
-                prev_position.map(|x| x as u32) != mob.movement.position.map(|x| x as u32);
-        }
-
         let mut changed_direction = false;
+
+        if let Some(direction) = mob.movement.direction {
+            let new_position = mob.movement.position
+                + direction.to_unit_vector()
+                    * mob.template.velocity
+                    * tick::TICK_INTERVAL.as_secs_f32();
+
+            let collides =
+                mmo_common::room::collision_at(state.map.size, &state.map.collisions, new_position);
+            let in_movement_range = mob.in_movement_range(new_position);
+
+            if !collides && in_movement_range {
+                let prev_position = mob.movement.position;
+                mob.movement.position = new_position;
+                crossed_tile =
+                    prev_position.map(|x| x as u32) != mob.movement.position.map(|x| x as u32);
+            } else {
+                mob.movement.direction = None;
+                changed_direction = true;
+            }
+        }
 
         match mob.attack_state {
             None => {
-                if crossed_tile || mob.movement.direction.is_none() {
+                if mob.movement.direction.is_none() || (crossed_tile && rng.bool()) {
                     mob.movement.direction = choose_direction(mob, &state.map);
                     mob.movement.look_direction = mob
                         .movement
