@@ -233,6 +233,7 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
                     health_change: damage,
                     position: obj.local_position - Vector2::new(0.0, obj_height),
                     received_at: game_state.time.now,
+                    object_type: obj.typ,
                 });
             } else {
                 console_warn!("Got ObjectDamaged for {object_id:?} but no object");

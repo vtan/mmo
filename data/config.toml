@@ -30,8 +30,8 @@ target_type = { type = "Area", radius = 1.0 }
 animation_index = 1
 range = 3.0
 damage = 10
-telegraph_length = 0.8
-length = 1.0
+telegraph_length = 0.6
+length = 0.8
 
 [animations.player]
 sprite_size = [1, 2]
@@ -90,8 +90,8 @@ right = [72, 71, 72, 71]
 left = [75, 74, 75, 74]
 
 [[animations.slime.custom]]
-total_length = 1.0
-start_times = [0.0, 0.80, 0.867, 0.933]
+total_length = 0.8
+start_times = [0.0, 0.60, 0.667, 0.733]
 down = [66, 65, 66, 65]
 up = [69, 68, 69, 68]
 right = [72, 71, 72, 71]

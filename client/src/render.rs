@@ -297,6 +297,8 @@ fn render_world_text(game_state: &GameState, assets: &Assets, vertex_buffer: &mu
         let xy = game_state.camera.world_point_to_screen(label.position) - Vector2::new(0.0, dy);
         let color = if label.health_change > 0 {
             Vector4::new(0.0, 1.0, 1.0, 1.0)
+        } else if label.object_type == ObjectType::Mob {
+            Vector4::new(1.0, 1.0, 1.0, 1.0)
         } else {
             Vector4::new(1.0, 0.0, 0.0, 1.0)
         };

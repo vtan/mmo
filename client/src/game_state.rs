@@ -68,6 +68,7 @@ pub struct HealthChangeLabel {
     pub health_change: i32,
     pub position: Vector2<f32>,
     pub received_at: f32,
+    pub object_type: ObjectType,
 }
 
 #[derive(Debug, Clone)]
