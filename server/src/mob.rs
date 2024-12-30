@@ -10,8 +10,13 @@ pub struct MobTemplate {
     pub movement_range: f32,
     pub attack_range: f32,
     pub max_health: i32,
-    pub damage: i32,
-    pub attack_telegraph_length: TickDuration,
-    pub attack_length: TickDuration,
     pub attack_cooldown: TickDuration,
+    pub attacks: Vec<MobAttack>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct MobAttack {
+    pub damage: i32,
+    pub telegraph_length: TickDuration,
+    pub length: TickDuration,
 }

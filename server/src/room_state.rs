@@ -48,7 +48,6 @@ pub struct Mob {
     pub spawn: Arc<MobSpawn>,
     pub animation_id: u32,
     pub movement: RemoteMovement,
-    pub attack_target: Option<ObjectId>,
     pub attack_state: Option<MobAttackState>,
     pub health: i32,
     pub last_attacked_at: Tick,
@@ -56,8 +55,18 @@ pub struct Mob {
 
 #[derive(Debug, Clone, Copy)]
 pub enum MobAttackState {
-    Telegraphed { started_at: Tick },
-    DamageDealt { started_at: Tick },
+    Targeting {
+        target_id: ObjectId,
+    },
+    Telegraphed {
+        target_id: ObjectId,
+        attack_index: u8,
+        attack_started_at: Tick,
+    },
+    DamageDealt {
+        attack_index: u8,
+        attack_started_at: Tick,
+    },
 }
 
 impl Mob {

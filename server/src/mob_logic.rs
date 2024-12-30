@@ -1,8 +1,8 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use mmo_common::{
     animation::AnimationAction,
-    object::{Direction4, Direction8, ObjectId, ALL_DIRECTIONS_8},
+    object::{Direction4, Direction8, ALL_DIRECTIONS_8},
     player_event::PlayerEvent,
 };
 use tokio::time::Instant;
@@ -40,7 +40,6 @@ pub fn populate_mobs(map: &RoomMap, ctx: &ServerContext, now: Instant) -> Vec<Mo
                         look_direction: Direction4::Down,
                         received_at: now,
                     },
-                    attack_target: None,
                     attack_state: None,
                     health,
                     last_attacked_at: Tick(0),
@@ -66,81 +65,71 @@ pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) 
                 prev_position.map(|x| x as u32) != mob.movement.position.map(|x| x as u32);
         }
 
-        // change direction if needed
         let mut changed_direction = false;
-        let attack_target = choose_attack_target(&mut state.players, mob);
 
-        if let Some(attack_state) = mob.attack_state {
-            match attack_state {
-                MobAttackState::Telegraphed { started_at } => {
-                    if tick.tick - started_at >= mob.template.attack_telegraph_length {
-                        if let Some(attack_target) = attack_target {
-                            combat_logic::mob_attack(tick, attack_target, mob, writer);
-                        }
-                        mob.attack_state = Some(MobAttackState::DamageDealt { started_at });
-                    }
+        match mob.attack_state {
+            None => {
+                if crossed_tile || mob.movement.direction.is_none() {
+                    mob.movement.direction = choose_direction(mob, &state.map);
+                    mob.movement.look_direction =
+                        mob.movement.direction.unwrap_or(Direction8::Down).to_direction4();
+                    changed_direction = true;
                 }
-                MobAttackState::DamageDealt { started_at } => {
-                    if tick.tick - started_at >= mob.template.attack_length {
-                        mob.attack_state = None;
-                    }
+
+                let target =
+                    state.players.values().find(|player| is_valid_attack_target(mob, player));
+                if let Some(target) = target {
+                    mob.attack_state = Some(MobAttackState::Targeting { target_id: target.id });
                 }
             }
-        } else if let Some(attack_target) = attack_target {
-            if mob.in_attack_range(attack_target.local_movement.position) {
-                if mob.movement.direction.is_some() {
-                    mob.movement.direction = None;
-                    changed_direction = true;
-                }
-                let attack_direction = Direction4::from_vector(
-                    attack_target.local_movement.position - mob.movement.position,
-                );
-                if mob.movement.look_direction != attack_direction {
-                    mob.movement.look_direction = attack_direction;
-                    changed_direction = true;
-                }
 
-                if tick.tick - mob.last_attacked_at >= mob.template.attack_cooldown {
-                    writer.tell(
-                        RoomWriterTarget::All,
-                        PlayerEvent::ObjectAnimationAction {
-                            object_id: mob.id,
-                            action: AnimationAction::Attack,
-                        },
-                    );
-                    mob.attack_state = Some(MobAttackState::Telegraphed { started_at: tick.tick });
-                    mob.last_attacked_at = tick.tick;
-                }
-            } else {
-                let direction = attack_target.local_movement.position - mob.movement.position;
-                let direction = Direction8::from_vector(direction);
-                let next_tile = mob.movement.position + direction.to_unit_vector();
-                let can_move = !mmo_common::room::collision_at(
-                    state.map.size,
-                    &state.map.collisions,
-                    next_tile,
-                );
-                if can_move {
-                    if mob.movement.direction != Some(direction) {
-                        mob.movement.direction = Some(direction);
-                        mob.movement.look_direction = direction.to_direction4();
-                        changed_direction = true;
+            Some(MobAttackState::Targeting { target_id }) => {
+                let target = state.players.get(&target_id);
+                let target = target.filter(|target| is_valid_attack_target(mob, target));
+                if let Some(target) = target {
+                    if mob.in_attack_range(target.local_movement.position) {
+                        changed_direction |= change_direction_for_attack(mob, target);
+
+                        if tick.tick - mob.last_attacked_at >= mob.template.attack_cooldown {
+                            let attack_index = choose_attack(mob);
+                            writer.tell(
+                                RoomWriterTarget::All,
+                                PlayerEvent::ObjectAnimationAction {
+                                    object_id: mob.id,
+                                    action: AnimationAction::Attack,
+                                },
+                            );
+                            mob.attack_state = Some(MobAttackState::Telegraphed {
+                                target_id,
+                                attack_index,
+                                attack_started_at: tick.tick,
+                            });
+                            mob.last_attacked_at = tick.tick;
+                        }
+                    } else {
+                        changed_direction |= change_direction_to_target(mob, target, &state.map);
                     }
                 } else {
-                    #[allow(clippy::collapsible_else_if)]
-                    if mob.movement.direction.is_some() {
-                        mob.movement.direction = None;
-                        changed_direction = true;
-                    }
+                    mob.attack_state = None;
                 }
             }
-        } else {
-            #[allow(clippy::collapsible_else_if)]
-            if crossed_tile || mob.movement.direction.is_none() {
-                mob.movement.direction = choose_direction(mob, &state.map);
-                mob.movement.look_direction =
-                    mob.movement.direction.unwrap_or(Direction8::Down).to_direction4();
-                changed_direction = true;
+
+            Some(MobAttackState::Telegraphed { target_id, attack_index, attack_started_at }) => {
+                let attack = &mob.template.attacks[attack_index as usize];
+                if tick.tick - attack_started_at >= attack.telegraph_length {
+                    if let Some(target) = state.players.get_mut(&target_id) {
+                        combat_logic::mob_attack(tick, target, mob, attack, writer);
+                    }
+                    mob.attack_state =
+                        Some(MobAttackState::DamageDealt { attack_index, attack_started_at });
+                }
+            }
+
+            Some(MobAttackState::DamageDealt { attack_index, attack_started_at }) => {
+                let attack = &mob.template.attacks[attack_index as usize];
+                if tick.tick - attack_started_at >= attack.length {
+                    mob.attack_state = None;
+                }
             }
         }
 
@@ -158,33 +147,44 @@ pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) 
     }
 }
 
-fn choose_attack_target<'a>(
-    players: &'a mut HashMap<ObjectId, Player>,
-    mob: &mut Mob,
-) -> Option<&'a mut Player> {
-    // clear invalid attack target
-    if let Some(attack_target_id) = mob.attack_target {
-        if let Some(attack_target) = players.get_mut(&attack_target_id) {
-            if mob.in_movement_range(attack_target.local_movement.position) {
-                return Some(attack_target);
-            } else {
-                mob.attack_target = None;
-            }
+fn is_valid_attack_target(mob: &Mob, player: &Player) -> bool {
+    mob.in_movement_range(player.local_movement.position)
+}
+
+fn change_direction_to_target(mob: &mut Mob, attack_target: &Player, map: &RoomMap) -> bool {
+    let direction = attack_target.local_movement.position - mob.movement.position;
+    let direction = Direction8::from_vector(direction);
+    let next_tile = mob.movement.position + direction.to_unit_vector();
+    let can_move = !mmo_common::room::collision_at(map.size, &map.collisions, next_tile);
+    if can_move {
+        if mob.movement.direction != Some(direction) {
+            mob.movement.direction = Some(direction);
+            mob.movement.look_direction = direction.to_direction4();
+            true
         } else {
-            mob.attack_target = None;
-            mob.attack_state = None;
+            false
         }
+    } else if mob.movement.direction.is_some() {
+        mob.movement.direction = None;
+        true
+    } else {
+        false
     }
-    // find someone to attack
-    else {
-        for player in players.values_mut() {
-            if mob.in_movement_range(player.local_movement.position) {
-                mob.attack_target = Some(player.id);
-                return Some(player);
-            }
-        }
+}
+
+fn change_direction_for_attack(mob: &mut Mob, attack_target: &Player) -> bool {
+    let mut changed_direction = false;
+    if mob.movement.direction.is_some() {
+        mob.movement.direction = None;
+        changed_direction = true;
     }
-    None
+    let attack_direction =
+        Direction4::from_vector(attack_target.local_movement.position - mob.movement.position);
+    if mob.movement.look_direction != attack_direction {
+        mob.movement.look_direction = attack_direction;
+        changed_direction = true;
+    }
+    changed_direction
 }
 
 fn choose_direction(mob: &Mob, map: &RoomMap) -> Option<Direction8> {
@@ -201,4 +201,9 @@ fn choose_direction(mob: &Mob, map: &RoomMap) -> Option<Direction8> {
         })
         .collect::<Vec<_>>();
     rng.choice(&candidates).copied()
+}
+
+fn choose_attack(mob: &Mob) -> u8 {
+    let mut rng = fastrand::Rng::new();
+    rng.u8(0..mob.template.attacks.len() as u8)
 }

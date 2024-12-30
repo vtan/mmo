@@ -15,10 +15,12 @@ velocity = 1.0
 movement_range = 4.0
 attack_range = 0.8
 max_health = 50
-damage = 5
-attack_telegraph_length = 0.3
-attack_length = 0.5
 attack_cooldown = 2.0
+
+[[mob_templates.slime.attacks]]
+damage = 5
+telegraph_length = 0.3
+length = 0.5
 
 [animations.player]
 sprite_size = [1, 2]

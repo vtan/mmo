@@ -5,6 +5,7 @@ use mmo_common::{
 use nalgebra::Vector2;
 
 use crate::{
+    mob::MobAttack,
     room_state::{Mob, Player, RoomState},
     room_writer::{RoomWriter, RoomWriterTarget},
     tick::TickEvent,
@@ -49,13 +50,19 @@ pub fn player_attack(player_id: ObjectId, state: &mut RoomState, writer: &mut Ro
     state.mobs.retain(|mob| mob.health > 0);
 }
 
-pub fn mob_attack(tick: TickEvent, player: &mut Player, mob: &Mob, writer: &mut RoomWriter) {
+pub fn mob_attack(
+    tick: TickEvent,
+    player: &mut Player,
+    mob: &Mob,
+    attack: &MobAttack,
+    writer: &mut RoomWriter,
+) {
     let attack_direction =
         Direction4::from_vector(player.local_movement.position - mob.movement.position);
     if mob.in_attack_range(player.local_movement.position)
         && attack_direction == mob.movement.look_direction
     {
-        let damage = mob.template.damage;
+        let damage = attack.damage;
         player.health = (player.health - damage).max(0);
         player.last_damaged_at = tick.tick;
 
