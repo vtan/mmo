@@ -6,12 +6,15 @@ use mmo_common::{
     player_event::PlayerEvent,
     room,
 };
+use nalgebra::Vector2;
 use tokio::time::Instant;
 use tracing::instrument;
 
 use crate::{
     combat_logic, mob_logic,
-    room_state::{LocalMovement, Player, RemoteMovement, RoomState, UpstreamMessage},
+    room_state::{
+        LocalMovement, Player, Portal, RemoteMovement, RoomMap, RoomState, UpstreamMessage,
+    },
     room_writer::{RoomWriter, RoomWriterTarget},
     server_context::ServerContext,
     tick::TickRate,
@@ -147,6 +150,11 @@ pub fn on_command(
 
             if room::collision_at(state.map.size, &state.map.collisions, position) {
                 prevent_collision(player, now, &state.server_context, writer);
+            } else if let Some(portal) =
+                find_player_portal(&state.map, player.local_movement.position, position)
+            {
+                let portal = portal.clone();
+                move_player_through_portal(player_id, &portal, state, writer);
             } else {
                 player.local_movement = LocalMovement {
                     position,
@@ -201,22 +209,16 @@ fn move_players(state: &mut RoomState, writer: &mut RoomWriter) {
         let crossed_tile =
             last_position.map(|a| a as u32) != local_movement.position.map(|a| a as u32);
 
-        let portal = state
-            .map
-            .portals
-            .iter()
-            .find(|portal| portal.position == local_movement.position.map(|a| a as u32));
-
         if room::collision_at(
             state.map.size,
             &state.map.collisions,
             local_movement.position,
         ) {
             prevent_collision(player, now, &state.server_context, writer);
-        } else if let Some(portal) = portal {
-            if crossed_tile {
-                players_left.push((player.id, portal));
-            }
+        } else if let Some(portal) =
+            find_player_portal(&state.map, last_position, local_movement.position)
+        {
+            players_left.push((player.id, portal.clone()));
         } else {
             player.local_movement = local_movement;
 
@@ -236,18 +238,42 @@ fn move_players(state: &mut RoomState, writer: &mut RoomWriter) {
     }
 
     for (player_id, portal) in players_left {
-        if let Some(player) = remove_player(player_id, &mut state.players, writer) {
-            let target_room_id = portal.target_room_id;
-            let target_position = portal.target_position.add_scalar(0.5);
-            writer
-                .upstream_messages
-                .push(UpstreamMessage::PlayerLeftRoom {
-                    sender_room_id: state.room.room_id,
-                    player,
-                    target_room_id,
-                    target_position,
-                });
-        }
+        move_player_through_portal(player_id, &portal, state, writer);
+    }
+}
+
+fn find_player_portal(
+    map: &RoomMap,
+    previous_position: Vector2<f32>,
+    new_position: Vector2<f32>,
+) -> Option<&Portal> {
+    let crossed_tile = previous_position.map(|a| a as u32) != new_position.map(|a| a as u32);
+    if crossed_tile {
+        map.portals
+            .iter()
+            .find(|portal| portal.position == new_position.map(|a| a as u32))
+    } else {
+        None
+    }
+}
+
+fn move_player_through_portal(
+    player_id: ObjectId,
+    portal: &Portal,
+    state: &mut RoomState,
+    writer: &mut RoomWriter,
+) {
+    if let Some(player) = remove_player(player_id, &mut state.players, writer) {
+        let target_room_id = portal.target_room_id;
+        let target_position = portal.target_position.add_scalar(0.5);
+        writer
+            .upstream_messages
+            .push(UpstreamMessage::PlayerLeftRoom {
+                sender_room_id: state.room.room_id,
+                player,
+                target_room_id,
+                target_position,
+            });
     }
 }
 
