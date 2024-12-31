@@ -8,7 +8,7 @@ use nalgebra::Vector2;
 
 use crate::{
     mob::MobAttack,
-    room_state::{Mob, Player, RoomState},
+    room_state::{Mob, MobRespawn, Player, RoomState},
     room_writer::{RoomWriter, RoomWriterTarget},
     tick::{Tick, TickEvent},
     util,
@@ -49,7 +49,19 @@ pub fn player_attack(player_id: ObjectId, state: &mut RoomState, writer: &mut Ro
         }
     }
 
-    state.mobs.retain(|mob| mob.health > 0);
+    // TODO: maybe belongs to mob_logic
+    state.mobs.retain(|mob| {
+        if mob.health > 0 {
+            true
+        } else {
+            let respawn = MobRespawn {
+                spawn: mob.spawn.clone(),
+                respawn_at: state.last_tick.tick + mob.template.respawn_rate,
+            };
+            state.mob_respawns.push(respawn);
+            false
+        }
+    });
 }
 
 pub fn mob_attack_player(
@@ -105,11 +117,12 @@ fn hurt_player(player: &mut Player, damage: i32, tick: Tick, writer: &mut RoomWr
     );
 }
 
-pub fn heal_players(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) {
-    if tick.tick.is_nth(state.server_context.player.heal_rate) {
+pub fn heal_players(state: &mut RoomState, writer: &mut RoomWriter) {
+    let tick = state.last_tick.tick;
+    if tick.is_nth(state.server_context.player.heal_rate) {
         for player in state.players.values_mut() {
             if player.health < player.max_health
-                && tick.tick - player.last_damaged_at > state.server_context.player.heal_after
+                && tick - player.last_damaged_at > state.server_context.player.heal_after
             {
                 let heal = (state.server_context.player.heal_amount as i32)
                     .min(player.max_health - player.health);

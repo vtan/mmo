@@ -12,6 +12,7 @@ heal_amount = 3
 [mob_templates.slime]
 id = "slime"
 animation_id = "slime"
+respawn_rate = 90
 velocity = 1.0
 chase_velocity = 2.0
 movement_range = 4.0

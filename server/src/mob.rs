@@ -6,6 +6,7 @@ use crate::tick::TickDuration;
 pub struct MobTemplate {
     pub id: String,
     pub animation_id: String,
+    pub respawn_rate: TickDuration,
     pub velocity: f32,
     pub chase_velocity: f32,
     pub movement_range: f32,

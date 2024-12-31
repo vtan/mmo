@@ -1,4 +1,7 @@
-use std::{ops::Sub, time::Duration};
+use std::{
+    ops::{Add, Sub},
+    time::Duration,
+};
 
 use serde::Deserialize;
 use tokio::{
@@ -19,6 +22,14 @@ pub struct Tick(pub u32);
 impl Tick {
     pub fn is_nth(self, rate: TickRate) -> bool {
         self.0 % rate.0 == 0
+    }
+}
+
+impl Add<TickDuration> for Tick {
+    type Output = Tick;
+
+    fn add(self, rhs: TickDuration) -> Self::Output {
+        Tick(self.0 + rhs.0)
     }
 }
 

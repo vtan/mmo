@@ -14,7 +14,7 @@ use crate::{
     room_state::{LocalMovement, Player, RemoteMovement, RoomState, UpstreamMessage},
     room_writer::{RoomWriter, RoomWriterTarget},
     server_context::ServerContext,
-    tick::TickEvent,
+    tick::TickRate,
 };
 
 #[instrument(skip_all, fields(player_id = player.id.0))]
@@ -85,25 +85,9 @@ fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter
         );
     }
     for mob in state.mobs.iter() {
-        writer.tell(
+        writer.tell_many(
             RoomWriterTarget::Player(player_id),
-            PlayerEvent::ObjectAppeared {
-                object_id: mob.id,
-                object_type: ObjectType::Mob,
-                animation_id: mob.animation_id,
-                health: mob.health,
-                max_health: mob.template.max_health,
-            },
-        );
-        writer.tell(
-            RoomWriterTarget::Player(player_id),
-            PlayerEvent::ObjectMovementChanged {
-                object_id: mob.id,
-                position: mob.movement.position,
-                velocity: mob.velocity,
-                direction: mob.movement.direction,
-                look_direction: mob.movement.look_direction,
-            },
+            &mob_logic::mob_appeared_events(mob),
         );
     }
 }
@@ -194,8 +178,19 @@ pub fn on_command(
     }
 }
 
-pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) {
-    let now = tick.monotonic_time;
+pub fn on_tick(state: &mut RoomState, writer: &mut RoomWriter) {
+    if state.last_tick.tick.is_nth(TickRate(10)) {
+        mob_logic::respawn_mobs(state, writer);
+    }
+
+    move_players(state, writer);
+    combat_logic::heal_players(state, writer);
+    mob_logic::on_tick(state, writer);
+    handle_dead_players(state, writer);
+}
+
+fn move_players(state: &mut RoomState, writer: &mut RoomWriter) {
+    let now = state.last_tick.monotonic_time;
 
     let mut players_left = vec![];
 
@@ -254,10 +249,6 @@ pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) 
                 });
         }
     }
-
-    combat_logic::heal_players(tick, state, writer);
-    mob_logic::on_tick(tick, state, writer);
-    handle_dead_players(state, writer);
 }
 
 fn prevent_collision(

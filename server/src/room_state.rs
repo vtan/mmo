@@ -1,5 +1,9 @@
 use crate::{
-    mob::MobTemplate, player::PlayerConnection, server_context::ServerContext, tick::Tick, util,
+    mob::MobTemplate,
+    player::PlayerConnection,
+    server_context::ServerContext,
+    tick::{Tick, TickEvent},
+    util,
 };
 use std::{collections::HashMap, sync::Arc};
 
@@ -15,8 +19,10 @@ pub struct RoomState {
     pub server_context: Arc<ServerContext>,
     pub map: Arc<RoomMap>,
     pub room: RoomSync,
+    pub last_tick: TickEvent,
     pub players: HashMap<ObjectId, Player>,
     pub mobs: Vec<Mob>,
+    pub mob_respawns: Vec<MobRespawn>,
 }
 
 #[derive(Debug, Clone)]
@@ -54,6 +60,16 @@ pub struct Mob {
     pub last_attacked_at: Tick,
 }
 
+impl Mob {
+    pub fn in_movement_range(&self, v: Vector2<f32>) -> bool {
+        util::in_distance(
+            v,
+            self.spawn.position.cast().add_scalar(0.5),
+            self.template.movement_range,
+        )
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum MobAttackState {
     Targeting {
@@ -70,16 +86,6 @@ pub enum MobAttackState {
         attack_index: u8,
         attack_started_at: Tick,
     },
-}
-
-impl Mob {
-    pub fn in_movement_range(&self, v: Vector2<f32>) -> bool {
-        util::in_distance(
-            v,
-            self.spawn.position.cast().add_scalar(0.5),
-            self.template.movement_range,
-        )
-    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -107,6 +113,12 @@ pub struct Portal {
 pub struct MobSpawn {
     pub position: Vector2<u32>,
     pub mob_template: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct MobRespawn {
+    pub spawn: Arc<MobSpawn>,
+    pub respawn_at: Tick,
 }
 
 #[derive(Debug, Clone)]

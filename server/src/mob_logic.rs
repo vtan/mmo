@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use fastrand::Rng;
 use mmo_common::{
-    object::{Direction4, Direction8, ALL_DIRECTIONS_8},
+    object::{Direction4, Direction8, ObjectType, ALL_DIRECTIONS_8},
     player_event::PlayerEvent,
 };
 use tokio::time::Instant;
@@ -11,52 +11,95 @@ use crate::{
     combat_logic,
     mob::{MobAttackTargetType, MobTemplate},
     object,
-    room_state::{Mob, MobAttackState, Player, RemoteMovement, RoomMap, RoomState},
+    room_state::{
+        Mob, MobAttackState, MobRespawn, MobSpawn, Player, RemoteMovement, RoomMap, RoomState,
+    },
     room_writer::{RoomWriter, RoomWriterTarget},
     server_context::ServerContext,
-    tick::{self, Tick, TickEvent},
+    tick::{self, Tick},
     util,
 };
 
 pub fn populate_mobs(map: &RoomMap, ctx: &ServerContext, now: Instant) -> Vec<Mob> {
     map.mob_spawns
         .iter()
-        .filter_map(|mob_spawn| {
-            let resolve = || -> Option<(Arc<MobTemplate>, u32)> {
-                let mob_template = ctx.mob_templates.get(&mob_spawn.mob_template)?;
-                let animation_id = ctx.mob_animations.get(&mob_template.animation_id)?;
-                Some((mob_template.clone(), *animation_id))
-            };
-            if let Some((mob_template, animation_id)) = resolve() {
-                let position = mob_spawn.position.cast().add_scalar(0.5);
-                let velocity = mob_template.velocity;
-                let health = mob_template.max_health;
-                let mob = Mob {
-                    id: object::next_object_id(),
-                    animation_id,
-                    template: mob_template,
-                    spawn: mob_spawn.clone(),
-                    movement: RemoteMovement {
-                        position,
-                        direction: None,
-                        look_direction: Direction4::Down,
-                        received_at: now,
-                    },
-                    velocity,
-                    attack_state: None,
-                    health,
-                    last_attacked_at: Tick(0),
-                };
-                Some(mob)
-            } else {
-                None
-            }
-        })
+        .filter_map(|mob_spawn| spawn_mob(mob_spawn, ctx, now))
         .collect()
 }
 
-pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) {
+pub fn respawn_mobs(state: &mut RoomState, writer: &mut RoomWriter) {
+    let should_respawn = |respawn: &MobRespawn| respawn.respawn_at <= state.last_tick.tick;
+    for mob_respawn in state.mob_respawns.iter() {
+        if should_respawn(mob_respawn) {
+            if let Some(mob) = spawn_mob(
+                &mob_respawn.spawn,
+                &state.server_context,
+                state.last_tick.monotonic_time,
+            ) {
+                writer.tell_many(RoomWriterTarget::All, &mob_appeared_events(&mob));
+                state.mobs.push(mob);
+            }
+        }
+    }
+    state
+        .mob_respawns
+        .retain(|mob_respawn| !should_respawn(mob_respawn));
+}
+
+pub fn mob_appeared_events(mob: &Mob) -> [PlayerEvent; 2] {
+    [
+        PlayerEvent::ObjectAppeared {
+            object_id: mob.id,
+            object_type: ObjectType::Mob,
+            animation_id: mob.animation_id,
+            health: mob.health,
+            max_health: mob.template.max_health,
+        },
+        PlayerEvent::ObjectMovementChanged {
+            object_id: mob.id,
+            position: mob.movement.position,
+            velocity: mob.velocity,
+            direction: mob.movement.direction,
+            look_direction: mob.movement.look_direction,
+        },
+    ]
+}
+
+fn spawn_mob(mob_spawn: &Arc<MobSpawn>, ctx: &ServerContext, now: Instant) -> Option<Mob> {
+    let resolve = || -> Option<(Arc<MobTemplate>, u32)> {
+        let mob_template = ctx.mob_templates.get(&mob_spawn.mob_template)?;
+        let animation_id = ctx.mob_animations.get(&mob_template.animation_id)?;
+        Some((mob_template.clone(), *animation_id))
+    };
+    if let Some((mob_template, animation_id)) = resolve() {
+        let position = mob_spawn.position.cast().add_scalar(0.5);
+        let velocity = mob_template.velocity;
+        let health = mob_template.max_health;
+        let mob = Mob {
+            id: object::next_object_id(),
+            animation_id,
+            template: mob_template,
+            spawn: mob_spawn.clone(),
+            movement: RemoteMovement {
+                position,
+                direction: None,
+                look_direction: Direction4::Down,
+                received_at: now,
+            },
+            velocity,
+            attack_state: None,
+            health,
+            last_attacked_at: Tick(0),
+        };
+        Some(mob)
+    } else {
+        None
+    }
+}
+
+pub fn on_tick(state: &mut RoomState, writer: &mut RoomWriter) {
     let mut rng = Rng::new();
+    let tick = state.last_tick;
     for mob in &mut state.mobs {
         let mut crossed_tile = false;
         let mut changed_direction = false;

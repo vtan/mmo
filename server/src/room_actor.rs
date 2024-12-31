@@ -6,7 +6,6 @@ use mmo_common::player_command::RoomCommand;
 use mmo_common::rle;
 use mmo_common::room::{RoomId, RoomSync};
 use tokio::sync::mpsc;
-use tokio::time::Instant;
 use tracing::instrument;
 
 use crate::room_state::{Player, RoomMap, RoomState, UpstreamMessage};
@@ -38,7 +37,12 @@ pub async fn run(
 ) {
     tracing::debug!("Spawned");
 
-    let now = Instant::now();
+    let first_tick = tick_receiver
+        .recv()
+        .await
+        .expect("Failed to receive first tick");
+
+    let now = first_tick.monotonic_time;
     let map = server_context.world.maps.get(&room_id).unwrap().clone();
     let room = make_room_sync(room_id, &map);
     let mobs = mob_logic::populate_mobs(&map, &server_context, now);
@@ -46,8 +50,10 @@ pub async fn run(
         server_context,
         map,
         room,
+        last_tick: first_tick,
         players: HashMap::new(),
         mobs,
+        mob_respawns: vec![],
     };
     let mut writer = RoomWriter::new();
 
@@ -63,7 +69,8 @@ pub async fn run(
             tick = tick_receiver.recv() => {
                 match tick {
                     Ok(tick) => {
-                        room_logic::on_tick(tick, &mut state, &mut writer);
+                        state.last_tick = tick;
+                        room_logic::on_tick(&mut state, &mut writer);
                         flush_writer(&mut writer, &state, &upstream_sender).await;
                     }
                     Err(err) => {
