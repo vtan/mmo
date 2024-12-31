@@ -40,13 +40,13 @@ fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter
                 object_id: player_id,
                 object_type: ObjectType::Player,
                 animation_id: state.server_context.player_animation,
-                velocity: state.server_context.player.velocity,
                 health: player.health,
                 max_health: player.max_health,
             },
             PlayerEvent::ObjectMovementChanged {
                 object_id: player_id,
                 position: player_local_movement.position,
+                velocity: state.server_context.player.velocity,
                 direction: player_remote_movement.direction,
                 look_direction: player_remote_movement.look_direction,
             },
@@ -71,13 +71,13 @@ fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter
                     object_id: player_in_room.id,
                     object_type: ObjectType::Player,
                     animation_id: state.server_context.player_animation,
-                    velocity: state.server_context.player.velocity,
                     health: player_in_room.health,
                     max_health: player_in_room.max_health,
                 },
                 PlayerEvent::ObjectMovementChanged {
                     object_id: player_in_room.id,
                     position: position.position,
+                    velocity: state.server_context.player.velocity,
                     direction: player_in_room.remote_movement.direction,
                     look_direction: player_in_room.remote_movement.look_direction,
                 },
@@ -91,7 +91,6 @@ fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter
                 object_id: mob.id,
                 object_type: ObjectType::Mob,
                 animation_id: mob.animation_id,
-                velocity: mob.template.velocity,
                 health: mob.health,
                 max_health: mob.template.max_health,
             },
@@ -101,6 +100,7 @@ fn player_entered(player: Player, state: &mut RoomState, writer: &mut RoomWriter
             PlayerEvent::ObjectMovementChanged {
                 object_id: mob.id,
                 position: mob.movement.position,
+                velocity: mob.velocity,
                 direction: mob.movement.direction,
                 look_direction: mob.movement.look_direction,
             },
@@ -162,7 +162,7 @@ pub fn on_command(
             };
 
             if room::collision_at(state.map.size, &state.map.collisions, position) {
-                prevent_collision(player, now, writer);
+                prevent_collision(player, now, &state.server_context, writer);
             } else {
                 player.local_movement = LocalMovement {
                     position,
@@ -174,6 +174,7 @@ pub fn on_command(
                     PlayerEvent::ObjectMovementChanged {
                         object_id: player_id,
                         position: player.local_movement.position,
+                        velocity: state.server_context.player.velocity,
                         direction: player.remote_movement.direction,
                         look_direction: player.remote_movement.look_direction,
                     },
@@ -216,7 +217,7 @@ pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) 
             &state.map.collisions,
             local_movement.position,
         ) {
-            prevent_collision(player, now, writer);
+            prevent_collision(player, now, &state.server_context, writer);
         } else if let Some(portal) = portal {
             if crossed_tile {
                 players_left.push((player.id, portal));
@@ -230,6 +231,7 @@ pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) 
                     PlayerEvent::ObjectMovementChanged {
                         object_id: player.id,
                         position: local_movement.position,
+                        velocity: state.server_context.player.velocity,
                         direction: player.remote_movement.direction,
                         look_direction: player.remote_movement.look_direction,
                     },
@@ -258,7 +260,12 @@ pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) 
     handle_dead_players(state, writer);
 }
 
-fn prevent_collision(player: &mut Player, now: Instant, writer: &mut RoomWriter) {
+fn prevent_collision(
+    player: &mut Player,
+    now: Instant,
+    ctx: &ServerContext,
+    writer: &mut RoomWriter,
+) {
     player.remote_movement = RemoteMovement {
         position: player.local_movement.position,
         direction: None,
@@ -270,6 +277,7 @@ fn prevent_collision(player: &mut Player, now: Instant, writer: &mut RoomWriter)
         PlayerEvent::ObjectMovementChanged {
             object_id: player.id,
             position: player.remote_movement.position,
+            velocity: ctx.player.velocity,
             direction: player.remote_movement.direction,
             look_direction: player.remote_movement.look_direction,
         },

@@ -31,7 +31,6 @@ pub enum PlayerEvent {
         object_id: ObjectId,
         object_type: ObjectType,
         animation_id: u32,
-        velocity: f32,
         health: i32,
         max_health: i32,
     },
@@ -41,6 +40,7 @@ pub enum PlayerEvent {
     ObjectMovementChanged {
         object_id: ObjectId,
         position: Vector2<f32>,
+        velocity: f32,
         direction: Option<Direction8>,
         look_direction: Direction4,
     },

@@ -29,6 +29,7 @@ pub fn populate_mobs(map: &RoomMap, ctx: &ServerContext, now: Instant) -> Vec<Mo
             };
             if let Some((mob_template, animation_id)) = resolve() {
                 let position = mob_spawn.position.cast().add_scalar(0.5);
+                let velocity = mob_template.velocity;
                 let health = mob_template.max_health;
                 let mob = Mob {
                     id: object::next_object_id(),
@@ -41,6 +42,7 @@ pub fn populate_mobs(map: &RoomMap, ctx: &ServerContext, now: Instant) -> Vec<Mo
                         look_direction: Direction4::Down,
                         received_at: now,
                     },
+                    velocity,
                     attack_state: None,
                     health,
                     last_attacked_at: Tick(0),
@@ -61,9 +63,7 @@ pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) 
 
         if let Some(direction) = mob.movement.direction {
             let new_position = mob.movement.position
-                + direction.to_unit_vector()
-                    * mob.template.velocity
-                    * tick::TICK_INTERVAL.as_secs_f32();
+                + direction.to_unit_vector() * mob.velocity * tick::TICK_INTERVAL.as_secs_f32();
 
             let collides =
                 mmo_common::room::collision_at(state.map.size, &state.map.collisions, new_position);
@@ -202,12 +202,25 @@ pub fn on_tick(tick: TickEvent, state: &mut RoomState, writer: &mut RoomWriter) 
             }
         }
 
-        if crossed_tile || changed_direction {
+        let changed_velocity = {
+            if mob.attack_state.is_some() && mob.velocity != mob.template.chase_velocity {
+                mob.velocity = mob.template.chase_velocity;
+                true
+            } else if mob.attack_state.is_none() && mob.velocity != mob.template.velocity {
+                mob.velocity = mob.template.velocity;
+                true
+            } else {
+                false
+            }
+        };
+
+        if crossed_tile || changed_direction || changed_velocity {
             writer.tell(
                 RoomWriterTarget::All,
                 PlayerEvent::ObjectMovementChanged {
                     object_id: mob.id,
                     position: mob.movement.position,
+                    velocity: mob.velocity,
                     direction: mob.movement.direction,
                     look_direction: mob.movement.look_direction,
                 },

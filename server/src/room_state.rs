@@ -48,6 +48,7 @@ pub struct Mob {
     pub spawn: Arc<MobSpawn>,
     pub animation_id: u32,
     pub movement: RemoteMovement,
+    pub velocity: f32,
     pub attack_state: Option<MobAttackState>,
     pub health: i32,
     pub last_attacked_at: Tick,

@@ -13,6 +13,7 @@ heal_amount = 3
 id = "slime"
 animation_id = "slime"
 velocity = 1.0
+chase_velocity = 2.0
 movement_range = 4.0
 max_health = 50
 attack_cooldown = 2.0

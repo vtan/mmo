@@ -182,7 +182,6 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
         PlayerEvent::ObjectAppeared {
             object_id,
             animation_id,
-            velocity,
             object_type,
             health,
             max_health,
@@ -197,7 +196,7 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
                 look_direction: Direction4::Down,
                 animation_id: animation_id as usize,
                 animation: None,
-                velocity,
+                velocity: 0.0,
                 health,
                 max_health,
             };
@@ -212,12 +211,14 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
         PlayerEvent::ObjectMovementChanged {
             object_id,
             position,
+            velocity,
             direction,
             look_direction,
         } => {
             if let Some(obj) = game_state.objects.iter_mut().find(|o| o.id == object_id) {
                 obj.remote_position = position;
                 obj.remote_position_received_at = received_at;
+                obj.velocity = velocity;
                 obj.direction = direction;
                 obj.look_direction = look_direction;
                 if obj.id == game_state.self_id {

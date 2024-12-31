@@ -7,6 +7,7 @@ pub struct MobTemplate {
     pub id: String,
     pub animation_id: String,
     pub velocity: f32,
+    pub chase_velocity: f32,
     pub movement_range: f32,
     pub max_health: i32,
     pub attack_cooldown: TickDuration,
