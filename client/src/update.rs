@@ -152,11 +152,9 @@ fn handle_server_events(
     events: PlayerEventEnvelope<PlayerEvent>,
 ) {
     for event in events.events {
-        /*
-        if !matches!(event, PlayerEvent::Pong { .. }) {
-            console_info!("{event:?}");
+        if game_state.show_debug {
+            crate::console_info!("{event:?}");
         }
-        */
         handle_server_event(game_state, received_at, event);
     }
 }
@@ -216,6 +214,8 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
             look_direction,
         } => {
             if let Some(obj) = game_state.objects.iter_mut().find(|o| o.id == object_id) {
+                let old_direction = obj.direction;
+
                 obj.remote_position = position;
                 obj.remote_position_received_at = received_at;
                 obj.velocity = velocity;
@@ -223,6 +223,12 @@ fn handle_server_event(game_state: &mut GameState, received_at: f32, event: Play
                 obj.look_direction = look_direction;
                 if obj.id == game_state.self_id {
                     obj.local_position = position;
+
+                    // Continue moving if moved to another room but keys are already pressed
+                    // TODO: maybe this should be facilitated by the server?
+                    if old_direction.is_none() {
+                        update_direction_if_needed(game_state);
+                    }
                 }
             } else {
                 console_warn!("Got ObjectMovementChanged for {object_id:?} but no object");
@@ -303,19 +309,38 @@ fn update_camera(state: &mut AppState) {
 }
 
 fn direction_pressed(game_state: &mut GameState, pressed_direction: Direction4, pressed: bool) {
+    game_state.directions_pressed[pressed_direction as usize] = pressed;
+    update_direction_if_needed(game_state);
+}
+
+fn update_direction_if_needed(game_state: &mut GameState) {
+    let new_direction = direction_from_pressed(&game_state.directions_pressed);
+
     if let Some(obj) = game_state
         .objects
         .iter_mut()
         .find(|o| o.id == game_state.self_id)
     {
-        game_state.directions_pressed[pressed_direction as usize] = pressed;
-        let new_direction = direction_from_pressed(&game_state.directions_pressed);
         if new_direction != obj.direction {
-            obj.direction = new_direction;
             if let Some(dir) = new_direction {
                 obj.look_direction = dir.to_direction4();
             }
-            obj.remote_position_received_at = game_state.time.now;
+
+            let would_collide_next_frame = {
+                if let Some(new_direction) = new_direction {
+                    let next_tile = obj.remote_position
+                        + game_state.time.frame_delta
+                            * obj.velocity
+                            * new_direction.to_unit_vector();
+                    room::collision_at(game_state.room.size, &game_state.room.collisions, next_tile)
+                } else {
+                    false
+                }
+            };
+            if !would_collide_next_frame {
+                obj.direction = new_direction;
+                obj.remote_position_received_at = game_state.time.now;
+            }
 
             let command = PlayerCommand::RoomCommand {
                 room_id: game_state.room.room_id,
