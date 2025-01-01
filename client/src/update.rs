@@ -1,6 +1,6 @@
 use mmo_common::client_config::ClientConfig;
 use mmo_common::object::{Direction4, Direction8};
-use mmo_common::player_command::{GlobalCommand, PlayerCommand, RoomCommand};
+use mmo_common::player_command::{GlobalCommand, RoomCommand};
 use mmo_common::player_event::{PlayerEvent, PlayerEventEnvelope};
 use mmo_common::room::RoomSync;
 use mmo_common::{rle, room};
@@ -342,15 +342,12 @@ fn update_direction_if_needed(game_state: &mut GameState) {
                 obj.remote_position_received_at = game_state.time.now;
             }
 
-            let command = PlayerCommand::RoomCommand {
-                room_id: game_state.room.room_id,
-                command: RoomCommand::Move {
-                    position: obj.remote_position,
-                    direction: obj.direction,
-                    look_direction: obj.look_direction,
-                },
+            let command = RoomCommand::Move {
+                position: obj.remote_position,
+                direction: obj.direction,
+                look_direction: obj.look_direction,
             };
-            game_state.ws_commands.push(command);
+            game_state.ws_commands.push(command.into());
         }
     } else {
         console_error!("No self object found");
@@ -385,14 +382,14 @@ fn mouse_left_pressed(game_state: &mut GameState, mouse: Vector2<f32>) {
         let look_direction = Direction4::from_vector(to_click);
         if look_direction != player.look_direction {
             player.look_direction = look_direction;
-            game_state.ws_commands.push(PlayerCommand::RoomCommand {
-                room_id: game_state.room.room_id,
-                command: RoomCommand::Move {
+            game_state.ws_commands.push(
+                RoomCommand::Move {
                     position: player.local_position,
                     direction: player.direction,
                     look_direction,
-                },
-            });
+                }
+                .into(),
+            );
         }
     }
     start_attack(game_state);
@@ -409,11 +406,8 @@ fn start_attack(game_state: &mut GameState) {
             started_at: game_state.time.now,
         });
 
-        let command = PlayerCommand::RoomCommand {
-            room_id: game_state.room.room_id,
-            command: RoomCommand::Attack,
-        };
-        game_state.ws_commands.push(command);
+        let command = RoomCommand::Attack;
+        game_state.ws_commands.push(command.into());
     } else {
         console_error!("No self object found");
     }
@@ -434,14 +428,14 @@ fn update_self_movement(game_state: &mut GameState) {
 
             if room::collision_at(room.size, &room.collisions, target) {
                 obj.direction = None;
-                game_state.ws_commands.push(PlayerCommand::RoomCommand {
-                    room_id: game_state.room.room_id,
-                    command: RoomCommand::Move {
+                game_state.ws_commands.push(
+                    RoomCommand::Move {
                         position: obj.remote_position,
                         direction: None,
                         look_direction: obj.look_direction,
-                    },
-                });
+                    }
+                    .into(),
+                );
             } else {
                 obj.remote_position = target;
                 obj.local_position = target;
@@ -496,9 +490,8 @@ fn add_ping_if_needed(gs: &mut GameState) {
         Some(0)
     };
     if let Some(sequence_number) = should_send {
-        gs.ws_commands.push(PlayerCommand::GlobalCommand {
-            command: GlobalCommand::Ping { sequence_number },
-        });
+        gs.ws_commands
+            .push(GlobalCommand::Ping { sequence_number }.into());
         gs.last_ping = Some(LastPing {
             sequence_number,
             sent_at: gs.time.now,

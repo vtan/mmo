@@ -27,18 +27,14 @@ impl PlayerHandshake {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlayerCommandEnvelope {
+    pub room_id: RoomId,
     pub commands: Vec<PlayerCommand>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum PlayerCommand {
-    GlobalCommand {
-        command: GlobalCommand,
-    },
-    RoomCommand {
-        room_id: RoomId,
-        command: RoomCommand,
-    },
+    GlobalCommand(GlobalCommand),
+    RoomCommand(RoomCommand),
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -54,4 +50,16 @@ pub enum RoomCommand {
         look_direction: Direction4,
     },
     Attack,
+}
+
+impl From<GlobalCommand> for PlayerCommand {
+    fn from(command: GlobalCommand) -> Self {
+        Self::GlobalCommand(command)
+    }
+}
+
+impl From<RoomCommand> for PlayerCommand {
+    fn from(command: RoomCommand) -> Self {
+        Self::RoomCommand(command)
+    }
 }

@@ -7,6 +7,7 @@ use mmo_common::player_command::PlayerCommandEnvelope;
 use mmo_common::player_command::PlayerHandshake;
 use mmo_common::player_event::PlayerEvent;
 use mmo_common::player_event::PlayerEventEnvelope;
+use mmo_common::room::RoomId;
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -90,11 +91,12 @@ pub fn connect(
 
 pub fn send(
     ws: &WebSocket,
+    room_id: RoomId,
     commands: Vec<PlayerCommand>,
     metrics: &mut Metrics,
 ) -> Result<(), JsValue> {
     let command_count = commands.len();
-    let envelope = PlayerCommandEnvelope { commands };
+    let envelope = PlayerCommandEnvelope { room_id, commands };
     let len = send_serde(ws, envelope)?;
     metrics.record_net_command(len as u32, command_count as u32);
     Ok(())

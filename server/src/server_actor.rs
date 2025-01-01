@@ -170,12 +170,13 @@ async fn handle_message(state: &mut State, message: Message) -> Result<()> {
             }
         }
         Message::PlayerCommand { player_id, command } => {
+            let room_id = command.room_id;
             for command in command.commands {
                 match command {
-                    PlayerCommand::GlobalCommand { command } => {
+                    PlayerCommand::GlobalCommand(command) => {
                         handle_global_command(state, player_id, command).await?
                     }
-                    PlayerCommand::RoomCommand { room_id, command } => {
+                    PlayerCommand::RoomCommand(command) => {
                         handle_room_command(state, player_id, room_id, command).await?
                     }
                 }

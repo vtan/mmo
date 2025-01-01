@@ -151,10 +151,16 @@ pub async fn start() -> Result<(), JsValue> {
             update::update(&mut app_state, events);
 
             if let Ok(ref mut game_state) = &mut app_state.game_state {
+                let room_id = game_state.room.room_id;
                 let ws_commands = std::mem::take(&mut game_state.ws_commands);
                 if !ws_commands.is_empty() {
-                    ws_connection::send(&ws, ws_commands, &mut app_state.metrics.borrow_mut())
-                        .unwrap();
+                    ws_connection::send(
+                        &ws,
+                        room_id,
+                        ws_commands,
+                        &mut app_state.metrics.borrow_mut(),
+                    )
+                    .unwrap();
                 }
             }
 
